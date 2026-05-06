@@ -385,6 +385,53 @@ def _draw_entry_points(pdf: _BriefPDF, points: list[dict]) -> None:
     pdf.set_y(y + tile_h + 4)
 
 
+# ── Conversation Starters tile ──────────────────────────────────
+
+
+def _draw_conversation_starters(pdf: _BriefPDF, starters_md: str) -> None:
+    """Draw the dark-navy Conversation Starters tile."""
+    if not starters_md.strip():
+        return
+
+    x = 12.7
+    y = pdf.get_y()
+    w = 190.5
+
+    # Body height — let fpdf2 auto-page-break if it overflows
+    body_h = 75
+
+    pdf.set_fill_color(*ALKIRA_NAVY)
+    pdf.rect(x, y, w, body_h, style="F")
+
+    pad = 5.0
+    pdf.set_xy(x + pad, y + pad)
+    pdf.set_font("Helvetica", "B", 8)
+    pdf.set_text_color(*ALKIRA_ORANGE)
+    pdf.cell(0, 4, "CONVERSATION STARTERS", new_x="LMARGIN", new_y="NEXT")
+
+    # Body — render the markdown as plain text, line by line.
+    pdf.set_x(x + pad)
+    pdf.set_font("Helvetica", "", 9)
+    pdf.set_text_color(*ALKIRA_WHITE)
+
+    lines = [ln for ln in starters_md.splitlines() if ln.strip()]
+    cy = y + pad + 6
+    for raw in lines:
+        line = raw.strip()
+        # Strip simple markdown
+        line = re.sub(r"\*\*(.+?)\*\*", r"\1", line)
+        line = re.sub(r"^[-*]\s+", "• ", line)
+
+        if cy > y + body_h - 6:
+            break  # exhausted; defensive cap
+
+        pdf.set_xy(x + pad, cy)
+        pdf.multi_cell(w - 2 * pad, 4, _safe_text(line))
+        cy = pdf.get_y() + 0.5
+
+    pdf.set_y(y + body_h + 4)
+
+
 # ── Public API (placeholder body — fleshed out in later tasks) ──
 
 def generate_brief_pdf(
@@ -439,5 +486,8 @@ def generate_brief_pdf(
     from app import extract_entry_points
     points = extract_entry_points(brief_md)
     _draw_entry_points(pdf, points)
+
+    starters = extract_section(brief_md, "Conversation Starters")
+    _draw_conversation_starters(pdf, starters)
 
     return bytes(pdf.output())
