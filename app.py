@@ -8,11 +8,13 @@ Usage:
     streamlit run app.py
 """
 
+import html
 import os
 import re
 import time
 from dataclasses import dataclass
 from datetime import datetime
+from typing import TypedDict
 
 import streamlit as st
 from anthropic import Anthropic
@@ -198,6 +200,109 @@ def extract_section(brief: str, heading: str) -> str:
     next_heading = re.search(r"\n###?\s", brief[start:])
     end = start + next_heading.start() if next_heading else len(brief)
     return brief[start:end].strip()
+
+
+class EntryPoint(TypedDict):
+    heading: str
+    signal: str
+    solution: str
+    proof: str
+
+
+def _label_pattern(label: str) -> re.Pattern[str]:
+    """Build a regex matching a Signal/Solution/Proof label across formatting variations.
+
+    Handles: bare ``Signal: foo``, bullet ``- Signal: foo``, numbered ``1. Signal: foo``,
+    bold ``**Signal**: foo`` / ``**Signal:** foo``, and combinations thereof.
+    """
+    return re.compile(
+        rf"(?im)^\s*[-*\d.\s]*\**\s*\b{label}\b\s*[:\-]?\s*\**\s*[:\-]?\s*(.+?)"
+        rf"(?=\n\s*[-*\d.\s]*\**\s*\b(?:Signal|Solution|Proof)\b\s*[:\-]?\s*\**\s*[:\-]?|\Z)",
+        re.DOTALL,
+    )
+
+
+def _grab(body: str, label: str) -> str:
+    m = _label_pattern(label).search(body)
+    return m.group(1).strip() if m else ""
+
+
+def extract_entry_points(brief: str) -> list[EntryPoint]:
+    """Parse the 'Three Alkira Entry Points' section into 3 dicts.
+
+    Each dict has: heading, signal, solution, proof.
+    Returns empty list if section is missing.
+    """
+    section = extract_section(brief, "Three Alkira Entry Points")
+    if not section:
+        section = extract_section(brief, "Alkira Entry Points")
+    if not section:
+        return []
+
+    # Split on bold-numbered headings: **1. Title**, **2. Title**, **3. Title**.
+    # Allow markdown emphasis (e.g. *italic*) inside the heading by closing on
+    # the trailing ``**`` followed by a newline.
+    parts = re.split(r"\*\*\s*\d+\.\s+(.+?)\*\*\s*\n", section, flags=re.DOTALL)
+    # parts = ["", "heading1", "body1", "heading2", "body2", ...]
+
+    points: list[EntryPoint] = []
+    for i in range(1, len(parts), 2):
+        heading = parts[i].strip()
+        body = parts[i + 1] if i + 1 < len(parts) else ""
+
+        points.append(EntryPoint(
+            heading=heading,
+            signal=_grab(body, "signal"),
+            solution=_grab(body, "solution"),
+            proof=_grab(body, "proof"),
+        ))
+
+    return points[:3]
+
+
+class InfraCells(TypedDict):
+    cloud_platforms: str
+    on_prem: str
+    deployment: str
+    complexity: str
+
+
+def extract_infra_cells(brief: str) -> InfraCells:
+    """Parse the 4 bold sub-labels from Infrastructure Snapshot.
+
+    Returns dict with keys: cloud_platforms, on_prem, deployment, complexity.
+    Missing values are empty strings.
+    """
+    empty: InfraCells = {
+        "cloud_platforms": "",
+        "on_prem": "",
+        "deployment": "",
+        "complexity": "",
+    }
+    section = extract_section(brief, "Infrastructure Snapshot")
+    if not section:
+        return empty
+
+    label_map = {
+        "cloud_platforms": [r"Cloud Platforms?"],
+        "on_prem": [r"On-?Prem(?:\s*/\s*Hybrid)?", r"Hybrid"],
+        "deployment": [r"Deployment Model", r"Deployment"],
+        "complexity": [r"Resulting Complexity", r"Complexity"],
+    }
+
+    out: InfraCells = dict(empty)  # type: ignore[assignment]
+    for key, patterns in label_map.items():
+        for pat in patterns:
+            m = re.search(
+                rf"\*\*\s*{pat}\s*:?\s*\*\*\s*:?\s*(.+?)(?=\n\s*\*\*|\Z)",
+                section,
+                re.DOTALL | re.IGNORECASE,
+            )
+            if m:
+                out[key] = m.group(1).strip()  # type: ignore[literal-required]
+                break
+
+    return out
 
 
 def extract_exec_snippet(brief_md: str, max_chars: int = 120) -> str:
@@ -398,6 +503,36 @@ CUSTOM_CSS = """
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
 
+    :root {
+        /* Brand */
+        --alkira-blue: #2D58F2;
+        --alkira-navy: #0A1F44;
+        --alkira-ink: #211F1F;
+        --alkira-muted: #7F7F7F;
+        --alkira-orange: #FB923C;
+        --alkira-amber: #FBBF24;
+
+        /* Surfaces */
+        --alkira-bg: #f8faff;
+        --alkira-surface: #ffffff;
+        --alkira-border: #e0e7ff;
+
+        /* Score color stops */
+        --score-5: #2D58F2;
+        --score-4: #60a5fa;
+        --score-3: #fbbf24;
+        --score-2: #cbd5e1;
+        --score-1: #cbd5e1;
+
+        /* Type */
+        --font-sans: 'Inter', system-ui, sans-serif;
+
+        /* Radii / spacing */
+        --tile-radius: 16px;
+        --tile-pad: 14px 16px;
+        --tile-shadow: 0 1px 3px rgba(10,31,68,0.04);
+    }
+
     /* ── Reset & Global ──────────────────────────── */
     .stApp {
         font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
@@ -422,7 +557,7 @@ CUSTOM_CSS = """
 
     /* ── Hero ────────────────────────────────────── */
     .hero {
-        background: linear-gradient(140deg, #0b1a33 0%, #152a4e 40%, #1e3f6e 100%);
+        background: linear-gradient(135deg, #0a1f44 0%, #2D58F2 100%);
         border-radius: 14px;
         padding: 1.6rem 1.8rem;
         margin-bottom: 1.25rem;
@@ -436,7 +571,7 @@ CUSTOM_CSS = """
         right: -10%;
         width: 300px;
         height: 300px;
-        background: radial-gradient(circle, rgba(59,130,246,0.07) 0%, transparent 70%);
+        background: radial-gradient(circle, rgba(45,88,242,0.12) 0%, transparent 70%);
         pointer-events: none;
     }
     .hero-top {
@@ -476,32 +611,40 @@ CUSTOM_CSS = """
         line-height: 1.45;
     }
 
-    /* ── Search bar ──────────────────────────────── */
-    .search-wrap {
-        background: #fff;
-        border: 1px solid #dde3eb;
-        border-radius: 12px;
-        padding: 0.2rem;
-        margin-bottom: 1.5rem;
-        box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+    /* ── Search / Generate ─────────────────────────── */
+    .stTextInput > div > div > input {
+        border-radius: 9999px !important;
+        border: 1px solid var(--alkira-border) !important;
+        padding: 0.6rem 1rem !important;
+        font-family: var(--font-sans) !important;
+        font-size: 14px !important;
+        background: #fff !important;
     }
-    div[data-testid="stTextInput"] > div > div > input {
-        border: none !important;
-        box-shadow: none !important;
-        font-size: 0.9rem !important;
-        padding: 0.6rem 0.8rem !important;
-        background: transparent !important;
-    }
-    div[data-testid="stTextInput"] > div {
-        border: none !important;
-        box-shadow: none !important;
-        background: transparent !important;
+    .stTextInput > div > div > input:focus {
+        outline: none !important;
+        border-color: var(--alkira-blue) !important;
+        box-shadow: 0 0 0 3px rgba(45,88,242,0.15) !important;
     }
 
-    /* ── Buttons ──────────────────────────────────── */
-    .stButton > button,
     .stFormSubmitButton > button,
     button[kind="formSubmit"] {
+        background: var(--alkira-blue) !important;
+        color: #fff !important;
+        border: none !important;
+        border-radius: 9999px !important;
+        padding: 0.6rem 1.4rem !important;
+        font-weight: 600 !important;
+        font-size: 14px !important;
+        transition: transform 100ms ease, box-shadow 100ms ease;
+    }
+    .stFormSubmitButton > button:hover,
+    button[kind="formSubmit"]:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(45,88,242,0.25);
+    }
+
+    /* ── Buttons (non-form) ───────────────────────── */
+    .stButton > button {
         background: #1a3a6b !important;
         color: white !important;
         border: none !important;
@@ -513,9 +656,7 @@ CUSTOM_CSS = """
         transition: all 0.15s ease;
         letter-spacing: 0.01em;
     }
-    .stButton > button:hover,
-    .stFormSubmitButton > button:hover,
-    button[kind="formSubmit"]:hover {
+    .stButton > button:hover {
         background: #244d8a !important;
         box-shadow: 0 3px 10px rgba(26,58,107,0.25);
     }
@@ -655,6 +796,147 @@ CUSTOM_CSS = """
     }
 
 
+    /* ── Bento brief tiles ─────────────────────────── */
+    .bento-grid {
+        display: grid;
+        grid-template-columns: 1fr 2fr;
+        gap: 12px;
+        margin-top: 1rem;
+    }
+    .full {
+        grid-column: 1 / -1;
+    }
+    .row3 {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 12px;
+        margin-top: 12px;
+    }
+    .infra-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+    }
+
+    .tile {
+        background: var(--alkira-surface);
+        border: 1px solid var(--alkira-border);
+        border-radius: var(--tile-radius);
+        padding: var(--tile-pad);
+        box-shadow: var(--tile-shadow);
+    }
+    .tile.gradient {
+        background: linear-gradient(135deg, var(--alkira-navy) 0%, var(--alkira-blue) 100%);
+        color: #fff;
+        border: none;
+    }
+    .tile.dark {
+        background: var(--alkira-navy);
+        color: #fff;
+        border: none;
+    }
+    .tile.entry {
+        position: relative;
+        padding-top: 18px;
+    }
+    .tile.entry::before {
+        content: '';
+        position: absolute;
+        top: 0; left: 0; right: 0;
+        height: 3px;
+        background: var(--alkira-orange);
+        border-radius: var(--tile-radius) var(--tile-radius) 0 0;
+    }
+    .tile-label {
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--alkira-blue);
+        margin: 0 0 6px;
+    }
+    .tile.dark .tile-label {
+        color: var(--alkira-orange);
+    }
+    .tile.gradient .tile-label {
+        color: rgba(255,255,255,0.8);
+    }
+    .tile-value {
+        font-size: 14px;
+        line-height: 1.5;
+        color: var(--alkira-ink);
+    }
+    .tile.dark .tile-value,
+    .tile.gradient .tile-value {
+        color: #fff;
+    }
+
+    /* When .brief-doc is used inline within a tile, drop its card chrome */
+    .tile .brief-doc {
+        background: transparent;
+        border: 0;
+        border-radius: 0;
+        padding: 0;
+        box-shadow: none;
+        color: inherit;
+    }
+
+    /* Override .brief-doc styles for dark conversation-starters tile */
+    .tile.dark .brief-doc a {
+        color: #93c5fd;
+    }
+    .tile.dark .brief-doc .label {
+        color: var(--alkira-orange);
+    }
+    .tile.dark .brief-doc strong {
+        color: #fff;
+    }
+    .tile.dark .brief-doc em {
+        color: rgba(255,255,255,0.75);
+    }
+    .tile.dark .brief-doc .brief-list,
+    .tile.dark .brief-doc ol,
+    .tile.dark .brief-doc ul {
+        color: #fff;
+    }
+    .score-big {
+        font-size: 56px;
+        font-weight: 800;
+        line-height: 1;
+        color: #fff;
+    }
+    .score-stars-bento {
+        font-size: 16px;
+        color: var(--alkira-amber);
+        letter-spacing: 0.1em;
+        margin: 6px 0 8px;
+    }
+    .score-rationale {
+        font-size: 13px;
+        line-height: 1.5;
+        color: rgba(255,255,255,0.9);
+    }
+    .entry-heading {
+        font-size: 14px;
+        font-weight: 700;
+        margin: 4px 0 8px;
+        color: var(--alkira-ink);
+    }
+    .entry-row {
+        margin: 6px 0;
+        font-size: 12px;
+        line-height: 1.4;
+    }
+    .entry-row b {
+        color: var(--alkira-blue);
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        display: block;
+        margin-bottom: 2px;
+    }
+
+
     /* ── Brief document ──────────────────────────── */
     .brief-doc {
         background: #fff;
@@ -765,15 +1047,43 @@ CUSTOM_CSS = """
     }
 
     /* ── Sidebar ──────────────────────────────────── */
-    [data-testid="stSidebar"] { background: #f9fafb; }
+    [data-testid="stSidebar"] {
+        background: #fff !important;
+        border-right: 1px solid var(--alkira-border);
+    }
     [data-testid="stSidebar"] .block-container { padding-top: 1.5rem !important; }
-    .sb-title {
-        font-size: 0.65rem;
+    .sb-user {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 14px 8px;
+        border-bottom: 1px solid var(--alkira-border);
+        margin-bottom: 8px;
+    }
+    .sb-avatar {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background: var(--alkira-blue);
+        color: #fff;
         font-weight: 700;
-        color: #94a3b8;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 14px;
+    }
+    .sb-email {
+        font-size: 12px;
+        color: var(--alkira-ink);
+        font-weight: 500;
+    }
+    .sb-title {
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.14em;
         text-transform: uppercase;
-        letter-spacing: 0.08em;
-        margin-bottom: 0.6rem;
+        color: var(--alkira-muted);
+        margin: 12px 8px 6px;
     }
     .sb-item {
         display: flex;
@@ -788,22 +1098,19 @@ CUSTOM_CSS = """
     /* Sidebar brief cards (buttons styled as cards) */
     [data-testid="stSidebar"] .stButton > button {
         background: #fff !important;
-        color: #1e293b !important;
-        border: 1px solid #e2e8f0 !important;
-        border-radius: 8px !important;
-        padding: 0.6rem 0.7rem !important;
-        font-size: 0.78rem !important;
-        font-weight: 600 !important;
+        color: var(--alkira-ink) !important;
+        border: 1px solid var(--alkira-border) !important;
+        border-radius: 10px !important;
+        padding: 10px 12px !important;
+        font-size: 13px !important;
+        font-weight: 500 !important;
         text-align: left !important;
-        margin-bottom: 0.35rem;
-        transition: all 0.12s ease;
-        cursor: pointer;
+        margin-bottom: 6px !important;
+        transition: border-color 120ms ease, background 120ms ease;
     }
     [data-testid="stSidebar"] .stButton > button:hover {
-        background: #f8fafc !important;
-        border-color: #93c5fd !important;
-        box-shadow: 0 1px 4px rgba(26,58,107,0.08) !important;
-        transform: none !important;
+        border-color: var(--alkira-blue) !important;
+        background: #f8faff !important;
     }
     .sb-company {
         font-size: 0.78rem;
@@ -905,21 +1212,43 @@ CUSTOM_CSS = """
     }
     .dash-card {
         background: #fff;
-        border: 1px solid #e2e8f0;
-        border-radius: 10px 10px 0 0;
-        padding: 0.9rem 1rem;
+        border: 1px solid var(--alkira-border);
+        border-radius: 14px;
+        padding: 14px 16px;
+        box-shadow: var(--tile-shadow);
+        transition: transform 120ms ease, box-shadow 120ms ease;
+        position: relative;
         min-height: 130px;
+        overflow: hidden;
     }
-    .dash-top {
+    .dash-card::before {
+        content: '';
+        position: absolute;
+        top: 0; left: 0; right: 0;
+        height: 3px;
+        background: var(--score-3);
+    }
+    .dash-card[data-score="5"]::before { background: var(--score-5); }
+    .dash-card[data-score="4"]::before { background: var(--score-4); }
+    .dash-card[data-score="3"]::before { background: var(--score-3); }
+    .dash-card[data-score="2"]::before { background: var(--score-2); }
+    .dash-card[data-score="1"]::before { background: var(--score-1); }
+    .dash-card:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(10,31,68,0.08);
+    }
+    .dash-card-top {
         display: flex;
         justify-content: space-between;
         align-items: flex-start;
-        margin-bottom: 0.3rem;
+        gap: 8px;
+        margin-bottom: 6px;
     }
     .dash-company {
-        font-size: 0.85rem;
+        font-size: 15px;
         font-weight: 700;
-        color: #0f172a;
+        color: var(--alkira-ink);
+        line-height: 1.2;
         margin: 0;
         display: -webkit-box;
         -webkit-line-clamp: 1;
@@ -927,31 +1256,30 @@ CUSTOM_CSS = """
         overflow: hidden;
     }
     .dash-stars {
-        font-size: 0.75rem;
-        color: #f59e0b;
-        letter-spacing: 1px;
-        flex-shrink: 0;
+        font-size: 12px;
+        color: var(--alkira-amber);
+        letter-spacing: 0.1em;
+        white-space: nowrap;
     }
     .dash-snippet {
-        font-size: 0.72rem;
-        color: #64748b;
-        line-height: 1.4;
-        margin: 0;
+        font-size: 12px;
+        color: #475569;
+        line-height: 1.45;
+        margin: 0 0 8px;
         display: -webkit-box;
         -webkit-line-clamp: 2;
         -webkit-box-orient: vertical;
         overflow: hidden;
     }
     .dash-date {
-        font-size: 0.6rem;
+        font-size: 11px;
         color: #94a3b8;
-        margin: 0.3rem 0 0;
+        margin: 0;
     }
     /* Dashboard open buttons — attached to card bottom */
     [data-testid="stMainBlockContainer"] .stColumn .stButton > button {
-        border-radius: 0 0 10px 10px !important;
-        margin-top: -1px;
-        border-top: none !important;
+        border-radius: 10px !important;
+        margin-top: 6px;
     }
 
     /* ── Empty state ──────────────────────────────── */
@@ -1013,36 +1341,6 @@ CUSTOM_CSS = """
         margin-top: 1.25rem;
     }
 
-    /* ── Sidebar user ────────────────────────────── */
-    .sb-user {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        padding: 0.5rem 0.6rem;
-        margin-bottom: 0.75rem;
-        border-bottom: 1px solid #edf0f4;
-        padding-bottom: 0.75rem;
-    }
-    .sb-avatar {
-        width: 28px;
-        height: 28px;
-        background: #1a3a6b;
-        color: #fff;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 0.7rem;
-        font-weight: 700;
-        flex-shrink: 0;
-    }
-    .sb-email {
-        font-size: 0.72rem;
-        color: #475569;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-    }
 </style>
 """
 
@@ -1227,8 +1525,8 @@ def _render_dashboard_cards(history: list[dict]) -> None:
                 date = entry.get("time", "")
 
                 st.markdown(
-                    f'<div class="dash-card">'
-                    f'<div class="dash-top">'
+                    f'<div class="dash-card" data-score="{s}">'
+                    f'<div class="dash-card-top">'
                     f'<p class="dash-company">{entry.get("company", "")}</p>'
                     f'<span class="dash-stars">{stars}</span>'
                     f'</div>'
@@ -1251,66 +1549,195 @@ def _render_dashboard_cards(history: list[dict]) -> None:
 
 # ── Brief Display ────────────────────────────────────────────────
 
-def render_brief_display(
+def _format_starters_text(starters_md: str) -> str:
+    """Transform numbered questions to non-list paragraphs.
+
+    The default ``md_to_html`` opens a fresh ``<ol>`` whenever a non-list line
+    interrupts numbered items, so numbering restarts at 1 between questions.
+    Convert ``N. text`` lines into a plain paragraph that uses inline HTML
+    bold for the number prefix. Emitting raw ``<strong>`` (instead of
+    ``**N.**``) avoids tripping the bold-label paragraph branch in
+    ``md_to_html`` so the number renders as a prefix rather than a label.
+    """
+    out: list[str] = []
+    for line in starters_md.splitlines():
+        stripped = line.strip()
+        match = re.match(r"^(\d+)\.\s+(.+)$", stripped)
+        if match:
+            number, rest = match.group(1), match.group(2)
+            out.append(f"<strong>{number}.</strong> {rest}")
+        else:
+            out.append(line)
+    return "\n".join(out)
+
+
+def render_brief_bento(
     brief_md: str,
     meta_right: str = "",
     show_update: bool = False,
 ) -> None:
-    """Render a full brief with results card, score, and tabs."""
+    """Render a brief as a bento tile layout."""
     score, reasoning = extract_score(brief_md)
     company, stats_line = extract_company_header(brief_md)
 
-    # Stats pills
-    stat_pills = ""
-    if stats_line:
-        parts = re.split(r"\s*\|\s*", stats_line.strip("* "))
-        pills = "".join(
-            f'<span class="stat-pill">{p.strip()}</span>'
-            for p in parts if p.strip()
-        )
-        stat_pills = f'<div class="result-stats">{pills}</div>'
+    # Stats pills line (cleaned)
+    cleaned_stats = (stats_line or "").replace("**", "").strip()
 
-    # Score stars
-    filled = ''.join(
-        '<span class="star-on">&#9733;</span>' for _ in range(score)
-    )
-    empty = ''.join(
-        '<span class="star-off">&#9733;</span>' for _ in range(5 - score)
-    )
+    # Stars
+    filled = "★" * max(0, min(5, score))
+    empty = "☆" * max(0, 5 - max(0, min(5, score)))
 
-    # Results card
-    card_radius = "14px"
-    st.markdown(
-        f'<div class="result-card" style="border-radius:{card_radius};">'
-        f'<div class="result-top">'
+    # Hero tile (full width)
+    hero_html = (
+        f'<div class="tile full" style="margin-bottom:12px">'
+        f'<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">'
         f'<div>'
-        f'<p class="result-company">{company or "Brief"}</p>'
-        f'{stat_pills}'
+        f'<h2 style="margin:0;font-size:24px;font-weight:700;color:var(--alkira-ink)">{html.escape(company or "Brief")}</h2>'
+        f'<p style="margin:4px 0 0;color:var(--alkira-muted);font-size:13px">{html.escape(cleaned_stats)}</p>'
         f'</div>'
-        f'<span class="result-meta">{meta_right}</span>'
+        f'<div style="text-align:right;color:var(--alkira-muted);font-size:12px;white-space:nowrap">{html.escape(meta_right)}</div>'
         f'</div>'
-        f'<div class="score-row">'
-        f'<span class="score-stars">{filled}{empty}</span>'
-        f'<span class="score-num">{score}/5</span>'
         f'</div>'
-        f'<p class="score-reason">{reasoning}</p>'
-        f'</div>',
-        unsafe_allow_html=True,
     )
+    st.markdown(hero_html, unsafe_allow_html=True)
 
-    # Update button
+    # Download PDF button (wired in next task)
+    _render_download_pdf_button(brief_md, company or "Brief", score)
+
+    # Update button stays as-is for re-research
     if show_update and company:
         if st.button("Update Brief", key="update_brief", use_container_width=True):
             st.session_state["_update_company"] = company
             st.rerun()
 
-    # Full brief as single scrollable document
-    body = get_brief_body(brief_md)
-    html = md_to_html(body)
+    # Score tile + infra grid (1/3 + 2/3)
+    cells = extract_infra_cells(brief_md)
+    score_html = (
+        f'<div class="tile gradient">'
+        f'<p class="tile-label">Alkira Fit</p>'
+        f'<div class="score-big">{score}</div>'
+        f'<div class="score-stars-bento">{filled}{empty}</div>'
+        f'<p class="score-rationale">{html.escape(reasoning)}</p>'
+        f'</div>'
+    )
+    infra_html = (
+        f'<div>'
+        f'<div class="infra-grid">'
+        f'<div class="tile"><p class="tile-label">Cloud Platforms</p>'
+        f'<p class="tile-value">{html.escape(cells["cloud_platforms"]) or "—"}</p></div>'
+        f'<div class="tile"><p class="tile-label">On-Prem / Hybrid</p>'
+        f'<p class="tile-value">{html.escape(cells["on_prem"]) or "—"}</p></div>'
+        f'<div class="tile"><p class="tile-label">Deployment Model</p>'
+        f'<p class="tile-value">{html.escape(cells["deployment"]) or "—"}</p></div>'
+        f'<div class="tile"><p class="tile-label">Resulting Complexity</p>'
+        f'<p class="tile-value">{html.escape(cells["complexity"]) or "—"}</p></div>'
+        f'</div>'
+        f'</div>'
+    )
     st.markdown(
-        f'<div class="brief-doc">{html}</div>',
+        f'<div class="bento-grid">{score_html}{infra_html}</div>',
         unsafe_allow_html=True,
     )
+
+    # Signals tile (full width)
+    signals_md = extract_section(brief_md, "Signals & Timing") or extract_section(brief_md, "Signals and Timing")
+    if signals_md.strip():
+        _bullet_prefix = re.compile(r"^[-*]\s+")
+        bullets = "".join(
+            f"<li>{inline(_bullet_prefix.sub('', ln.strip()))}</li>"
+            for ln in signals_md.splitlines() if ln.strip()
+        )
+        st.markdown(
+            f'<div class="tile full" style="margin-top:12px">'
+            f'<p class="tile-label">Signals &amp; Timing</p>'
+            f'<ul style="margin:6px 0 0;padding-left:18px;font-size:13px;line-height:1.5;color:var(--alkira-ink)">{bullets}</ul>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+
+    # Three entry-point tiles
+    points = extract_entry_points(brief_md)
+    if points:
+        cards = []
+        for i, p in enumerate(points[:3]):
+            heading = html.escape(p.get("heading", ""))
+            sig = html.escape(p.get("signal", "") or "—")
+            sol = html.escape(p.get("solution", "") or "—")
+            prf = html.escape(p.get("proof", "") or "—")
+            cards.append(
+                f'<div class="tile entry">'
+                f'<p class="tile-label">Entry 0{i+1}</p>'
+                f'<h3 class="entry-heading">{heading}</h3>'
+                f'<div class="entry-row"><b>Signal</b>{sig}</div>'
+                f'<div class="entry-row"><b>Solution</b>{sol}</div>'
+                f'<div class="entry-row"><b>Proof</b>{prf}</div>'
+                f'</div>'
+            )
+        st.markdown(
+            f'<div class="row3">{"".join(cards)}</div>',
+            unsafe_allow_html=True,
+        )
+
+    # Conversation Starters tile (dark navy)
+    starters = extract_section(brief_md, "Conversation Starters")
+    if starters.strip():
+        formatted_starters = _format_starters_text(starters)
+        st.markdown(
+            f'<div class="tile dark full" style="margin-top:12px">'
+            f'<p class="tile-label">Conversation Starters</p>'
+            f'<div class="tile-value brief-doc" style="margin-top:6px">{md_to_html(formatted_starters)}</div>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+
+    # References tile (full width, footer-style)
+    refs = extract_section(brief_md, "References")
+    if refs.strip():
+        st.markdown(
+            f'<div class="tile full" style="margin-top:12px">'
+            f'<p class="tile-label">References</p>'
+            f'<div class="tile-value brief-doc" style="font-size:12px">{md_to_html(refs)}</div>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+
+
+def _render_download_pdf_button(brief_md: str, company: str, score: int) -> None:
+    """Render the Download PDF button. Generates the PDF on-demand."""
+    try:
+        from pdf import generate_brief_pdf, build_filename
+    except Exception as exc:
+        st.warning(f"PDF generation unavailable: {exc}")
+        return
+
+    now = datetime.now()
+    period = now.strftime("%Y-%m")
+    filename = build_filename(company or "Brief", period)
+
+    # Cache PDF bytes per company in session state to avoid regenerating on every rerun
+    # Include brief content hash so re-research generates a fresh PDF
+    brief_hash = abs(hash(brief_md)) % (10 ** 8)
+    cache_key = f"_pdf_bytes_{company}_{brief_hash}"
+    if cache_key not in st.session_state:
+        try:
+            pdf_bytes = generate_brief_pdf(brief_md, company, score, now)
+            st.session_state[cache_key] = pdf_bytes
+        except Exception as exc:
+            st.warning(f"PDF generation failed: {exc}")
+            return
+
+    st.download_button(
+        label="↓ Download PDF",
+        data=st.session_state[cache_key],
+        file_name=filename,
+        mime="application/pdf",
+        use_container_width=True,
+        key=f"download_pdf_{company}_{brief_hash}",
+    )
+
+
+# Keep render_brief_display as an alias for backwards compatibility
+render_brief_display = render_brief_bento
 
 
 # ── Streamlit UI ─────────────────────────────────────────────────
@@ -1387,16 +1814,23 @@ def main() -> None:
             st.rerun()
 
     # ── Hero ─────────────────────────────────────────────────
+    try:
+        with open("assets/alkira-logo.svg", "r", encoding="utf-8") as f:
+            logo_svg = f.read()
+    except FileNotFoundError:
+        logo_svg = '<span style="font-weight:800;font-size:18px;color:#fff">ALKIRA</span>'
+
     st.markdown(
-        '<div class="hero">'
-        '<div class="hero-top">'
-        '<div class="hero-icon">&#9670;</div>'
-        '<span class="hero-badge">Channel Sales Intelligence</span>'
-        '</div>'
-        "<h2>Alkira Brief Generator</h2>"
-        "<p>Research any company. Get a scored opportunity brief with "
-        "Alkira fit analysis, proof points, and sales questions.</p>"
-        "</div>",
+        f'<div class="hero">'
+        f'<div class="hero-top" style="margin-bottom:1rem">'
+        f'<div style="height:32px;display:inline-block;filter:brightness(0) invert(1)">{logo_svg}</div>'
+        f'</div>'
+        f'<h1 style="color:#fff;font-size:32px;margin:0 0 4px;font-weight:700">Alkira Brief Generator</h1>'
+        f'<p style="color:rgba(255,255,255,0.85);margin:0;font-size:14px">'
+        f'Research any company. Get a scored opportunity brief with Alkira fit analysis, '
+        f'proof points, and sales questions.'
+        f'</p>'
+        f'</div>',
         unsafe_allow_html=True,
     )
 
