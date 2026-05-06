@@ -19,6 +19,9 @@ venv/
 # Generated briefs
 *.docx
 
+# Brainstorming workspace
+.superpowers/
+
 # OS
 .DS_Store
 Thumbs.db
