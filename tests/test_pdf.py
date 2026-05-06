@@ -1,5 +1,7 @@
 """Tests for the PDF generator."""
 
+from datetime import datetime
+
 from pdf import build_filename, ALKIRA_BLUE
 
 
@@ -58,3 +60,54 @@ def test_generate_brief_pdf_returns_pdf_bytes():
     assert isinstance(out, bytes)
     assert out.startswith(b"%PDF-")
     assert len(out) > 100
+
+
+def test_pdf_has_pages_after_header_footer():
+    """Smoke test: rendering a PDF with header+footer produces valid PDF bytes."""
+    from pdf import generate_brief_pdf
+    out = generate_brief_pdf(
+        brief_md="# ALKIRA OPPORTUNITY BRIEF\n## TestCo\nSample.",
+        company="TestCo",
+        score=3,
+        generated_at=datetime(2026, 5, 6),
+    )
+    assert isinstance(out, bytes)
+    assert out.startswith(b"%PDF")
+    assert len(out) > 200  # not just a stub
+
+
+def test_safe_text_em_dash():
+    from pdf import _safe_text
+    assert _safe_text("Hello — world") == "Hello -- world"
+
+
+def test_safe_text_smart_quotes():
+    from pdf import _safe_text
+    assert _safe_text("“Hello” ‘world’") == '"Hello" \'world\''
+
+
+def test_safe_text_ellipsis():
+    from pdf import _safe_text
+    assert _safe_text("Hello…") == "Hello..."
+
+
+def test_safe_text_stars():
+    from pdf import _safe_text
+    # 4 filled, 1 empty
+    assert _safe_text("★★★★☆") == "****-"
+
+
+def test_safe_text_strips_unencodable():
+    from pdf import _safe_text
+    # Chinese chars not in our explicit map, fallback to '?'
+    assert _safe_text("Hello 中文") == "Hello ??"
+
+
+def test_safe_text_handles_empty():
+    from pdf import _safe_text
+    assert _safe_text("") == ""
+
+
+def test_safe_text_passthrough_ascii():
+    from pdf import _safe_text
+    assert _safe_text("Plain ASCII text!") == "Plain ASCII text!"
