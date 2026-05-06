@@ -164,3 +164,30 @@ Proof: also present.
     assert points[0]["signal"] == "present."
     assert points[0]["solution"] == ""  # missing
     assert "also present" in points[0]["proof"]
+
+
+def test_extract_entry_points_word_boundary():
+    """Label match must not extend into longer words like 'Signaling'."""
+    brief = """
+## Three Alkira Entry Points
+
+**1. Test entry**
+Signaling: spurious line that should be ignored.
+Signal: this is the real signal.
+Solution: real solution.
+Proof: real proof.
+
+**2. Another entry**
+Signal: x.
+Solution: y.
+Proof: z.
+
+**3. Third**
+Signal: a.
+Solution: b.
+Proof: c.
+"""
+    points = extract_entry_points(brief)
+    assert len(points) == 3
+    assert points[0]["signal"] == "this is the real signal."
+    assert "spurious" not in points[0]["signal"]

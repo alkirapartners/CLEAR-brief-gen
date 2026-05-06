@@ -215,8 +215,8 @@ def _label_pattern(label: str) -> re.Pattern[str]:
     bold ``**Signal**: foo`` / ``**Signal:** foo``, and combinations thereof.
     """
     return re.compile(
-        rf"(?im)^\s*[-*\d.\s]*\**\s*{label}\s*[:\-]?\s*\**\s*[:\-]?\s*(.+?)"
-        rf"(?=\n\s*[-*\d.\s]*\**\s*(?:Signal|Solution|Proof)\s*[:\-]?\s*\**\s*[:\-]?|\Z)",
+        rf"(?im)^\s*[-*\d.\s]*\**\s*\b{label}\b\s*[:\-]?\s*\**\s*[:\-]?\s*(.+?)"
+        rf"(?=\n\s*[-*\d.\s]*\**\s*\b(?:Signal|Solution|Proof)\b\s*[:\-]?\s*\**\s*[:\-]?|\Z)",
         re.DOTALL,
     )
 
