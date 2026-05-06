@@ -305,6 +305,7 @@ def _draw_references(pdf: _BriefPDF, refs_md: str) -> None:
         return
 
     pdf.ln(2)
+    pdf.set_x(12.7)
     pdf.set_font("Helvetica", "B", 8)
     pdf.set_text_color(*ALKIRA_BLUE)
     pdf.cell(0, 5, "REFERENCES", new_x="LMARGIN", new_y="NEXT")
@@ -317,6 +318,7 @@ def _draw_references(pdf: _BriefPDF, refs_md: str) -> None:
         if not line:
             continue
         # Lines look like "[1] Description -- https://..."
+        pdf.set_x(12.7)
         pdf.multi_cell(0, 4, _safe_text(line))
 
 
@@ -489,5 +491,8 @@ def generate_brief_pdf(
 
     starters = extract_section(brief_md, "Conversation Starters")
     _draw_conversation_starters(pdf, starters)
+
+    refs = extract_section(brief_md, "References")
+    _draw_references(pdf, refs)
 
     return bytes(pdf.output())

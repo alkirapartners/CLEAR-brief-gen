@@ -111,3 +111,74 @@ def test_safe_text_handles_empty():
 def test_safe_text_passthrough_ascii():
     from pdf import _safe_text
     assert _safe_text("Plain ASCII text!") == "Plain ASCII text!"
+
+
+SAMPLE_FULL_BRIEF = """# ALKIRA OPPORTUNITY BRIEF
+*May 2026*
+
+## TestCo Holdings
+
+**HQ:** Austin, TX | **Revenue:** $5B | **Employees:** 12,000 | **Industry:** Software
+
+**Alkira Fit Score: 4 / 5**
+
+TestCo runs production across Azure and AWS with active vendor consolidation
+pressure. Multi-cloud connectivity and zero trust readiness make this a
+strong fit for Alkira's NaaS platform.
+
+## Infrastructure Snapshot
+
+**Cloud Platforms:** Azure (confirmed), AWS production workloads.
+**On-Prem / Hybrid:** Reduced footprint after 2024 consolidation.
+**Deployment Model:** Active hybrid cloud migration.
+**Resulting Complexity:** Two clouds plus acquired networks.
+
+## Signals & Timing
+- Vendor consolidation initiative announced Q1 2026
+- New CIO from a cloud-native peer (Feb 2026)
+- $300M IT modernization budget through 2027
+- Zero trust mandate from board
+
+## Three Alkira Entry Points
+
+**1. Multi-cloud connectivity**
+Signal: TestCo runs Azure and AWS production.
+Solution: Alkira connects both in a single click.
+Proof: 96% faster connection time.
+
+**2. Zero trust segmentation**
+Signal: Board mandate for zero trust.
+Solution: Alkira applies policy as overlay.
+Proof: Aligns to NIST SP 800-207.
+
+**3. M&A integration**
+Signal: Recent acquisitions create network sprawl.
+Solution: Alkira instantly onboards new entities.
+Proof: 98% reduction in partner integration time.
+
+## Conversation Starters
+
+**Stakeholders:** CIO, VP Network, CISO
+
+**Best First Question:** Lead with question #1.
+
+1. "How's the Azure-AWS connectivity going?"
+2. "What's the timeline on zero trust?"
+
+## References
+[1] TestCo 10-K — https://example.com/10k
+[2] CIO interview — https://example.com/interview
+"""
+
+
+def test_full_brief_renders():
+    from pdf import generate_brief_pdf
+    out = generate_brief_pdf(
+        brief_md=SAMPLE_FULL_BRIEF,
+        company="TestCo Holdings",
+        score=4,
+        generated_at=datetime(2026, 5, 6),
+    )
+    assert isinstance(out, bytes)
+    assert out.startswith(b"%PDF")
+    assert len(out) > 3000  # Real brief renders to substantive bytes (compressed)
