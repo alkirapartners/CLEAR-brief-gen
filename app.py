@@ -8,6 +8,7 @@ Usage:
     streamlit run app.py
 """
 
+import html
 import os
 import re
 import time
@@ -796,16 +797,16 @@ CUSTOM_CSS = """
         gap: 12px;
         margin-top: 1rem;
     }
-    .bento-grid .full {
+    .full {
         grid-column: 1 / -1;
     }
-    .bento-grid .row3 {
-        grid-column: 1 / -1;
+    .row3 {
         display: grid;
         grid-template-columns: 1fr 1fr 1fr;
         gap: 12px;
+        margin-top: 12px;
     }
-    .bento-grid .infra-grid {
+    .infra-grid {
         display: grid;
         grid-template-columns: 1fr 1fr;
         gap: 12px;
@@ -1518,10 +1519,10 @@ def render_brief_bento(
         f'<div class="tile full" style="margin-bottom:12px">'
         f'<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">'
         f'<div>'
-        f'<h2 style="margin:0;font-size:24px;font-weight:700;color:var(--alkira-ink)">{company or "Brief"}</h2>'
-        f'<p style="margin:4px 0 0;color:var(--alkira-muted);font-size:13px">{cleaned_stats}</p>'
+        f'<h2 style="margin:0;font-size:24px;font-weight:700;color:var(--alkira-ink)">{html.escape(company or "Brief")}</h2>'
+        f'<p style="margin:4px 0 0;color:var(--alkira-muted);font-size:13px">{html.escape(cleaned_stats)}</p>'
         f'</div>'
-        f'<div style="text-align:right;color:var(--alkira-muted);font-size:12px;white-space:nowrap">{meta_right}</div>'
+        f'<div style="text-align:right;color:var(--alkira-muted);font-size:12px;white-space:nowrap">{html.escape(meta_right)}</div>'
         f'</div>'
         f'</div>'
     )
@@ -1543,20 +1544,20 @@ def render_brief_bento(
         f'<p class="tile-label">Alkira Fit</p>'
         f'<div class="score-big">{score}</div>'
         f'<div class="score-stars-bento">{filled}{empty}</div>'
-        f'<p class="score-rationale">{reasoning}</p>'
+        f'<p class="score-rationale">{html.escape(reasoning)}</p>'
         f'</div>'
     )
     infra_html = (
         f'<div>'
         f'<div class="infra-grid">'
         f'<div class="tile"><p class="tile-label">Cloud Platforms</p>'
-        f'<p class="tile-value">{cells["cloud_platforms"] or "—"}</p></div>'
+        f'<p class="tile-value">{html.escape(cells["cloud_platforms"]) or "—"}</p></div>'
         f'<div class="tile"><p class="tile-label">On-Prem / Hybrid</p>'
-        f'<p class="tile-value">{cells["on_prem"] or "—"}</p></div>'
+        f'<p class="tile-value">{html.escape(cells["on_prem"]) or "—"}</p></div>'
         f'<div class="tile"><p class="tile-label">Deployment Model</p>'
-        f'<p class="tile-value">{cells["deployment"] or "—"}</p></div>'
+        f'<p class="tile-value">{html.escape(cells["deployment"]) or "—"}</p></div>'
         f'<div class="tile"><p class="tile-label">Resulting Complexity</p>'
-        f'<p class="tile-value">{cells["complexity"] or "—"}</p></div>'
+        f'<p class="tile-value">{html.escape(cells["complexity"]) or "—"}</p></div>'
         f'</div>'
         f'</div>'
     )
@@ -1586,18 +1587,21 @@ def render_brief_bento(
     if points:
         cards = []
         for i, p in enumerate(points[:3]):
-            heading = p.get("heading", "")
+            heading = html.escape(p.get("heading", ""))
+            sig = html.escape(p.get("signal", "") or "—")
+            sol = html.escape(p.get("solution", "") or "—")
+            prf = html.escape(p.get("proof", "") or "—")
             cards.append(
                 f'<div class="tile entry">'
                 f'<p class="tile-label">Entry 0{i+1}</p>'
                 f'<h3 class="entry-heading">{heading}</h3>'
-                f'<div class="entry-row"><b>Signal</b>{p.get("signal","—")}</div>'
-                f'<div class="entry-row"><b>Solution</b>{p.get("solution","—")}</div>'
-                f'<div class="entry-row"><b>Proof</b>{p.get("proof","—")}</div>'
+                f'<div class="entry-row"><b>Signal</b>{sig}</div>'
+                f'<div class="entry-row"><b>Solution</b>{sol}</div>'
+                f'<div class="entry-row"><b>Proof</b>{prf}</div>'
                 f'</div>'
             )
         st.markdown(
-            f'<div class="row3" style="margin-top:12px">{"".join(cards)}</div>',
+            f'<div class="row3">{"".join(cards)}</div>',
             unsafe_allow_html=True,
         )
 
