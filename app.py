@@ -1158,21 +1158,43 @@ CUSTOM_CSS = """
     }
     .dash-card {
         background: #fff;
-        border: 1px solid #e2e8f0;
-        border-radius: 10px 10px 0 0;
-        padding: 0.9rem 1rem;
+        border: 1px solid var(--alkira-border);
+        border-radius: 14px;
+        padding: 14px 16px;
+        box-shadow: var(--tile-shadow);
+        transition: transform 120ms ease, box-shadow 120ms ease;
+        position: relative;
         min-height: 130px;
+        overflow: hidden;
     }
-    .dash-top {
+    .dash-card::before {
+        content: '';
+        position: absolute;
+        top: 0; left: 0; right: 0;
+        height: 3px;
+        background: var(--score-3);
+    }
+    .dash-card[data-score="5"]::before { background: var(--score-5); }
+    .dash-card[data-score="4"]::before { background: var(--score-4); }
+    .dash-card[data-score="3"]::before { background: var(--score-3); }
+    .dash-card[data-score="2"]::before { background: var(--score-2); }
+    .dash-card[data-score="1"]::before { background: var(--score-1); }
+    .dash-card:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(10,31,68,0.08);
+    }
+    .dash-card-top {
         display: flex;
         justify-content: space-between;
         align-items: flex-start;
-        margin-bottom: 0.3rem;
+        gap: 8px;
+        margin-bottom: 6px;
     }
     .dash-company {
-        font-size: 0.85rem;
+        font-size: 15px;
         font-weight: 700;
-        color: #0f172a;
+        color: var(--alkira-ink);
+        line-height: 1.2;
         margin: 0;
         display: -webkit-box;
         -webkit-line-clamp: 1;
@@ -1180,31 +1202,30 @@ CUSTOM_CSS = """
         overflow: hidden;
     }
     .dash-stars {
-        font-size: 0.75rem;
-        color: #f59e0b;
-        letter-spacing: 1px;
-        flex-shrink: 0;
+        font-size: 12px;
+        color: var(--alkira-amber);
+        letter-spacing: 0.1em;
+        white-space: nowrap;
     }
     .dash-snippet {
-        font-size: 0.72rem;
-        color: #64748b;
-        line-height: 1.4;
-        margin: 0;
+        font-size: 12px;
+        color: #475569;
+        line-height: 1.45;
+        margin: 0 0 8px;
         display: -webkit-box;
         -webkit-line-clamp: 2;
         -webkit-box-orient: vertical;
         overflow: hidden;
     }
     .dash-date {
-        font-size: 0.6rem;
+        font-size: 11px;
         color: #94a3b8;
-        margin: 0.3rem 0 0;
+        margin: 0;
     }
     /* Dashboard open buttons — attached to card bottom */
     [data-testid="stMainBlockContainer"] .stColumn .stButton > button {
-        border-radius: 0 0 10px 10px !important;
-        margin-top: -1px;
-        border-top: none !important;
+        border-radius: 10px !important;
+        margin-top: 6px;
     }
 
     /* ── Empty state ──────────────────────────────── */
@@ -1480,8 +1501,8 @@ def _render_dashboard_cards(history: list[dict]) -> None:
                 date = entry.get("time", "")
 
                 st.markdown(
-                    f'<div class="dash-card">'
-                    f'<div class="dash-top">'
+                    f'<div class="dash-card" data-score="{s}">'
+                    f'<div class="dash-card-top">'
                     f'<p class="dash-company">{entry.get("company", "")}</p>'
                     f'<span class="dash-stars">{stars}</span>'
                     f'</div>'
