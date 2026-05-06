@@ -225,6 +225,50 @@ def _draw_score_tile(
     pdf.multi_cell(text_w, 4, _safe_text((rationale or "").strip()[:480]))
 
 
+# ── Infrastructure 2x2 grid ─────────────────────────────────────
+
+
+def _draw_infra_grid(
+    pdf: _BriefPDF,
+    cells: dict,
+    x: float,
+    y: float,
+    w: float,
+    h: float,
+) -> None:
+    """Draw the 2x2 infrastructure cell grid.
+
+    `cells` keys: cloud_platforms, on_prem, deployment, complexity.
+    """
+    half_w = w / 2
+    half_h = h / 2
+    items = [
+        ("CLOUD PLATFORMS", cells.get("cloud_platforms", ""), x, y),
+        ("ON-PREM / HYBRID", cells.get("on_prem", ""), x + half_w, y),
+        ("DEPLOYMENT MODEL", cells.get("deployment", ""), x, y + half_h),
+        ("RESULTING COMPLEXITY", cells.get("complexity", ""), x + half_w, y + half_h),
+    ]
+    pad = 3.0
+    for label, body, cx, cy in items:
+        # Cell border
+        pdf.set_draw_color(*ALKIRA_BORDER)
+        pdf.set_line_width(0.2)
+        pdf.set_fill_color(*ALKIRA_WHITE)
+        pdf.rect(cx, cy, half_w, half_h, style="DF")
+
+        # Label
+        pdf.set_xy(cx + pad, cy + pad)
+        pdf.set_font("Helvetica", "B", 7)
+        pdf.set_text_color(*ALKIRA_BLUE)
+        pdf.cell(half_w - 2 * pad, 3.5, label)
+
+        # Body
+        pdf.set_xy(cx + pad, cy + pad + 4.5)
+        pdf.set_font("Helvetica", "", 8)
+        pdf.set_text_color(*ALKIRA_INK)
+        pdf.multi_cell(half_w - 2 * pad, 3.6, _safe_text((body or "—").strip()[:360]))
+
+
 # ── Public API (placeholder body — fleshed out in later tasks) ──
 
 def generate_brief_pdf(
@@ -260,5 +304,15 @@ def generate_brief_pdf(
     score_y = pdf.get_y()
 
     _draw_score_tile(pdf, parsed_score, rationale, score_x, score_y, score_w, score_h)
+
+    # Infrastructure grid (right of score tile, same height)
+    from app import extract_infra_cells
+    infra_w = content_w - score_w - 4
+    infra_x = score_x + score_w + 4
+    cells = extract_infra_cells(brief_md)
+    _draw_infra_grid(pdf, cells, infra_x, score_y, infra_w, score_h)
+
+    # Move below the score+infra row
+    pdf.set_y(score_y + score_h + 4)
 
     return bytes(pdf.output())
