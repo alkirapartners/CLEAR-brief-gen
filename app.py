@@ -398,6 +398,36 @@ CUSTOM_CSS = """
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
 
+    :root {
+        /* Brand */
+        --alkira-blue: #2D58F2;
+        --alkira-navy: #0A1F44;
+        --alkira-ink: #211F1F;
+        --alkira-muted: #7F7F7F;
+        --alkira-orange: #FB923C;
+        --alkira-amber: #FBBF24;
+
+        /* Surfaces */
+        --alkira-bg: #f8faff;
+        --alkira-surface: #ffffff;
+        --alkira-border: #e0e7ff;
+
+        /* Score color stops */
+        --score-5: #2D58F2;
+        --score-4: #60a5fa;
+        --score-3: #fbbf24;
+        --score-2: #cbd5e1;
+        --score-1: #cbd5e1;
+
+        /* Type */
+        --font-sans: 'Inter', system-ui, sans-serif;
+
+        /* Radii / spacing */
+        --tile-radius: 16px;
+        --tile-pad: 14px 16px;
+        --tile-shadow: 0 1px 3px rgba(10,31,68,0.04);
+    }
+
     /* ── Reset & Global ──────────────────────────── */
     .stApp {
         font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
