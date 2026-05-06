@@ -13,6 +13,7 @@ import re
 import time
 from dataclasses import dataclass
 from datetime import datetime
+from typing import TypedDict
 
 import streamlit as st
 from anthropic import Anthropic
@@ -200,7 +201,32 @@ def extract_section(brief: str, heading: str) -> str:
     return brief[start:end].strip()
 
 
-def extract_entry_points(brief: str) -> list[dict]:
+class EntryPoint(TypedDict):
+    heading: str
+    signal: str
+    solution: str
+    proof: str
+
+
+def _label_pattern(label: str) -> re.Pattern[str]:
+    """Build a regex matching a Signal/Solution/Proof label across formatting variations.
+
+    Handles: bare ``Signal: foo``, bullet ``- Signal: foo``, numbered ``1. Signal: foo``,
+    bold ``**Signal**: foo`` / ``**Signal:** foo``, and combinations thereof.
+    """
+    return re.compile(
+        rf"(?im)^\s*[-*\d.\s]*\**\s*{label}\s*[:\-]?\s*\**\s*[:\-]?\s*(.+?)"
+        rf"(?=\n\s*[-*\d.\s]*\**\s*(?:Signal|Solution|Proof)\s*[:\-]?\s*\**\s*[:\-]?|\Z)",
+        re.DOTALL,
+    )
+
+
+def _grab(body: str, label: str) -> str:
+    m = _label_pattern(label).search(body)
+    return m.group(1).strip() if m else ""
+
+
+def extract_entry_points(brief: str) -> list[EntryPoint]:
     """Parse the 'Three Alkira Entry Points' section into 3 dicts.
 
     Each dict has: heading, signal, solution, proof.
@@ -212,30 +238,23 @@ def extract_entry_points(brief: str) -> list[dict]:
     if not section:
         return []
 
-    # Split on bold-numbered headings: **1. Title**, **2. Title**, **3. Title**
-    parts = re.split(r"\*\*\d+\.\s+([^*]+?)\*\*", section)
+    # Split on bold-numbered headings: **1. Title**, **2. Title**, **3. Title**.
+    # Allow markdown emphasis (e.g. *italic*) inside the heading by closing on
+    # the trailing ``**`` followed by a newline.
+    parts = re.split(r"\*\*\s*\d+\.\s+(.+?)\*\*\s*\n", section, flags=re.DOTALL)
     # parts = ["", "heading1", "body1", "heading2", "body2", ...]
 
-    points: list[dict] = []
+    points: list[EntryPoint] = []
     for i in range(1, len(parts), 2):
         heading = parts[i].strip()
         body = parts[i + 1] if i + 1 < len(parts) else ""
 
-        # Pull Signal / Solution / Proof lines (case-insensitive)
-        def _grab(label: str) -> str:
-            m = re.search(
-                rf"(?i)\b{label}\s*[:\-]\s*(.+?)(?=\n\s*(?:Signal|Solution|Proof)\s*[:\-]|\Z)",
-                body,
-                re.DOTALL,
-            )
-            return m.group(1).strip() if m else ""
-
-        points.append({
-            "heading": heading,
-            "signal": _grab("signal"),
-            "solution": _grab("solution"),
-            "proof": _grab("proof"),
-        })
+        points.append(EntryPoint(
+            heading=heading,
+            signal=_grab(body, "signal"),
+            solution=_grab(body, "solution"),
+            proof=_grab(body, "proof"),
+        ))
 
     return points[:3]
 
