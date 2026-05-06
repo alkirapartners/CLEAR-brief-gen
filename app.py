@@ -557,7 +557,7 @@ CUSTOM_CSS = """
 
     /* ── Hero ────────────────────────────────────── */
     .hero {
-        background: linear-gradient(140deg, #0b1a33 0%, #152a4e 40%, #1e3f6e 100%);
+        background: linear-gradient(135deg, #0a1f44 0%, #2D58F2 100%);
         border-radius: 14px;
         padding: 1.6rem 1.8rem;
         margin-bottom: 1.25rem;
@@ -571,7 +571,7 @@ CUSTOM_CSS = """
         right: -10%;
         width: 300px;
         height: 300px;
-        background: radial-gradient(circle, rgba(59,130,246,0.07) 0%, transparent 70%);
+        background: radial-gradient(circle, rgba(45,88,242,0.12) 0%, transparent 70%);
         pointer-events: none;
     }
     .hero-top {
@@ -1740,16 +1740,23 @@ def main() -> None:
             st.rerun()
 
     # ── Hero ─────────────────────────────────────────────────
+    try:
+        with open("assets/alkira-logo.svg", "r", encoding="utf-8") as f:
+            logo_svg = f.read()
+    except FileNotFoundError:
+        logo_svg = '<span style="font-weight:800;font-size:18px;color:#fff">ALKIRA</span>'
+
     st.markdown(
-        '<div class="hero">'
-        '<div class="hero-top">'
-        '<div class="hero-icon">&#9670;</div>'
-        '<span class="hero-badge">Channel Sales Intelligence</span>'
-        '</div>'
-        "<h2>Alkira Brief Generator</h2>"
-        "<p>Research any company. Get a scored opportunity brief with "
-        "Alkira fit analysis, proof points, and sales questions.</p>"
-        "</div>",
+        f'<div class="hero">'
+        f'<div class="hero-top" style="margin-bottom:1rem">'
+        f'<div style="height:32px;display:inline-block;filter:brightness(0) invert(1)">{logo_svg}</div>'
+        f'</div>'
+        f'<h1 style="color:#fff;font-size:32px;margin:0 0 4px;font-weight:700">Alkira Brief Generator</h1>'
+        f'<p style="color:rgba(255,255,255,0.85);margin:0;font-size:14px">'
+        f'Research any company. Get a scored opportunity brief with Alkira fit analysis, '
+        f'proof points, and sales questions.'
+        f'</p>'
+        f'</div>',
         unsafe_allow_html=True,
     )
 
