@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import re
 from datetime import datetime
-from typing import Any
 
 from fpdf import FPDF
 
@@ -31,11 +30,15 @@ _FILENAME_MAX = 40
 def build_filename(company: str, period: str) -> str:
     """Build the PDF filename: AlkiraBrief_<sanitized-company>_<YYYY-MM>.pdf.
 
-    Strips punctuation, replaces spaces with hyphens, truncates company to 40 chars.
+    Strips non-ASCII chars and punctuation (incl. underscores, our delimiter),
+    replaces spaces with hyphens, truncates company to 40 chars. Falls back to
+    "Company" sentinel for empty/all-punctuation/whitespace-only input.
     """
-    cleaned = re.sub(r"[^\w\s-]", "", company)         # drop punctuation
+    cleaned = re.sub(r"[^A-Za-z0-9\s-]", "", company)   # ASCII-only, drop punctuation + underscores
     cleaned = re.sub(r"\s+", "-", cleaned.strip())      # spaces → hyphens
     cleaned = re.sub(r"-+", "-", cleaned).strip("-")    # collapse hyphens
+    if not cleaned:
+        cleaned = "Company"
     if len(cleaned) > _FILENAME_MAX:
         cleaned = cleaned[:_FILENAME_MAX].rstrip("-")
     return f"AlkiraBrief_{cleaned}_{period}.pdf"
