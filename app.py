@@ -611,32 +611,40 @@ CUSTOM_CSS = """
         line-height: 1.45;
     }
 
-    /* ── Search bar ──────────────────────────────── */
-    .search-wrap {
-        background: #fff;
-        border: 1px solid #dde3eb;
-        border-radius: 12px;
-        padding: 0.2rem;
-        margin-bottom: 1.5rem;
-        box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+    /* ── Search / Generate ─────────────────────────── */
+    .stTextInput > div > div > input {
+        border-radius: 9999px !important;
+        border: 1px solid var(--alkira-border) !important;
+        padding: 0.6rem 1rem !important;
+        font-family: var(--font-sans) !important;
+        font-size: 14px !important;
+        background: #fff !important;
     }
-    div[data-testid="stTextInput"] > div > div > input {
-        border: none !important;
-        box-shadow: none !important;
-        font-size: 0.9rem !important;
-        padding: 0.6rem 0.8rem !important;
-        background: transparent !important;
-    }
-    div[data-testid="stTextInput"] > div {
-        border: none !important;
-        box-shadow: none !important;
-        background: transparent !important;
+    .stTextInput > div > div > input:focus {
+        outline: none !important;
+        border-color: var(--alkira-blue) !important;
+        box-shadow: 0 0 0 3px rgba(45,88,242,0.15) !important;
     }
 
-    /* ── Buttons ──────────────────────────────────── */
-    .stButton > button,
     .stFormSubmitButton > button,
     button[kind="formSubmit"] {
+        background: var(--alkira-blue) !important;
+        color: #fff !important;
+        border: none !important;
+        border-radius: 9999px !important;
+        padding: 0.6rem 1.4rem !important;
+        font-weight: 600 !important;
+        font-size: 14px !important;
+        transition: transform 100ms ease, box-shadow 100ms ease;
+    }
+    .stFormSubmitButton > button:hover,
+    button[kind="formSubmit"]:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(45,88,242,0.25);
+    }
+
+    /* ── Buttons (non-form) ───────────────────────── */
+    .stButton > button {
         background: #1a3a6b !important;
         color: white !important;
         border: none !important;
@@ -648,9 +656,7 @@ CUSTOM_CSS = """
         transition: all 0.15s ease;
         letter-spacing: 0.01em;
     }
-    .stButton > button:hover,
-    .stFormSubmitButton > button:hover,
-    button[kind="formSubmit"]:hover {
+    .stButton > button:hover {
         background: #244d8a !important;
         box-shadow: 0 3px 10px rgba(26,58,107,0.25);
     }
