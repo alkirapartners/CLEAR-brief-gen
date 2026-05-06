@@ -176,6 +176,55 @@ def _draw_hero(pdf: _BriefPDF, company: str, header_pills: str) -> None:
     pdf.ln(3)
 
 
+# ── Score tile ──────────────────────────────────────────────────
+
+
+def _draw_score_tile(
+    pdf: _BriefPDF,
+    score: int,
+    rationale: str,
+    x: float,
+    y: float,
+    w: float,
+    h: float,
+) -> None:
+    """Draw the gradient-blue score tile with big number, stars, and rationale.
+
+    fpdf2 has no gradient primitive — we use a solid Alkira blue fill,
+    which reads as a clean print equivalent of the web gradient.
+    """
+    # Tile background
+    pdf.set_fill_color(*ALKIRA_BLUE)
+    pdf.rect(x, y, w, h, style="F")
+
+    # Label
+    pdf.set_xy(x + 4, y + 4)
+    pdf.set_font("Helvetica", "B", 8)
+    pdf.set_text_color(*ALKIRA_WHITE)
+    pdf.cell(w - 8, 4, "ALKIRA FIT")
+
+    # Big number
+    pdf.set_xy(x + 4, y + 10)
+    pdf.set_font("Helvetica", "B", 36)
+    pdf.cell(w - 8, 14, str(max(1, min(5, score))))
+
+    # Stars (filled + empty) — _safe_text converts ★→* and ☆→-
+    filled = "★" * max(0, min(5, score))
+    empty = "☆" * max(0, 5 - max(0, min(5, score)))
+    pdf.set_xy(x + 4, y + 26)
+    pdf.set_font("Helvetica", "", 11)
+    pdf.cell(w - 8, 5, _safe_text(filled + empty))
+
+    # Rationale
+    pdf.set_xy(x + 4, y + 33)
+    pdf.set_font("Helvetica", "", 9)
+    pdf.set_text_color(*ALKIRA_WHITE)
+    text_w = w - 8
+    text_h = h - 36
+    # Use multi_cell for wrapped rationale; fpdf2 will clip to height.
+    pdf.multi_cell(text_w, 4, _safe_text((rationale or "").strip()[:480]))
+
+
 # ── Public API (placeholder body — fleshed out in later tasks) ──
 
 def generate_brief_pdf(
@@ -196,5 +245,20 @@ def generate_brief_pdf(
         company_name = company
 
     _draw_hero(pdf, company_name, stats_line)
+
+    # Parse score + rationale
+    from app import extract_score
+    parsed_score, rationale = extract_score(brief_md)
+    if not parsed_score:
+        parsed_score = score
+
+    # Layout constants (page is 215.9mm wide, 12.7mm margins → 190.5mm content)
+    content_w = 190.5
+    score_w = content_w * 0.34
+    score_h = 60
+    score_x = 12.7
+    score_y = pdf.get_y()
+
+    _draw_score_tile(pdf, parsed_score, rationale, score_x, score_y, score_w, score_h)
 
     return bytes(pdf.output())
