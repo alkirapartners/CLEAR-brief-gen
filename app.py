@@ -870,6 +870,35 @@ CUSTOM_CSS = """
     .tile.gradient .tile-value {
         color: #fff;
     }
+
+    /* When .brief-doc is used inline within a tile, drop its card chrome */
+    .tile .brief-doc {
+        background: transparent;
+        border: 0;
+        border-radius: 0;
+        padding: 0;
+        box-shadow: none;
+        color: inherit;
+    }
+
+    /* Override .brief-doc styles for dark conversation-starters tile */
+    .tile.dark .brief-doc a {
+        color: #93c5fd;
+    }
+    .tile.dark .brief-doc .label {
+        color: var(--alkira-orange);
+    }
+    .tile.dark .brief-doc strong {
+        color: #fff;
+    }
+    .tile.dark .brief-doc em {
+        color: rgba(255,255,255,0.75);
+    }
+    .tile.dark .brief-doc .brief-list,
+    .tile.dark .brief-doc ol,
+    .tile.dark .brief-doc ul {
+        color: #fff;
+    }
     .score-big {
         font-size: 56px;
         font-weight: 800;
@@ -1520,6 +1549,28 @@ def _render_dashboard_cards(history: list[dict]) -> None:
 
 # ── Brief Display ────────────────────────────────────────────────
 
+def _format_starters_text(starters_md: str) -> str:
+    """Transform numbered questions to non-list paragraphs.
+
+    The default ``md_to_html`` opens a fresh ``<ol>`` whenever a non-list line
+    interrupts numbered items, so numbering restarts at 1 between questions.
+    Convert ``N. text`` lines into a plain paragraph that uses inline HTML
+    bold for the number prefix. Emitting raw ``<strong>`` (instead of
+    ``**N.**``) avoids tripping the bold-label paragraph branch in
+    ``md_to_html`` so the number renders as a prefix rather than a label.
+    """
+    out: list[str] = []
+    for line in starters_md.splitlines():
+        stripped = line.strip()
+        match = re.match(r"^(\d+)\.\s+(.+)$", stripped)
+        if match:
+            number, rest = match.group(1), match.group(2)
+            out.append(f"<strong>{number}.</strong> {rest}")
+        else:
+            out.append(line)
+    return "\n".join(out)
+
+
 def render_brief_bento(
     brief_md: str,
     meta_right: str = "",
@@ -1630,10 +1681,11 @@ def render_brief_bento(
     # Conversation Starters tile (dark navy)
     starters = extract_section(brief_md, "Conversation Starters")
     if starters.strip():
+        formatted_starters = _format_starters_text(starters)
         st.markdown(
             f'<div class="tile dark full" style="margin-top:12px">'
             f'<p class="tile-label">Conversation Starters</p>'
-            f'<div class="tile-value" style="margin-top:6px">{md_to_html(starters)}</div>'
+            f'<div class="tile-value brief-doc" style="margin-top:6px">{md_to_html(formatted_starters)}</div>'
             f'</div>',
             unsafe_allow_html=True,
         )
@@ -1644,7 +1696,7 @@ def render_brief_bento(
         st.markdown(
             f'<div class="tile full" style="margin-top:12px">'
             f'<p class="tile-label">References</p>'
-            f'<div class="tile-value" style="font-size:12px">{md_to_html(refs)}</div>'
+            f'<div class="tile-value brief-doc" style="font-size:12px">{md_to_html(refs)}</div>'
             f'</div>',
             unsafe_allow_html=True,
         )
