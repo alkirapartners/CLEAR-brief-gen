@@ -320,6 +320,71 @@ def _draw_references(pdf: _BriefPDF, refs_md: str) -> None:
         pdf.multi_cell(0, 4, _safe_text(line))
 
 
+# ── Three Alkira Entry Points (3-column row) ────────────────────
+
+
+def _draw_entry_points(pdf: _BriefPDF, points: list[dict]) -> None:
+    """Draw the 3 entry-point tiles in a row, each with orange top stripe."""
+    if not points:
+        return
+
+    pdf.add_page()  # entry points start a fresh page for clean layout
+
+    pdf.set_font("Helvetica", "B", 8)
+    pdf.set_text_color(*ALKIRA_BLUE)
+    pdf.cell(0, 5, "THREE ALKIRA ENTRY POINTS", new_x="LMARGIN", new_y="NEXT")
+    pdf.ln(2)
+
+    x = 12.7
+    y = pdf.get_y()
+    content_w = 190.5
+    gap = 3.0
+    tile_w = (content_w - 2 * gap) / 3
+    tile_h = 75
+
+    for i, point in enumerate(points[:3]):
+        cx = x + i * (tile_w + gap)
+        # Tile background
+        pdf.set_draw_color(*ALKIRA_BORDER)
+        pdf.set_line_width(0.2)
+        pdf.set_fill_color(*ALKIRA_WHITE)
+        pdf.rect(cx, y, tile_w, tile_h, style="DF")
+
+        # Orange top stripe (3pt)
+        pdf.set_fill_color(*ALKIRA_ORANGE)
+        pdf.rect(cx, y, tile_w, 1.2, style="F")
+
+        pad = 3.0
+        # Label
+        pdf.set_xy(cx + pad, y + 3)
+        pdf.set_font("Helvetica", "B", 7)
+        pdf.set_text_color(*ALKIRA_ORANGE)
+        pdf.cell(tile_w - 2 * pad, 3.5, f"ENTRY 0{i+1}")
+
+        # Heading
+        pdf.set_xy(cx + pad, y + 7.5)
+        pdf.set_font("Helvetica", "B", 10)
+        pdf.set_text_color(*ALKIRA_INK)
+        pdf.multi_cell(tile_w - 2 * pad, 4.5, _safe_text(point.get("heading", ""))[:80])
+
+        # Body — Signal / Solution / Proof
+        cy = pdf.get_y() + 1
+        for label_key, body_key in [("Signal", "signal"), ("Solution", "solution"), ("Proof", "proof")]:
+            pdf.set_xy(cx + pad, cy)
+            pdf.set_font("Helvetica", "B", 7)
+            pdf.set_text_color(*ALKIRA_BLUE)
+            pdf.cell(tile_w - 2 * pad, 3.2, label_key.upper())
+            cy = pdf.get_y() + 3.5
+            pdf.set_xy(cx + pad, cy)
+            pdf.set_font("Helvetica", "", 8)
+            pdf.set_text_color(*ALKIRA_INK)
+            pdf.multi_cell(tile_w - 2 * pad, 3.6, _safe_text(point.get(body_key, "—"))[:240])
+            cy = pdf.get_y() + 1
+
+    # Move below the row
+    pdf.set_y(y + tile_h + 4)
+
+
 # ── Public API (placeholder body — fleshed out in later tasks) ──
 
 def generate_brief_pdf(
@@ -370,5 +435,9 @@ def generate_brief_pdf(
     from app import extract_section
     signals = extract_section(brief_md, "Signals & Timing") or extract_section(brief_md, "Signals and Timing")
     _draw_signals(pdf, signals)
+
+    from app import extract_entry_points
+    points = extract_entry_points(brief_md)
+    _draw_entry_points(pdf, points)
 
     return bytes(pdf.output())
