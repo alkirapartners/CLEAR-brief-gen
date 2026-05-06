@@ -1497,66 +1497,140 @@ def _render_dashboard_cards(history: list[dict]) -> None:
 
 # ── Brief Display ────────────────────────────────────────────────
 
-def render_brief_display(
+def render_brief_bento(
     brief_md: str,
     meta_right: str = "",
     show_update: bool = False,
 ) -> None:
-    """Render a full brief with results card, score, and tabs."""
+    """Render a brief as a bento tile layout."""
     score, reasoning = extract_score(brief_md)
     company, stats_line = extract_company_header(brief_md)
 
-    # Stats pills
-    stat_pills = ""
-    if stats_line:
-        parts = re.split(r"\s*\|\s*", stats_line.strip("* "))
-        pills = "".join(
-            f'<span class="stat-pill">{p.strip()}</span>'
-            for p in parts if p.strip()
-        )
-        stat_pills = f'<div class="result-stats">{pills}</div>'
+    # Stats pills line (cleaned)
+    cleaned_stats = (stats_line or "").replace("**", "").strip()
 
-    # Score stars
-    filled = ''.join(
-        '<span class="star-on">&#9733;</span>' for _ in range(score)
-    )
-    empty = ''.join(
-        '<span class="star-off">&#9733;</span>' for _ in range(5 - score)
-    )
+    # Stars
+    filled = "★" * max(0, min(5, score))
+    empty = "☆" * max(0, 5 - max(0, min(5, score)))
 
-    # Results card
-    card_radius = "14px"
-    st.markdown(
-        f'<div class="result-card" style="border-radius:{card_radius};">'
-        f'<div class="result-top">'
+    # Hero tile (full width)
+    hero_html = (
+        f'<div class="tile full" style="margin-bottom:12px">'
+        f'<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">'
         f'<div>'
-        f'<p class="result-company">{company or "Brief"}</p>'
-        f'{stat_pills}'
+        f'<h2 style="margin:0;font-size:24px;font-weight:700;color:var(--alkira-ink)">{company or "Brief"}</h2>'
+        f'<p style="margin:4px 0 0;color:var(--alkira-muted);font-size:13px">{cleaned_stats}</p>'
         f'</div>'
-        f'<span class="result-meta">{meta_right}</span>'
+        f'<div style="text-align:right;color:var(--alkira-muted);font-size:12px;white-space:nowrap">{meta_right}</div>'
         f'</div>'
-        f'<div class="score-row">'
-        f'<span class="score-stars">{filled}{empty}</span>'
-        f'<span class="score-num">{score}/5</span>'
         f'</div>'
-        f'<p class="score-reason">{reasoning}</p>'
-        f'</div>',
-        unsafe_allow_html=True,
     )
+    st.markdown(hero_html, unsafe_allow_html=True)
 
-    # Update button
+    # Download PDF button (wired in next task)
+    _render_download_pdf_button(brief_md, company or "Brief", score)
+
+    # Update button stays as-is for re-research
     if show_update and company:
         if st.button("Update Brief", key="update_brief", use_container_width=True):
             st.session_state["_update_company"] = company
             st.rerun()
 
-    # Full brief as single scrollable document
-    body = get_brief_body(brief_md)
-    html = md_to_html(body)
+    # Score tile + infra grid (1/3 + 2/3)
+    cells = extract_infra_cells(brief_md)
+    score_html = (
+        f'<div class="tile gradient">'
+        f'<p class="tile-label">Alkira Fit</p>'
+        f'<div class="score-big">{score}</div>'
+        f'<div class="score-stars-bento">{filled}{empty}</div>'
+        f'<p class="score-rationale">{reasoning}</p>'
+        f'</div>'
+    )
+    infra_html = (
+        f'<div>'
+        f'<div class="infra-grid">'
+        f'<div class="tile"><p class="tile-label">Cloud Platforms</p>'
+        f'<p class="tile-value">{cells["cloud_platforms"] or "—"}</p></div>'
+        f'<div class="tile"><p class="tile-label">On-Prem / Hybrid</p>'
+        f'<p class="tile-value">{cells["on_prem"] or "—"}</p></div>'
+        f'<div class="tile"><p class="tile-label">Deployment Model</p>'
+        f'<p class="tile-value">{cells["deployment"] or "—"}</p></div>'
+        f'<div class="tile"><p class="tile-label">Resulting Complexity</p>'
+        f'<p class="tile-value">{cells["complexity"] or "—"}</p></div>'
+        f'</div>'
+        f'</div>'
+    )
     st.markdown(
-        f'<div class="brief-doc">{html}</div>',
+        f'<div class="bento-grid">{score_html}{infra_html}</div>',
         unsafe_allow_html=True,
     )
+
+    # Signals tile (full width)
+    signals_md = extract_section(brief_md, "Signals & Timing") or extract_section(brief_md, "Signals and Timing")
+    if signals_md.strip():
+        _bullet_prefix = re.compile(r"^[-*]\s+")
+        bullets = "".join(
+            f"<li>{inline(_bullet_prefix.sub('', ln.strip()))}</li>"
+            for ln in signals_md.splitlines() if ln.strip()
+        )
+        st.markdown(
+            f'<div class="tile full" style="margin-top:12px">'
+            f'<p class="tile-label">Signals &amp; Timing</p>'
+            f'<ul style="margin:6px 0 0;padding-left:18px;font-size:13px;line-height:1.5;color:var(--alkira-ink)">{bullets}</ul>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+
+    # Three entry-point tiles
+    points = extract_entry_points(brief_md)
+    if points:
+        cards = []
+        for i, p in enumerate(points[:3]):
+            heading = p.get("heading", "")
+            cards.append(
+                f'<div class="tile entry">'
+                f'<p class="tile-label">Entry 0{i+1}</p>'
+                f'<h3 class="entry-heading">{heading}</h3>'
+                f'<div class="entry-row"><b>Signal</b>{p.get("signal","—")}</div>'
+                f'<div class="entry-row"><b>Solution</b>{p.get("solution","—")}</div>'
+                f'<div class="entry-row"><b>Proof</b>{p.get("proof","—")}</div>'
+                f'</div>'
+            )
+        st.markdown(
+            f'<div class="row3" style="margin-top:12px">{"".join(cards)}</div>',
+            unsafe_allow_html=True,
+        )
+
+    # Conversation Starters tile (dark navy)
+    starters = extract_section(brief_md, "Conversation Starters")
+    if starters.strip():
+        st.markdown(
+            f'<div class="tile dark full" style="margin-top:12px">'
+            f'<p class="tile-label">Conversation Starters</p>'
+            f'<div class="tile-value" style="margin-top:6px">{md_to_html(starters)}</div>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+
+    # References tile (full width, footer-style)
+    refs = extract_section(brief_md, "References")
+    if refs.strip():
+        st.markdown(
+            f'<div class="tile full" style="margin-top:12px">'
+            f'<p class="tile-label">References</p>'
+            f'<div class="tile-value" style="font-size:12px">{md_to_html(refs)}</div>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+
+
+def _render_download_pdf_button(brief_md: str, company: str, score: int) -> None:
+    """Stub — wired in next task."""
+    pass
+
+
+# Keep render_brief_display as an alias for backwards compatibility
+render_brief_display = render_brief_bento
 
 
 # ── Streamlit UI ─────────────────────────────────────────────────
