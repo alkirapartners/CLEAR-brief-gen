@@ -200,6 +200,46 @@ def extract_section(brief: str, heading: str) -> str:
     return brief[start:end].strip()
 
 
+def extract_entry_points(brief: str) -> list[dict]:
+    """Parse the 'Three Alkira Entry Points' section into 3 dicts.
+
+    Each dict has: heading, signal, solution, proof.
+    Returns empty list if section is missing.
+    """
+    section = extract_section(brief, "Three Alkira Entry Points")
+    if not section:
+        section = extract_section(brief, "Alkira Entry Points")
+    if not section:
+        return []
+
+    # Split on bold-numbered headings: **1. Title**, **2. Title**, **3. Title**
+    parts = re.split(r"\*\*\d+\.\s+([^*]+?)\*\*", section)
+    # parts = ["", "heading1", "body1", "heading2", "body2", ...]
+
+    points: list[dict] = []
+    for i in range(1, len(parts), 2):
+        heading = parts[i].strip()
+        body = parts[i + 1] if i + 1 < len(parts) else ""
+
+        # Pull Signal / Solution / Proof lines (case-insensitive)
+        def _grab(label: str) -> str:
+            m = re.search(
+                rf"(?i)\b{label}\s*[:\-]\s*(.+?)(?=\n\s*(?:Signal|Solution|Proof)\s*[:\-]|\Z)",
+                body,
+                re.DOTALL,
+            )
+            return m.group(1).strip() if m else ""
+
+        points.append({
+            "heading": heading,
+            "signal": _grab("signal"),
+            "solution": _grab("solution"),
+            "proof": _grab("proof"),
+        })
+
+    return points[:3]
+
+
 def extract_exec_snippet(brief_md: str, max_chars: int = 120) -> str:
     """Pull a preview snippet from the score reasoning or first section."""
     # Try score reasoning first (it's the new exec summary)
