@@ -789,6 +789,118 @@ CUSTOM_CSS = """
     }
 
 
+    /* ── Bento brief tiles ─────────────────────────── */
+    .bento-grid {
+        display: grid;
+        grid-template-columns: 1fr 2fr;
+        gap: 12px;
+        margin-top: 1rem;
+    }
+    .bento-grid .full {
+        grid-column: 1 / -1;
+    }
+    .bento-grid .row3 {
+        grid-column: 1 / -1;
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 12px;
+    }
+    .bento-grid .infra-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+    }
+
+    .tile {
+        background: var(--alkira-surface);
+        border: 1px solid var(--alkira-border);
+        border-radius: var(--tile-radius);
+        padding: var(--tile-pad);
+        box-shadow: var(--tile-shadow);
+    }
+    .tile.gradient {
+        background: linear-gradient(135deg, var(--alkira-navy) 0%, var(--alkira-blue) 100%);
+        color: #fff;
+        border: none;
+    }
+    .tile.dark {
+        background: var(--alkira-navy);
+        color: #fff;
+        border: none;
+    }
+    .tile.entry {
+        position: relative;
+        padding-top: 18px;
+    }
+    .tile.entry::before {
+        content: '';
+        position: absolute;
+        top: 0; left: 0; right: 0;
+        height: 3px;
+        background: var(--alkira-orange);
+        border-radius: var(--tile-radius) var(--tile-radius) 0 0;
+    }
+    .tile-label {
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--alkira-blue);
+        margin: 0 0 6px;
+    }
+    .tile.dark .tile-label {
+        color: var(--alkira-orange);
+    }
+    .tile.gradient .tile-label {
+        color: rgba(255,255,255,0.8);
+    }
+    .tile-value {
+        font-size: 14px;
+        line-height: 1.5;
+        color: var(--alkira-ink);
+    }
+    .tile.dark .tile-value,
+    .tile.gradient .tile-value {
+        color: #fff;
+    }
+    .score-big {
+        font-size: 56px;
+        font-weight: 800;
+        line-height: 1;
+        color: #fff;
+    }
+    .score-stars-bento {
+        font-size: 16px;
+        color: var(--alkira-amber);
+        letter-spacing: 0.1em;
+        margin: 6px 0 8px;
+    }
+    .score-rationale {
+        font-size: 13px;
+        line-height: 1.5;
+        color: rgba(255,255,255,0.9);
+    }
+    .entry-heading {
+        font-size: 14px;
+        font-weight: 700;
+        margin: 4px 0 8px;
+        color: var(--alkira-ink);
+    }
+    .entry-row {
+        margin: 6px 0;
+        font-size: 12px;
+        line-height: 1.4;
+    }
+    .entry-row b {
+        color: var(--alkira-blue);
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        display: block;
+        margin-bottom: 2px;
+    }
+
+
     /* ── Brief document ──────────────────────────── */
     .brief-doc {
         background: #fff;
