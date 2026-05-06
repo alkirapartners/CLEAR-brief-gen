@@ -1,6 +1,6 @@
 """Tests for brief markdown parsers."""
 
-from app import extract_entry_points
+from app import extract_entry_points, extract_infra_cells
 
 SAMPLE_BRIEF = """
 ## Three Alkira Entry Points
@@ -191,3 +191,84 @@ Proof: c.
     assert len(points) == 3
     assert points[0]["signal"] == "this is the real signal."
     assert "spurious" not in points[0]["signal"]
+
+
+INFRA_BRIEF = """
+## Infrastructure Snapshot
+
+**Cloud Platforms:** Azure (confirmed), GCP, Oracle Cloud production workloads.
+**On-Prem / Hybrid:** Reduced footprint after 2024 data center consolidation.
+**Deployment Model:** Active hybrid cloud migration through 2027.
+**Resulting Complexity:** Three clouds plus dozens of acquired networks.
+"""
+
+
+def test_extract_infra_cells_all_four_keys():
+    cells = extract_infra_cells(INFRA_BRIEF)
+    assert "cloud_platforms" in cells
+    assert "on_prem" in cells
+    assert "deployment" in cells
+    assert "complexity" in cells
+
+
+def test_extract_infra_cells_content():
+    cells = extract_infra_cells(INFRA_BRIEF)
+    assert "Azure" in cells["cloud_platforms"]
+    assert "2024" in cells["on_prem"]
+    assert "2027" in cells["deployment"]
+    assert "Three clouds" in cells["complexity"]
+
+
+def test_extract_infra_cells_missing_section():
+    cells = extract_infra_cells("# Just a title")
+    assert cells == {
+        "cloud_platforms": "",
+        "on_prem": "",
+        "deployment": "",
+        "complexity": "",
+    }
+
+
+def test_extract_infra_cells_no_leaked_bold_markers():
+    """Captured values must never contain stray ** markers."""
+    cells = extract_infra_cells(INFRA_BRIEF)
+    for v in cells.values():
+        assert "**" not in v
+
+
+def test_extract_infra_cells_colon_outside_bold():
+    """Bold around label only, colon outside (e.g., ``**Cloud Platforms**: body``)."""
+    brief = """
+## Infrastructure Snapshot
+
+**Cloud Platforms**: Azure and GCP.
+**On-Prem**: Two data centers remaining.
+**Deployment**: Hybrid through 2027.
+**Complexity**: Multi-cloud sprawl.
+"""
+    cells = extract_infra_cells(brief)
+    assert "Azure" in cells["cloud_platforms"]
+    assert "Two data centers" in cells["on_prem"]
+    assert "2027" in cells["deployment"]
+    assert "Multi-cloud sprawl" in cells["complexity"]
+    for v in cells.values():
+        assert "**" not in v
+
+
+def test_extract_infra_cells_label_variants():
+    """Singular Cloud Platform, plain On-Prem (no Hybrid), short Complexity work."""
+    brief = """
+## Infrastructure Snapshot
+
+**Cloud Platform:** Single Azure tenant.
+**On-Prem:** Legacy footprint only.
+**Deployment Model:** Lift-and-shift in flight.
+**Resulting Complexity:** Modest dual-stack overhead.
+"""
+    cells = extract_infra_cells(brief)
+    assert "Single Azure tenant" in cells["cloud_platforms"]
+    assert "Legacy footprint" in cells["on_prem"]
+    assert "Lift-and-shift" in cells["deployment"]
+    assert "Modest" in cells["complexity"]
+    for v in cells.values():
+        assert "**" not in v

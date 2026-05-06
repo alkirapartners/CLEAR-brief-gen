@@ -259,6 +259,51 @@ def extract_entry_points(brief: str) -> list[EntryPoint]:
     return points[:3]
 
 
+class InfraCells(TypedDict):
+    cloud_platforms: str
+    on_prem: str
+    deployment: str
+    complexity: str
+
+
+def extract_infra_cells(brief: str) -> InfraCells:
+    """Parse the 4 bold sub-labels from Infrastructure Snapshot.
+
+    Returns dict with keys: cloud_platforms, on_prem, deployment, complexity.
+    Missing values are empty strings.
+    """
+    empty: InfraCells = {
+        "cloud_platforms": "",
+        "on_prem": "",
+        "deployment": "",
+        "complexity": "",
+    }
+    section = extract_section(brief, "Infrastructure Snapshot")
+    if not section:
+        return empty
+
+    label_map = {
+        "cloud_platforms": [r"Cloud Platforms?"],
+        "on_prem": [r"On-?Prem(?:\s*/\s*Hybrid)?", r"Hybrid"],
+        "deployment": [r"Deployment Model", r"Deployment"],
+        "complexity": [r"Resulting Complexity", r"Complexity"],
+    }
+
+    out: InfraCells = dict(empty)  # type: ignore[assignment]
+    for key, patterns in label_map.items():
+        for pat in patterns:
+            m = re.search(
+                rf"\*\*\s*{pat}\s*:?\s*\*\*\s*:?\s*(.+?)(?=\n\s*\*\*|\Z)",
+                section,
+                re.DOTALL | re.IGNORECASE,
+            )
+            if m:
+                out[key] = m.group(1).strip()  # type: ignore[literal-required]
+                break
+
+    return out
+
+
 def extract_exec_snippet(brief_md: str, max_chars: int = 120) -> str:
     """Pull a preview snippet from the score reasoning or first section."""
     # Try score reasoning first (it's the new exec summary)
