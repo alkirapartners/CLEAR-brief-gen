@@ -1018,15 +1018,43 @@ CUSTOM_CSS = """
     }
 
     /* ── Sidebar ──────────────────────────────────── */
-    [data-testid="stSidebar"] { background: #f9fafb; }
+    [data-testid="stSidebar"] {
+        background: #fff !important;
+        border-right: 1px solid var(--alkira-border);
+    }
     [data-testid="stSidebar"] .block-container { padding-top: 1.5rem !important; }
-    .sb-title {
-        font-size: 0.65rem;
+    .sb-user {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 14px 8px;
+        border-bottom: 1px solid var(--alkira-border);
+        margin-bottom: 8px;
+    }
+    .sb-avatar {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background: var(--alkira-blue);
+        color: #fff;
         font-weight: 700;
-        color: #94a3b8;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 14px;
+    }
+    .sb-email {
+        font-size: 12px;
+        color: var(--alkira-ink);
+        font-weight: 500;
+    }
+    .sb-title {
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.14em;
         text-transform: uppercase;
-        letter-spacing: 0.08em;
-        margin-bottom: 0.6rem;
+        color: var(--alkira-muted);
+        margin: 12px 8px 6px;
     }
     .sb-item {
         display: flex;
@@ -1041,22 +1069,19 @@ CUSTOM_CSS = """
     /* Sidebar brief cards (buttons styled as cards) */
     [data-testid="stSidebar"] .stButton > button {
         background: #fff !important;
-        color: #1e293b !important;
-        border: 1px solid #e2e8f0 !important;
-        border-radius: 8px !important;
-        padding: 0.6rem 0.7rem !important;
-        font-size: 0.78rem !important;
-        font-weight: 600 !important;
+        color: var(--alkira-ink) !important;
+        border: 1px solid var(--alkira-border) !important;
+        border-radius: 10px !important;
+        padding: 10px 12px !important;
+        font-size: 13px !important;
+        font-weight: 500 !important;
         text-align: left !important;
-        margin-bottom: 0.35rem;
-        transition: all 0.12s ease;
-        cursor: pointer;
+        margin-bottom: 6px !important;
+        transition: border-color 120ms ease, background 120ms ease;
     }
     [data-testid="stSidebar"] .stButton > button:hover {
-        background: #f8fafc !important;
-        border-color: #93c5fd !important;
-        box-shadow: 0 1px 4px rgba(26,58,107,0.08) !important;
-        transform: none !important;
+        border-color: var(--alkira-blue) !important;
+        background: #f8faff !important;
     }
     .sb-company {
         font-size: 0.78rem;
@@ -1287,36 +1312,6 @@ CUSTOM_CSS = """
         margin-top: 1.25rem;
     }
 
-    /* ── Sidebar user ────────────────────────────── */
-    .sb-user {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        padding: 0.5rem 0.6rem;
-        margin-bottom: 0.75rem;
-        border-bottom: 1px solid #edf0f4;
-        padding-bottom: 0.75rem;
-    }
-    .sb-avatar {
-        width: 28px;
-        height: 28px;
-        background: #1a3a6b;
-        color: #fff;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 0.7rem;
-        font-weight: 700;
-        flex-shrink: 0;
-    }
-    .sb-email {
-        font-size: 0.72rem;
-        color: #475569;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-    }
 </style>
 """
 
