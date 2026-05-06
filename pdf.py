@@ -269,6 +269,57 @@ def _draw_infra_grid(
         pdf.multi_cell(half_w - 2 * pad, 3.6, _safe_text((body or "—").strip()[:360]))
 
 
+# ── Signals & References tiles ──────────────────────────────────
+
+
+def _draw_signals(pdf: _BriefPDF, signals_md: str) -> None:
+    """Draw the Signals & Timing tile (full width, white)."""
+    if not signals_md.strip():
+        return
+
+    w = 190.5
+
+    # Section label
+    pdf.set_font("Helvetica", "B", 8)
+    pdf.set_text_color(*ALKIRA_BLUE)
+    pdf.cell(0, 5, "SIGNALS & TIMING", new_x="LMARGIN", new_y="NEXT")
+    pdf.ln(1)
+
+    # Bullets — strip "- " or "* " from each line
+    pdf.set_font("Helvetica", "", 9)
+    pdf.set_text_color(*ALKIRA_INK)
+    for raw in signals_md.splitlines():
+        line = raw.strip()
+        if not line:
+            continue
+        line = re.sub(r"^[-*]\s+", "", line)
+        pdf.set_x(15)
+        pdf.cell(3, 4.5, "-")
+        pdf.multi_cell(w - 5, 4.5, _safe_text(line))
+    pdf.ln(2)
+
+
+def _draw_references(pdf: _BriefPDF, refs_md: str) -> None:
+    """Draw the References tile at the end of the brief."""
+    if not refs_md.strip():
+        return
+
+    pdf.ln(2)
+    pdf.set_font("Helvetica", "B", 8)
+    pdf.set_text_color(*ALKIRA_BLUE)
+    pdf.cell(0, 5, "REFERENCES", new_x="LMARGIN", new_y="NEXT")
+    pdf.ln(1)
+
+    pdf.set_font("Helvetica", "", 8)
+    pdf.set_text_color(*ALKIRA_INK)
+    for raw in refs_md.splitlines():
+        line = raw.strip()
+        if not line:
+            continue
+        # Lines look like "[1] Description -- https://..."
+        pdf.multi_cell(0, 4, _safe_text(line))
+
+
 # ── Public API (placeholder body — fleshed out in later tasks) ──
 
 def generate_brief_pdf(
@@ -314,5 +365,10 @@ def generate_brief_pdf(
 
     # Move below the score+infra row
     pdf.set_y(score_y + score_h + 4)
+
+    # Signals & Timing tile (full width)
+    from app import extract_section
+    signals = extract_section(brief_md, "Signals & Timing") or extract_section(brief_md, "Signals and Timing")
+    _draw_signals(pdf, signals)
 
     return bytes(pdf.output())
