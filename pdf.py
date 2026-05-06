@@ -152,6 +152,30 @@ class _BriefPDF(FPDF):
         )
 
 
+# ── Hero block ───────────────────────────────────────────────────
+
+
+def _draw_hero(pdf: _BriefPDF, company: str, header_pills: str) -> None:
+    """Draw the company-name hero block at top of page 1.
+
+    `header_pills` is the original pipe-delimited line, e.g.
+    'HQ: Irving, TX | Revenue: $309B | Employees: 51K'.
+    """
+    pdf.set_x(12.7)
+    pdf.set_font("Helvetica", "B", 22)
+    pdf.set_text_color(*ALKIRA_INK)
+    pdf.cell(0, 10, _safe_text(company) or "Untitled Brief", new_x="LMARGIN", new_y="NEXT")
+
+    pdf.ln(1)
+    pdf.set_x(12.7)
+    pdf.set_font("Helvetica", "", 10)
+    pdf.set_text_color(*ALKIRA_MUTED)
+    cleaned = (header_pills or "").replace("**", "").strip()
+    if cleaned:
+        pdf.multi_cell(0, 5, _safe_text(cleaned))
+    pdf.ln(3)
+
+
 # ── Public API (placeholder body — fleshed out in later tasks) ──
 
 def generate_brief_pdf(
@@ -165,9 +189,12 @@ def generate_brief_pdf(
     pdf = _BriefPDF(generated_at=when)
     pdf.add_page()
 
-    # Placeholder body — fleshed out in tasks 7-13.
-    pdf.set_font("Helvetica", "B", 22)
-    pdf.set_text_color(*ALKIRA_INK)
-    pdf.cell(0, 10, _safe_text(company), new_x="LMARGIN", new_y="NEXT")
+    # Parse header (uses app.py parsers — imported lazily to avoid circular deps)
+    from app import extract_company_header
+    company_name, stats_line = extract_company_header(brief_md)
+    if not company_name:
+        company_name = company
+
+    _draw_hero(pdf, company_name, stats_line)
 
     return bytes(pdf.output())
