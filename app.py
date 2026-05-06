@@ -1629,8 +1629,36 @@ def render_brief_bento(
 
 
 def _render_download_pdf_button(brief_md: str, company: str, score: int) -> None:
-    """Stub — wired in next task."""
-    pass
+    """Render the Download PDF button. Generates the PDF on-demand."""
+    from datetime import datetime
+    try:
+        from pdf import generate_brief_pdf, build_filename
+    except Exception as exc:
+        st.warning(f"PDF generation unavailable: {exc}")
+        return
+
+    now = datetime.now()
+    period = now.strftime("%Y-%m")
+    filename = build_filename(company or "Brief", period)
+
+    # Cache PDF bytes per company in session state to avoid regenerating on every rerun
+    cache_key = f"_pdf_bytes_{company}"
+    if cache_key not in st.session_state:
+        try:
+            pdf_bytes = generate_brief_pdf(brief_md, company, score, now)
+            st.session_state[cache_key] = pdf_bytes
+        except Exception as exc:
+            st.warning(f"PDF generation failed: {exc}")
+            return
+
+    st.download_button(
+        label="↓ Download PDF",
+        data=st.session_state[cache_key],
+        file_name=filename,
+        mime="application/pdf",
+        use_container_width=True,
+        key=f"download_pdf_{company}",
+    )
 
 
 # Keep render_brief_display as an alias for backwards compatibility
