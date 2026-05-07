@@ -217,6 +217,9 @@ def _draw_score_tile(
 
     fpdf2 has no gradient primitive — we use a solid Alkira blue fill,
     which reads as a clean print equivalent of the web gradient.
+
+    Rationale font is 8pt with 3.5mm line height; truncation is calculated
+    from the actual tile height so text never overflows the blue fill.
     """
     # Tile background
     pdf.set_fill_color(*ALKIRA_BLUE)
@@ -234,26 +237,28 @@ def _draw_score_tile(
     pdf.cell(w - 8, 14, str(max(1, min(5, score))))
 
     # Stars (filled + empty) — _safe_text converts ★→* and ☆→-
-    filled = "★" * max(0, min(5, score))
-    empty = "☆" * max(0, 5 - max(0, min(5, score)))
+    clamped = max(1, min(5, score))
+    filled = "*" * clamped
+    empty = "-" * (5 - clamped)
     pdf.set_xy(x + 4, y + 26)
     pdf.set_font("Helvetica", "", 11)
-    pdf.cell(w - 8, 5, _safe_text(filled + empty))
+    pdf.cell(w - 8, 5, filled + empty)
 
-    # Rationale
-    pdf.set_xy(x + 4, y + 33)
-    pdf.set_font("Helvetica", "", 9)
-    pdf.set_text_color(*ALKIRA_WHITE)
-    text_w = w - 8
-    text_h = h - 36
-    # Score tile is 60mm tall with rationale starting at y+33mm,
-    # leaving ~27mm = ~6 lines at 4mm line height. Strip markdown first
-    # (so **bold** doesn't show literally), then cap at ~300 chars to keep
-    # body inside the tile boundary (480 was overflowing into Signals).
+    # Rationale — truncate aggressively to fit. Tile height h, rationale starts
+    # at y+33, line height 3.5mm at 8pt. Available = (h-36)/3.5 lines.
+    # In a tile ~58mm wide with 4mm padding each side ~= 50mm usable, ~30
+    # chars/line at 8pt Helvetica.
+    available_lines = max(1, int((h - 36) / 3.5))
+    chars_per_line = 30
+    max_chars = available_lines * chars_per_line
     text = _strip_md((rationale or "").strip())
-    if len(text) > 300:
-        text = text[:297].rstrip() + "..."
-    pdf.multi_cell(text_w, 4, _safe_text(text))
+    if len(text) > max_chars:
+        text = text[: max_chars - 3].rstrip() + "..."
+
+    pdf.set_xy(x + 4, y + 33)
+    pdf.set_font("Helvetica", "", 8)
+    pdf.set_text_color(*ALKIRA_WHITE)
+    pdf.multi_cell(w - 8, 3.5, _safe_text(text))
 
 
 # ── Infrastructure 2x2 grid ─────────────────────────────────────
@@ -270,6 +275,9 @@ def _draw_infra_grid(
     """Draw the 2x2 infrastructure cell grid.
 
     `cells` keys: cloud_platforms, on_prem, deployment, complexity.
+
+    Body text is truncated based on the actual cell dimensions so long
+    Resulting Complexity / Cloud Platforms strings never spill into Signals.
     """
     half_w = w / 2
     half_h = h / 2
@@ -280,6 +288,15 @@ def _draw_infra_grid(
         ("RESULTING COMPLEXITY", cells.get("complexity", ""), x + half_w, y + half_h),
     ]
     pad = 3.0
+
+    # Body starts at cell_y + pad + 4.5 (after label) and ends at cell_y + half_h - pad.
+    # Available height = half_h - 2*pad - 4.5. Line height = 3.6mm at 8pt.
+    # Approx 35 chars/line in (half_w - 6mm) at 8pt Helvetica.
+    available_h = half_h - 2 * pad - 4.5
+    available_lines = max(1, int(available_h / 3.6))
+    cell_chars_per_line = 35
+    max_chars = available_lines * cell_chars_per_line
+
     for label, body, cx, cy in items:
         # Cell border
         pdf.set_draw_color(*ALKIRA_BORDER)
@@ -293,11 +310,15 @@ def _draw_infra_grid(
         pdf.set_text_color(*ALKIRA_BLUE)
         pdf.cell(half_w - 2 * pad, 3.5, label)
 
-        # Body
+        # Body — truncate to fit
+        text = _strip_md((body or "—").strip())
+        if len(text) > max_chars:
+            text = text[: max_chars - 3].rstrip() + "..."
+
         pdf.set_xy(cx + pad, cy + pad + 4.5)
         pdf.set_font("Helvetica", "", 8)
         pdf.set_text_color(*ALKIRA_INK)
-        pdf.multi_cell(half_w - 2 * pad, 3.6, _safe_text(_strip_md((body or "—").strip()[:360])))
+        pdf.multi_cell(half_w - 2 * pad, 3.6, _safe_text(text))
 
 
 # ── Signals & References tiles ──────────────────────────────────
@@ -363,7 +384,12 @@ def _draw_references(pdf: _BriefPDF, refs_md: str) -> None:
 
 
 def _draw_entry_points(pdf: _BriefPDF, points: list[dict]) -> None:
-    """Draw the 3 entry-point tiles in a row, each with orange top stripe."""
+    """Draw the 3 entry-point tiles in a row, each with orange top stripe.
+
+    Body text is rendered as a single combined paragraph rather than
+    Signal/Solution/Proof sub-labels. This is more reliable across brief
+    formats — if labeled fields are empty we fall back to the raw body.
+    """
     if not points:
         return
 
@@ -379,7 +405,16 @@ def _draw_entry_points(pdf: _BriefPDF, points: list[dict]) -> None:
     content_w = 190.5
     gap = 3.0
     tile_w = (content_w - 2 * gap) / 3
-    tile_h = 75
+    tile_h = 95  # was 75 — more room for combined body content
+    pad = 3.5
+
+    # Calculate max chars per tile body. Heading takes ~10mm, label ~5mm,
+    # leaving ~80mm for body. Line height 3.5mm, ~38 chars/line at 8pt
+    # in (tile_w - 7mm) ~= 56mm.
+    body_h = tile_h - 25
+    available_lines = max(1, int(body_h / 3.5))
+    tile_chars_per_line = 38
+    max_chars = available_lines * tile_chars_per_line
 
     for i, point in enumerate(points[:3]):
         cx = x + i * (tile_w + gap)
@@ -389,11 +424,10 @@ def _draw_entry_points(pdf: _BriefPDF, points: list[dict]) -> None:
         pdf.set_fill_color(*ALKIRA_WHITE)
         pdf.rect(cx, y, tile_w, tile_h, style="DF")
 
-        # Orange top stripe (3pt)
+        # Orange top stripe
         pdf.set_fill_color(*ALKIRA_ORANGE)
         pdf.rect(cx, y, tile_w, 1.2, style="F")
 
-        pad = 3.0
         # Label
         pdf.set_xy(cx + pad, y + 3)
         pdf.set_font("Helvetica", "B", 7)
@@ -404,39 +438,36 @@ def _draw_entry_points(pdf: _BriefPDF, points: list[dict]) -> None:
         pdf.set_xy(cx + pad, y + 7.5)
         pdf.set_font("Helvetica", "B", 10)
         pdf.set_text_color(*ALKIRA_INK)
-        pdf.multi_cell(tile_w - 2 * pad, 4.5, _safe_text(_strip_md(point.get("heading", "")))[:80])
+        heading = _strip_md(point.get("heading", ""))[:80]
+        pdf.multi_cell(tile_w - 2 * pad, 4.5, _safe_text(heading))
 
-        # Body — Signal / Solution / Proof.
-        # If the agent emitted labeled fields we render the 3 sub-rows; if it
-        # emitted a single paragraph (the parser stashes it in `signal` and
-        # leaves solution+proof empty) we render that as a single body block
-        # without the SIGNAL/SOLUTION/PROOF chrome.
-        cy = pdf.get_y() + 1
-        has_solution = bool((point.get("solution") or "").strip())
-        has_proof = bool((point.get("proof") or "").strip())
+        # Body — combine all available content into a single paragraph.
+        # Try labeled fields first; if all are empty, fall back to raw body.
+        signal = (point.get("signal") or "").strip()
+        solution = (point.get("solution") or "").strip()
+        proof = (point.get("proof") or "").strip()
+        body_raw = (point.get("body") or "").strip()
 
-        if has_solution or has_proof:
-            for label_key, body_key in [("Signal", "signal"), ("Solution", "solution"), ("Proof", "proof")]:
-                body_text = (point.get(body_key) or "").strip()
-                if not body_text:
-                    continue
-                pdf.set_xy(cx + pad, cy)
-                pdf.set_font("Helvetica", "B", 7)
-                pdf.set_text_color(*ALKIRA_BLUE)
-                pdf.cell(tile_w - 2 * pad, 3.2, label_key.upper())
-                cy = pdf.get_y() + 3.5
-                pdf.set_xy(cx + pad, cy)
-                pdf.set_font("Helvetica", "", 8)
-                pdf.set_text_color(*ALKIRA_INK)
-                pdf.multi_cell(tile_w - 2 * pad, 3.6, _safe_text(_strip_md(body_text))[:240])
-                cy = pdf.get_y() + 1
+        if solution or proof:
+            # Combine into one paragraph (no Signal/Solution/Proof chrome
+            # for a compact, readable look)
+            parts = [p for p in [signal, solution, proof] if p]
+            body_text = " ".join(parts)
+        elif signal:
+            body_text = signal
         else:
-            body_text = (point.get("signal") or "").strip()
-            if body_text:
-                pdf.set_xy(cx + pad, cy)
-                pdf.set_font("Helvetica", "", 8)
-                pdf.set_text_color(*ALKIRA_INK)
-                pdf.multi_cell(tile_w - 2 * pad, 3.6, _safe_text(_strip_md(body_text))[:480])
+            body_text = body_raw
+
+        body_text = _strip_md(body_text)
+        if len(body_text) > max_chars:
+            body_text = body_text[: max_chars - 3].rstrip() + "..."
+
+        if body_text:
+            cy = pdf.get_y() + 1
+            pdf.set_xy(cx + pad, cy)
+            pdf.set_font("Helvetica", "", 8)
+            pdf.set_text_color(*ALKIRA_INK)
+            pdf.multi_cell(tile_w - 2 * pad, 3.5, _safe_text(body_text))
 
     # Move below the row
     pdf.set_y(y + tile_h + 4)
@@ -446,49 +477,76 @@ def _draw_entry_points(pdf: _BriefPDF, points: list[dict]) -> None:
 
 
 def _draw_conversation_starters(pdf: _BriefPDF, starters_md: str) -> None:
-    """Draw the dark-navy Conversation Starters tile."""
+    """Draw the dark-navy Conversation Starters tile.
+
+    Rather than a fixed-height tile that drops content, we pre-measure the
+    cleaned line list, size the navy fill to that, and only fall back to a
+    "[continued in full brief]" hint when remaining page space won't fit it.
+    """
     if not starters_md.strip():
         return
 
     x = 12.7
-    y = pdf.get_y()
     w = 190.5
-
-    # Body height — let fpdf2 auto-page-break if it overflows
-    body_h = 75
-
-    pdf.set_fill_color(*ALKIRA_NAVY)
-    pdf.rect(x, y, w, body_h, style="F")
-
     pad = 5.0
+
+    # Clean lines up-front (strip markdown, normalize bullets) so we can
+    # size the tile to the real content count, not the raw markdown.
+    lines: list[str] = []
+    for raw in starters_md.splitlines():
+        line = raw.strip()
+        if not line:
+            continue
+        line = re.sub(r"^[-*]\s+", "- ", line)  # normalize bullets to ASCII
+        line = _strip_md(line)
+        if line:
+            lines.append(line)
+
+    if not lines:
+        return
+
+    # Estimate required height: 4mm label + 6mm gap + ~4.5mm per visual line.
+    # Long lines wrap — approx 95 chars/line at 9pt Helvetica in (w - 10mm) tile.
+    chars_per_visual_line = 95
+    visual_lines = sum(max(1, (len(ln) + chars_per_visual_line - 1) // chars_per_visual_line) for ln in lines)
+    estimated_h = 10 + visual_lines * 4.5 + 4  # +4mm padding tail
+
+    # Cap at remaining page space so we don't overflow into the footer
+    page_remaining = pdf.h - pdf.get_y() - 30  # 30mm = footer + bottom margin
+    actual_h = min(estimated_h, max(40, page_remaining))
+
+    y = pdf.get_y()
+
+    # Navy fill sized to actual content height
+    pdf.set_fill_color(*ALKIRA_NAVY)
+    pdf.rect(x, y, w, actual_h, style="F")
+
+    # Label
     pdf.set_xy(x + pad, y + pad)
     pdf.set_font("Helvetica", "B", 8)
     pdf.set_text_color(*ALKIRA_ORANGE)
     pdf.cell(0, 4, "CONVERSATION STARTERS", new_x="LMARGIN", new_y="NEXT")
 
-    # Body — render the markdown as plain text, line by line.
-    pdf.set_x(x + pad)
-    pdf.set_font("Helvetica", "", 9)
-    pdf.set_text_color(*ALKIRA_WHITE)
-
-    lines = [ln for ln in starters_md.splitlines() if ln.strip()]
+    # Body lines
     cy = y + pad + 6
-    for raw in lines:
-        line = raw.strip()
-        # Strip simple markdown (covers **bold**, *italic*, [link](url), `code`, ---)
-        line = _strip_md(line)
-        line = re.sub(r"^[-*]\s+", "• ", line)
-        if not line:
-            continue
+    line_height = 4.0
 
-        if cy > y + body_h - 6:
-            break  # exhausted; defensive cap
+    for line in lines:
+        if cy > y + actual_h - 6:
+            # Out of room — append a hint that content continues
+            pdf.set_xy(x + pad, y + actual_h - 5)
+            pdf.set_font("Helvetica", "", 8)
+            pdf.set_text_color(*ALKIRA_ORANGE)
+            pdf.cell(0, 3, "[continued in full brief]")
+            break
 
         pdf.set_xy(x + pad, cy)
-        pdf.multi_cell(w - 2 * pad, 4, _safe_text(line))
+        pdf.set_font("Helvetica", "", 9)
+        pdf.set_text_color(*ALKIRA_WHITE)
+        pdf.multi_cell(w - 2 * pad, line_height, _safe_text(line))
         cy = pdf.get_y() + 0.5
 
-    pdf.set_y(y + body_h + 4)
+    pdf.set_y(y + actual_h + 4)
 
 
 # ── Public API (placeholder body — fleshed out in later tasks) ──
@@ -521,7 +579,7 @@ def generate_brief_pdf(
     # Layout constants (page is 215.9mm wide, 12.7mm margins → 190.5mm content)
     content_w = 190.5
     score_w = content_w * 0.34
-    score_h = 60
+    score_h = 95  # was 60 — gives both the score rationale AND infra cells room to breathe
     score_x = 12.7
     score_y = pdf.get_y()
 

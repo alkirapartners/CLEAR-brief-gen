@@ -207,6 +207,7 @@ class EntryPoint(TypedDict):
     signal: str
     solution: str
     proof: str
+    body: str  # raw cleaned body text — always populated for fallback rendering
 
 
 def _label_pattern(label: str) -> re.Pattern[str]:
@@ -254,17 +255,22 @@ def extract_entry_points(brief: str) -> list[EntryPoint]:
         solution = _grab(body, "solution")
         proof = _grab(body, "proof")
 
+        # Always preserve a cleaned raw body as a fallback for the renderer.
+        # Strip leading numbered-sentence markers (``1. ``) so prose reads
+        # cleanly as a single paragraph if the renderer has to fall back.
+        cleaned_body = body.strip()
+        cleaned_body = re.sub(r"^(\d+\.\s+)", "", cleaned_body, flags=re.MULTILINE)
+
         # Fallback: agent sometimes emits a 3-sentence paragraph WITHOUT
         # Signal/Solution/Proof labels. Stash the whole body in `signal` so
-        # the renderer can show it as a single paragraph.
+        # legacy callers still see content there.
         if not (signal or solution or proof):
-            stripped_body = body.strip()
-            stripped_body = re.sub(r"^(\d+\.\s+)", "", stripped_body, flags=re.MULTILINE)
             points.append(EntryPoint(
                 heading=heading,
-                signal=stripped_body,
+                signal=cleaned_body,
                 solution="",
                 proof="",
+                body=cleaned_body,
             ))
         else:
             points.append(EntryPoint(
@@ -272,6 +278,7 @@ def extract_entry_points(brief: str) -> list[EntryPoint]:
                 signal=signal,
                 solution=solution,
                 proof=proof,
+                body=cleaned_body,
             ))
 
     return points[:3]
