@@ -250,12 +250,29 @@ def extract_entry_points(brief: str) -> list[EntryPoint]:
         heading = parts[i].strip()
         body = parts[i + 1] if i + 1 < len(parts) else ""
 
-        points.append(EntryPoint(
-            heading=heading,
-            signal=_grab(body, "signal"),
-            solution=_grab(body, "solution"),
-            proof=_grab(body, "proof"),
-        ))
+        signal = _grab(body, "signal")
+        solution = _grab(body, "solution")
+        proof = _grab(body, "proof")
+
+        # Fallback: agent sometimes emits a 3-sentence paragraph WITHOUT
+        # Signal/Solution/Proof labels. Stash the whole body in `signal` so
+        # the renderer can show it as a single paragraph.
+        if not (signal or solution or proof):
+            stripped_body = body.strip()
+            stripped_body = re.sub(r"^(\d+\.\s+)", "", stripped_body, flags=re.MULTILINE)
+            points.append(EntryPoint(
+                heading=heading,
+                signal=stripped_body,
+                solution="",
+                proof="",
+            ))
+        else:
+            points.append(EntryPoint(
+                heading=heading,
+                signal=signal,
+                solution=solution,
+                proof=proof,
+            ))
 
     return points[:3]
 
@@ -643,22 +660,21 @@ CUSTOM_CSS = """
         box-shadow: 0 4px 12px rgba(45,88,242,0.25);
     }
 
-    /* ── Buttons (non-form) ───────────────────────── */
+    /* ── Buttons (non-form) — pill format, branded blue ──
+       Sidebar has its own override (higher specificity) so its tile look stays. */
     .stButton > button {
-        background: #1a3a6b !important;
-        color: white !important;
+        background: var(--alkira-blue) !important;
+        color: #fff !important;
         border: none !important;
-        padding: 0.6rem 1.6rem !important;
-        font-size: 0.82rem !important;
-        font-weight: 700 !important;
-        border-radius: 9px !important;
-        width: 100% !important;
-        transition: all 0.15s ease;
-        letter-spacing: 0.01em;
+        border-radius: 9999px !important;
+        padding: 0.55rem 1.4rem !important;
+        font-weight: 600 !important;
+        font-size: 13px !important;
+        transition: transform 100ms ease, box-shadow 100ms ease;
     }
     .stButton > button:hover {
-        background: #244d8a !important;
-        box-shadow: 0 3px 10px rgba(26,58,107,0.25);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(45,88,242,0.25);
     }
     /* Hide "Press Enter to submit form" hint */
     .stForm [data-testid="InputInstructions"] {
@@ -1276,9 +1292,8 @@ CUSTOM_CSS = """
         color: #94a3b8;
         margin: 0;
     }
-    /* Dashboard open buttons — attached to card bottom */
+    /* Dashboard open buttons — keep pill shape, just add spacing under card */
     [data-testid="stMainBlockContainer"] .stColumn .stButton > button {
-        border-radius: 10px !important;
         margin-top: 6px;
     }
 
@@ -1343,6 +1358,27 @@ CUSTOM_CSS = """
 
 </style>
 """
+
+
+# ── Logo helper ──────────────────────────────────────────────────
+
+def _render_logo(svg: str) -> str:
+    """Inject CSS into an SVG so it renders at the wrapper's height and tints white.
+
+    Strips the intrinsic ``width``/``height`` attributes from the ``<svg>`` tag
+    so they don't override the wrapper's CSS height, then injects inline styles
+    that fill the wrapper and apply the brightness/invert filter to tint white.
+    The filter must live INSIDE the SVG tag (not on the wrapper div) so it
+    only affects the SVG, not anything else nested within the wrapper.
+    """
+    svg = re.sub(r'\swidth="[^"]*"', '', svg, count=1)
+    svg = re.sub(r'\sheight="[^"]*"', '', svg, count=1)
+    svg = svg.replace(
+        '<svg ',
+        '<svg style="height:100%;width:auto;display:block;filter:brightness(0) invert(1);" ',
+        1,
+    )
+    return svg
 
 
 # ── Step tracker ─────────────────────────────────────────────────
@@ -1823,7 +1859,7 @@ def main() -> None:
     st.markdown(
         f'<div class="hero">'
         f'<div class="hero-top" style="margin-bottom:1rem">'
-        f'<div style="height:32px;display:inline-block;filter:brightness(0) invert(1)">{logo_svg}</div>'
+        f'<div style="height:32px;display:inline-block">{_render_logo(logo_svg)}</div>'
         f'</div>'
         f'<h1 style="color:#fff;font-size:32px;margin:0 0 4px;font-weight:700">Alkira Brief Generator</h1>'
         f'<p style="color:rgba(255,255,255,0.85);margin:0;font-size:14px">'

@@ -76,6 +76,31 @@ def _safe_text(s: str) -> str:
         return s.encode("latin-1", errors="replace").decode("latin-1")
 
 
+def _strip_md(s: str) -> str:
+    r"""Strip basic inline markdown so PDF body text doesn't show literal markers.
+
+    Handles ``**bold**``, ``__bold__``, ``*italic*``, ``_italic_``, ``\`code\```,
+    and ``[text](url)`` (keeping just the link text). Also drops standalone
+    horizontal rules (``---`` or ``***``) on their own lines, since the PDF
+    has no equivalent visual primitive.
+    """
+    if not s:
+        return ""
+    # Strip **bold** and __bold__ -> bold
+    s = re.sub(r"\*\*(.+?)\*\*", r"\1", s)
+    s = re.sub(r"__(.+?)__", r"\1", s)
+    # Strip *italic* and _italic_ -> italic (but not bare * that was used for bullets)
+    s = re.sub(r"(?<!\*)\*([^*\n]+?)\*(?!\*)", r"\1", s)
+    s = re.sub(r"(?<!_)_([^_\n]+?)_(?!_)", r"\1", s)
+    # Strip `code` -> code
+    s = re.sub(r"`([^`]+?)`", r"\1", s)
+    # Strip [text](url) -> text  (the body doesn't render hyperlinks)
+    s = re.sub(r"\[([^\]]+?)\]\([^)]+?\)", r"\1", s)
+    # Strip standalone horizontal rules (--- or ***) on their own lines
+    s = re.sub(r"^\s*[-*]{3,}\s*$", "", s, flags=re.MULTILINE)
+    return s
+
+
 # ── Filename helper ──────────────────────────────────────────────
 
 _FILENAME_MAX = 40
@@ -172,7 +197,7 @@ def _draw_hero(pdf: _BriefPDF, company: str, header_pills: str) -> None:
     pdf.set_text_color(*ALKIRA_MUTED)
     cleaned = (header_pills or "").replace("**", "").strip()
     if cleaned:
-        pdf.multi_cell(0, 5, _safe_text(cleaned))
+        pdf.multi_cell(0, 5, _safe_text(_strip_md(cleaned)))
     pdf.ln(3)
 
 
@@ -221,8 +246,14 @@ def _draw_score_tile(
     pdf.set_text_color(*ALKIRA_WHITE)
     text_w = w - 8
     text_h = h - 36
-    # Use multi_cell for wrapped rationale; fpdf2 will clip to height.
-    pdf.multi_cell(text_w, 4, _safe_text((rationale or "").strip()[:480]))
+    # Score tile is 60mm tall with rationale starting at y+33mm,
+    # leaving ~27mm = ~6 lines at 4mm line height. Strip markdown first
+    # (so **bold** doesn't show literally), then cap at ~300 chars to keep
+    # body inside the tile boundary (480 was overflowing into Signals).
+    text = _strip_md((rationale or "").strip())
+    if len(text) > 300:
+        text = text[:297].rstrip() + "..."
+    pdf.multi_cell(text_w, 4, _safe_text(text))
 
 
 # ── Infrastructure 2x2 grid ─────────────────────────────────────
@@ -266,7 +297,7 @@ def _draw_infra_grid(
         pdf.set_xy(cx + pad, cy + pad + 4.5)
         pdf.set_font("Helvetica", "", 8)
         pdf.set_text_color(*ALKIRA_INK)
-        pdf.multi_cell(half_w - 2 * pad, 3.6, _safe_text((body or "—").strip()[:360]))
+        pdf.multi_cell(half_w - 2 * pad, 3.6, _safe_text(_strip_md((body or "—").strip()[:360])))
 
 
 # ── Signals & References tiles ──────────────────────────────────
@@ -293,6 +324,9 @@ def _draw_signals(pdf: _BriefPDF, signals_md: str) -> None:
         if not line:
             continue
         line = re.sub(r"^[-*]\s+", "", line)
+        line = _strip_md(line)
+        if not line:
+            continue  # skip lines that became empty after stripping (e.g., ---)
         pdf.set_x(15)
         pdf.cell(3, 4.5, "-")
         pdf.multi_cell(w - 5, 4.5, _safe_text(line))
@@ -315,6 +349,9 @@ def _draw_references(pdf: _BriefPDF, refs_md: str) -> None:
     pdf.set_text_color(*ALKIRA_INK)
     for raw in refs_md.splitlines():
         line = raw.strip()
+        if not line:
+            continue
+        line = _strip_md(line)
         if not line:
             continue
         # Lines look like "[1] Description -- https://..."
@@ -367,21 +404,39 @@ def _draw_entry_points(pdf: _BriefPDF, points: list[dict]) -> None:
         pdf.set_xy(cx + pad, y + 7.5)
         pdf.set_font("Helvetica", "B", 10)
         pdf.set_text_color(*ALKIRA_INK)
-        pdf.multi_cell(tile_w - 2 * pad, 4.5, _safe_text(point.get("heading", ""))[:80])
+        pdf.multi_cell(tile_w - 2 * pad, 4.5, _safe_text(_strip_md(point.get("heading", "")))[:80])
 
-        # Body — Signal / Solution / Proof
+        # Body — Signal / Solution / Proof.
+        # If the agent emitted labeled fields we render the 3 sub-rows; if it
+        # emitted a single paragraph (the parser stashes it in `signal` and
+        # leaves solution+proof empty) we render that as a single body block
+        # without the SIGNAL/SOLUTION/PROOF chrome.
         cy = pdf.get_y() + 1
-        for label_key, body_key in [("Signal", "signal"), ("Solution", "solution"), ("Proof", "proof")]:
-            pdf.set_xy(cx + pad, cy)
-            pdf.set_font("Helvetica", "B", 7)
-            pdf.set_text_color(*ALKIRA_BLUE)
-            pdf.cell(tile_w - 2 * pad, 3.2, label_key.upper())
-            cy = pdf.get_y() + 3.5
-            pdf.set_xy(cx + pad, cy)
-            pdf.set_font("Helvetica", "", 8)
-            pdf.set_text_color(*ALKIRA_INK)
-            pdf.multi_cell(tile_w - 2 * pad, 3.6, _safe_text(point.get(body_key, "—"))[:240])
-            cy = pdf.get_y() + 1
+        has_solution = bool((point.get("solution") or "").strip())
+        has_proof = bool((point.get("proof") or "").strip())
+
+        if has_solution or has_proof:
+            for label_key, body_key in [("Signal", "signal"), ("Solution", "solution"), ("Proof", "proof")]:
+                body_text = (point.get(body_key) or "").strip()
+                if not body_text:
+                    continue
+                pdf.set_xy(cx + pad, cy)
+                pdf.set_font("Helvetica", "B", 7)
+                pdf.set_text_color(*ALKIRA_BLUE)
+                pdf.cell(tile_w - 2 * pad, 3.2, label_key.upper())
+                cy = pdf.get_y() + 3.5
+                pdf.set_xy(cx + pad, cy)
+                pdf.set_font("Helvetica", "", 8)
+                pdf.set_text_color(*ALKIRA_INK)
+                pdf.multi_cell(tile_w - 2 * pad, 3.6, _safe_text(_strip_md(body_text))[:240])
+                cy = pdf.get_y() + 1
+        else:
+            body_text = (point.get("signal") or "").strip()
+            if body_text:
+                pdf.set_xy(cx + pad, cy)
+                pdf.set_font("Helvetica", "", 8)
+                pdf.set_text_color(*ALKIRA_INK)
+                pdf.multi_cell(tile_w - 2 * pad, 3.6, _safe_text(_strip_md(body_text))[:480])
 
     # Move below the row
     pdf.set_y(y + tile_h + 4)
@@ -420,9 +475,11 @@ def _draw_conversation_starters(pdf: _BriefPDF, starters_md: str) -> None:
     cy = y + pad + 6
     for raw in lines:
         line = raw.strip()
-        # Strip simple markdown
-        line = re.sub(r"\*\*(.+?)\*\*", r"\1", line)
+        # Strip simple markdown (covers **bold**, *italic*, [link](url), `code`, ---)
+        line = _strip_md(line)
         line = re.sub(r"^[-*]\s+", "• ", line)
+        if not line:
+            continue
 
         if cy > y + body_h - 6:
             break  # exhausted; defensive cap
