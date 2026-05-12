@@ -121,7 +121,7 @@ function showForm() {
       const d = await r.json();
       if (r.status === 403) {
         msg.className = 'msg error';
-        msg.textContent = 'Your email domain is not authorized. Contact your Alkira rep.';
+        msg.textContent = 'Your email domain is not authorized. Contact your Alkira representative.';
         btn.disabled = false;
       } else if (r.ok) {
         msg.className = 'msg ok';
