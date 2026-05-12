@@ -1440,44 +1440,6 @@ def render_step_tracker(current_phase: str) -> str:
 
 # ── Welcome Screen ───────────────────────────────────────────────
 
-def _show_welcome() -> None:
-    """Show email entry screen. Blocks the rest of the app via st.stop()."""
-    _, center, _ = st.columns([1, 2, 1])
-    with center:
-        st.markdown(
-            '<div class="welcome-card">'
-            '<div class="welcome-icon">&#9670;</div>'
-            '<p class="welcome-title">Alkira Brief Generator</p>'
-            '<p class="welcome-sub">Enter your email to get started. '
-            "Your briefs will be saved to your account.</p>"
-            "</div>",
-            unsafe_allow_html=True,
-        )
-
-        with st.form("welcome_form", border=False):
-            email = st.text_input(
-                "Email",
-                placeholder="you@company.com",
-                label_visibility="collapsed",
-            )
-            submitted = st.form_submit_button("Continue", use_container_width=True)
-
-        if submitted:
-            email = email.strip()
-            if email and "@" in email and "." in email.split("@")[-1]:
-                st.session_state["user_email"] = email.lower()
-                st.rerun()
-            else:
-                st.error("Enter a valid email address.")
-
-        st.markdown(
-            """<div style="text-align:center;margin-top:16px">
-            <a href="/auth.html" style="font-size:13px;color:#0D2F5E;font-weight:600;text-decoration:none">
-            Sign in with Magic Link &rarr;</a></div>""",
-            unsafe_allow_html=True,
-        )
-
-    st.stop()
 
 
 def _ensure_briefs_loaded() -> None:
@@ -1806,13 +1768,21 @@ def main() -> None:
 
     # ── Auth gate ────────────────────────────────────────────
     if not st.session_state.get("user_email"):
-        # Auto-fill email from magic-link auth redirect (?auth_email=...)
-        auth_email = st.query_params.get("auth_email", "").strip()
+        # 1. Header injected by nginx on every authenticated request (survives refresh)
+        try:
+            auth_email = st.context.headers.get("x-auth-email", "").strip()
+        except Exception:
+            auth_email = ""
+        # 2. Query param set on first load after magic link redirect
+        if not auth_email:
+            auth_email = st.query_params.get("auth_email", "").strip()
         if auth_email and "@" in auth_email and "." in auth_email.split("@")[-1]:
             st.session_state["user_email"] = auth_email.lower()
         else:
-            _show_welcome()
-            return  # st.stop() already called inside _show_welcome
+            import streamlit.components.v1 as _c
+            _c.html("<script>parent.location.replace('/auth.html');</script>", height=0)
+            st.stop()
+            return
 
     # ── Load briefs from DB ──────────────────────────────────
     _ensure_briefs_loaded()
