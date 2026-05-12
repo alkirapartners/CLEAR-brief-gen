@@ -163,6 +163,15 @@ http.createServer(async (req, res) => {
       return res.end();
     }
 
+    // ── GET /api/auth/signout — clears session and redirects to auth page ─
+    if (req.method === 'GET' && p === '/api/auth/signout') {
+      const sid = parseCookies(req)['briefgen_session'];
+      if (sid) sessions.delete(sid);
+      clearCookie(res);
+      res.writeHead(302, { Location: '/auth.html' });
+      return res.end();
+    }
+
     // ── GET /api/auth/session ───────────────────────────────────────────
     if (req.method === 'GET' && p === '/api/auth/session') {
       const s = getSession(req);

@@ -1835,15 +1835,12 @@ def main() -> None:
 
         # Sign out
         st.markdown("---")
-        if st.button("Sign out", use_container_width=True, key="signout"):
-            for key in ["user_email", "brief_history", "_briefs_loaded"]:
-                st.session_state.pop(key, None)
-            import streamlit.components.v1 as _c
-            _c.html("""<script>
-fetch('/api/auth/logout',{method:'POST',credentials:'same-origin'})
-  .finally(()=>parent.location.replace('/auth.html'));
-</script>""", height=0)
-            st.stop()
+        st.markdown(
+            '<a href="/api/auth/signout" style="display:block;text-align:center;'
+            'padding:6px 14px;border:1px solid rgba(49,51,63,.2);border-radius:6px;'
+            'color:#31333f;text-decoration:none;font-size:14px;">Sign out</a>',
+            unsafe_allow_html=True,
+        )
 
     # ── Hero ─────────────────────────────────────────────────
     try:
