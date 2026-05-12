@@ -2015,6 +2015,10 @@ def main() -> None:
                     icon="&#9888;",
                 )
 
+            # Rerun so the sidebar refreshes and shows the new brief
+            st.session_state["viewing_brief"] = 0
+            st.rerun()
+
         except TimeoutError:
             tracker_ph.empty()
             st.error("Timed out after 5 minutes. Try again.")
