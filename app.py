@@ -1838,7 +1838,12 @@ def main() -> None:
         if st.button("Sign out", use_container_width=True, key="signout"):
             for key in ["user_email", "brief_history", "_briefs_loaded"]:
                 st.session_state.pop(key, None)
-            st.rerun()
+            import streamlit.components.v1 as _c
+            _c.html("""<script>
+fetch('/api/auth/logout',{method:'POST',credentials:'same-origin'})
+  .finally(()=>parent.location.replace('/auth.html'));
+</script>""", height=0)
+            st.stop()
 
     # ── Hero ─────────────────────────────────────────────────
     try:
