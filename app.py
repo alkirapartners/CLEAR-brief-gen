@@ -19,6 +19,7 @@ from typing import TypedDict
 import streamlit as st
 from anthropic import Anthropic
 from dotenv import load_dotenv
+from PIL import Image
 
 import db
 
@@ -1786,8 +1787,10 @@ render_brief_display = render_brief_bento
 # ── Streamlit UI ─────────────────────────────────────────────────
 
 def main() -> None:
+    _favicon = Image.open(os.path.join(os.path.dirname(__file__), "favicon.png"))
     st.set_page_config(
         page_title="Alkira Brief Generator",
+        page_icon=_favicon,
         layout="centered",
         initial_sidebar_state="expanded",
     )
