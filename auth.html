@@ -40,6 +40,12 @@ input:focus { border-color: #0D2F5E; box-shadow: 0 0 0 3px rgba(13,47,94,.1); }
 .msg { font-size: 13px; color: #6b7280; margin-top: 14px; min-height: 20px; line-height: 1.5; }
 .msg.error { color: #DC2626; }
 .msg.ok    { color: #059669; }
+.warning {
+  font-size: 11px;
+  color: #9CA3AF;
+  margin-top: 20px;
+  line-height: 1.5;
+}
 .admin-link {
   display: inline-block;
   margin-top: 24px;
@@ -92,6 +98,7 @@ function showForm() {
     <input id="email" type="email" placeholder="you@company.com" autocomplete="email">
     <button class="btn" id="btn">Send Sign-In Link</button>
     <div class="msg" id="msg"></div>
+    <div class="warning">This system is for authorized users only. Unauthorized access or use is strictly prohibited.</div>
     <a href="/auth.html?next=admin" class="admin-link">Admin sign in →</a>
   `;
 
