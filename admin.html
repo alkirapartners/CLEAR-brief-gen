@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Alkira | Brief Generator | Admin</title>
+<link rel="icon" type="image/png" href="/favicon.png"/>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Inter', sans-serif; background: #F4F7FB; min-height: 100vh; color: #1A2B40; }
+
+.topbar { background: #0D2F5E; height: 60px; display: flex; align-items: center; justify-content: space-between; padding: 0 28px; }
+.topbar-brand { display: flex; align-items: center; gap: 14px; }
+.topbar-brand img { height: 28px; }
+.topbar-title { color: rgba(255,255,255,.55); font-size: 13px; font-weight: 600; border-left: 1px solid rgba(255,255,255,.2); padding-left: 14px; margin-left: 4px; }
+.topbar-user { font-size: 13px; color: rgba(255,255,255,.7); display: flex; align-items: center; gap: 12px; }
+.logout-btn { background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.2); color: rgba(255,255,255,.8); padding: 5px 14px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; transition: background .15s; text-decoration: none; display: inline-block; }
+.logout-btn:hover { background: rgba(255,255,255,.18); }
+.cyan-bar { height: 3px; background: linear-gradient(90deg, #00B4E5, #0096C7); }
+
+.page { max-width: 720px; margin: 0 auto; padding: 36px 24px 60px; }
+.page-title { font-size: 22px; font-weight: 700; color: #0D2F5E; margin-bottom: 6px; }
+.page-sub   { font-size: 14px; color: #6b7280; margin-bottom: 32px; }
+
+.card { background: #fff; border-radius: 12px; border: 1px solid #D8E4F0; box-shadow: 0 2px 8px rgba(13,47,94,.08); margin-bottom: 20px; overflow: hidden; }
+.card-head { background: #F0F5FB; border-bottom: 1px solid #D8E4F0; padding: 14px 20px; }
+.card-title { font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #0D2F5E; }
+.card-body  { padding: 20px; }
+
+.tag-list { display: flex; flex-wrap: wrap; gap: 8px; min-height: 36px; align-items: center; margin-bottom: 16px; }
+.tag { display: inline-flex; align-items: center; gap: 6px; background: #EFF6FF; border: 1px solid #BFDBFE; color: #1D4ED8; border-radius: 20px; padding: 4px 10px 4px 14px; font-size: 13px; font-weight: 500; }
+.tag-remove { background: none; border: none; color: #93C5FD; cursor: pointer; font-size: 16px; line-height: 1; padding: 0; transition: color .15s; display: flex; align-items: center; }
+.tag-remove:hover { color: #DC2626; }
+.tag-empty { font-size: 13px; color: #9CA3AF; font-style: italic; }
+
+.add-row { display: flex; gap: 8px; }
+.add-row input { flex: 1; padding: 8px 12px; border: 1px solid #D1D5DB; border-radius: 8px; font-size: 14px; font-family: inherit; outline: none; transition: border .15s; }
+.add-row input:focus { border-color: #2563EB; box-shadow: 0 0 0 3px rgba(37,99,235,.1); }
+.add-btn { background: #0D2F5E; color: #fff; border: none; padding: 8px 18px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; transition: background .15s; }
+.add-btn:hover { background: #164b8a; }
+.add-btn:disabled { opacity: .5; cursor: default; }
+
+.notice { padding: 12px 16px; border-radius: 8px; font-size: 13px; margin-bottom: 16px; display: none; }
+.notice.info  { background: #EFF6FF; border: 1px solid #BFDBFE; color: #1D4ED8; }
+.notice.error { background: #FEF2F2; border: 1px solid #FECACA; color: #DC2626; }
+.notice.ok    { background: #ECFDF5; border: 1px solid #A7F3D0; color: #065F46; }
+
+#auth-screen { display: flex; min-height: 100vh; align-items: center; justify-content: center; background: #F4F7FB; padding: 24px; }
+.auth-card { background: #fff; border-radius: 16px; box-shadow: 0 4px 24px rgba(13,47,94,.12); padding: 48px 40px; width: 100%; max-width: 400px; text-align: center; }
+.auth-logo { height: 36px; width: auto; margin-bottom: 28px; }
+.auth-title { font-size: 20px; font-weight: 700; color: #111827; margin-bottom: 8px; }
+.auth-sub   { font-size: 14px; color: #6b7280; line-height: 1.6; margin-bottom: 28px; }
+.auth-input { width: 100%; padding: 11px 14px; border: 1px solid #D1D5DB; border-radius: 8px; font-size: 15px; font-family: inherit; outline: none; margin-bottom: 12px; transition: border .15s; }
+.auth-input:focus { border-color: #0D2F5E; box-shadow: 0 0 0 3px rgba(13,47,94,.1); }
+.auth-btn { width: 100%; padding: 12px; background: #0D2F5E; color: #fff; border: none; border-radius: 8px; font-size: 15px; font-weight: 700; cursor: pointer; transition: background .15s; }
+.auth-btn:hover { background: #164b8a; }
+.auth-btn:disabled { opacity: .5; cursor: default; }
+.auth-msg { font-size: 13px; color: #6b7280; margin-top: 14px; min-height: 20px; }
+.auth-msg.error { color: #DC2626; }
+.auth-msg.ok    { color: #059669; }
+
+#app-screen { display: none; }
+</style>
+</head>
+<body>
+
+<!-- Auth screen -->
+<div id="auth-screen">
+  <div class="auth-card">
+    <img src="/Alkira-Logo-Registered-Color.png" class="auth-logo" alt="Alkira">
+    <div class="auth-title">Admin Sign In</div>
+    <div class="auth-sub" id="auth-sub">Enter your admin email to receive a sign-in link.</div>
+    <input id="auth-email" class="auth-input" type="email" placeholder="you@alkira.com" autocomplete="email">
+    <button id="auth-btn" class="auth-btn">Send Sign-In Link</button>
+    <div id="auth-msg" class="auth-msg"></div>
+  </div>
+</div>
+
+<!-- App screen -->
+<div id="app-screen">
+  <div class="topbar">
+    <div class="topbar-brand">
+      <img src="/Alkira-Logo-Registered-White.png" alt="Alkira">
+      <span class="topbar-title">Brief Generator — Admin</span>
+    </div>
+    <div class="topbar-user">
+      <span id="user-email"></span>
+      <a href="/" class="logout-btn">← App</a>
+      <button class="logout-btn" id="logout-btn">Sign out</button>
+    </div>
+  </div>
+  <div class="cyan-bar"></div>
+
+  <div class="page">
+    <div class="page-title">Admin Panel</div>
+    <div class="page-sub">Manage access to the Alkira Brief Generator.</div>
+
+    <!-- Trusted Domains -->
+    <div class="card">
+      <div class="card-head">
+        <span class="card-title">Trusted Domains</span>
+      </div>
+      <div class="card-body">
+        <p style="font-size:13px;color:#6b7280;margin-bottom:14px">Users with an email from a trusted domain can request access via magic link.</p>
+        <div id="domains-notice" class="notice"></div>
+        <div id="domains-list" class="tag-list"></div>
+        <div class="add-row">
+          <input id="domain-input" type="text" placeholder="e.g. partnercompany.com">
+          <button id="domain-add-btn" class="add-btn">Add Domain</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Admin Users -->
+    <div class="card">
+      <div class="card-head">
+        <span class="card-title">Admin Users</span>
+      </div>
+      <div class="card-body">
+        <p style="font-size:13px;color:#6b7280;margin-bottom:14px">Admins can sign in to this panel and manage domains and other admins.</p>
+        <div id="admins-notice" class="notice"></div>
+        <div id="admins-list" class="tag-list"></div>
+        <div class="add-row">
+          <input id="admin-input" type="email" placeholder="admin@alkira.com">
+          <button id="admin-add-btn" class="add-btn">Add Admin</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+let currentUser = null;
+
+// ── Boot ──────────────────────────────────────────────────────────────────────
+async function boot() {
+  try {
+    const r = await fetch('/api/auth/session', { cache: 'no-store', credentials: 'same-origin' });
+    if (r.ok) {
+      const d = await r.json();
+      if (d.ok && d.role === 'admin') {
+        currentUser = d;
+        enterApp();
+        return;
+      }
+    }
+  } catch(e) { /* no session */ }
+
+  // Check first-run
+  const ar = await fetch('/api/admins', { cache: 'no-store' });
+  const ad = await ar.json();
+  if (ad.firstRun) {
+    $('auth-sub').textContent = 'No admins yet. Enter your email to become the first admin.';
+  }
+  $('auth-screen').style.display = 'flex';
+}
+
+// ── Auth ──────────────────────────────────────────────────────────────────────
+$('auth-btn').addEventListener('click', async () => {
+  const email = $('auth-email').value.trim();
+  if (!email) return;
+  $('auth-btn').disabled = true;
+  $('auth-msg').className = 'auth-msg';
+  $('auth-msg').textContent = 'Sending…';
+  try {
+    const r = await fetch('/api/auth/request', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ email, context: 'admin' }),
+    });
+    if (r.ok) {
+      $('auth-msg').className = 'auth-msg ok';
+      $('auth-msg').textContent = 'If you are an admin, you will receive a sign-in link.';
+    } else {
+      throw new Error();
+    }
+  } catch(e) {
+    $('auth-msg').className = 'auth-msg error';
+    $('auth-msg').textContent = 'Something went wrong. Please try again.';
+    $('auth-btn').disabled = false;
+  }
+});
+
+$('auth-email').addEventListener('keydown', e => { if (e.key === 'Enter') $('auth-btn').click(); });
+
+// ── App ───────────────────────────────────────────────────────────────────────
+function enterApp() {
+  $('auth-screen').style.display = 'none';
+  $('app-screen').style.display = 'block';
+  $('user-email').textContent = currentUser.email;
+  loadDomains();
+  loadAdmins();
+}
+
+$('logout-btn').addEventListener('click', async () => {
+  await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' });
+  location.reload();
+});
+
+// ── Domains ───────────────────────────────────────────────────────────────────
+async function loadDomains() {
+  const r = await fetch('/api/domains', { cache: 'no-store', credentials: 'same-origin' });
+  const d = await r.json();
+  renderTags('domains-list', d.domains || [], removeDomain);
+}
+
+async function removeDomain(domain) {
+  await apiFetch('/api/domains', { remove: domain });
+  await loadDomains();
+}
+
+$('domain-add-btn').addEventListener('click', async () => {
+  const val = $('domain-input').value.trim().replace(/^@/, '');
+  if (!val) return;
+  showNotice('domains-notice', '');
+  const r = await apiFetch('/api/domains', { add: val });
+  if (r.ok) {
+    $('domain-input').value = '';
+    await loadDomains();
+  } else {
+    showNotice('domains-notice', r.error || 'Error adding domain', 'error');
+  }
+});
+
+$('domain-input').addEventListener('keydown', e => { if (e.key === 'Enter') $('domain-add-btn').click(); });
+
+// ── Admins ────────────────────────────────────────────────────────────────────
+async function loadAdmins() {
+  const r = await fetch('/api/admins', { cache: 'no-store', credentials: 'same-origin' });
+  const d = await r.json();
+  renderTags('admins-list', d.admins || [], removeAdmin);
+}
+
+async function removeAdmin(email) {
+  if (email === currentUser.email) {
+    showNotice('admins-notice', 'You cannot remove yourself.', 'error');
+    return;
+  }
+  await apiFetch('/api/admins', { remove: email });
+  await loadAdmins();
+}
+
+$('admin-add-btn').addEventListener('click', async () => {
+  const val = $('admin-input').value.trim();
+  if (!val) return;
+  showNotice('admins-notice', '');
+  const r = await apiFetch('/api/admins', { add: val });
+  if (r.ok) {
+    $('admin-input').value = '';
+    await loadAdmins();
+  } else {
+    showNotice('admins-notice', r.error || 'Error adding admin', 'error');
+  }
+});
+
+$('admin-input').addEventListener('keydown', e => { if (e.key === 'Enter') $('admin-add-btn').click(); });
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function renderTags(listId, items, onRemove) {
+  const el = $(listId);
+  if (!items.length) { el.innerHTML = '<span class="tag-empty">None added yet.</span>'; return; }
+  el.innerHTML = items.map(item => `
+    <span class="tag">${item}
+      <button class="tag-remove" title="Remove" data-val="${item}">×</button>
+    </span>`).join('');
+  el.querySelectorAll('.tag-remove').forEach(btn => {
+    btn.addEventListener('click', () => onRemove(btn.dataset.val));
+  });
+}
+
+async function apiFetch(url, body) {
+  const r = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'same-origin',
+    body: JSON.stringify(body),
+  });
+  return { ok: r.ok, ...(await r.json()) };
+}
+
+function showNotice(id, msg, type = 'info') {
+  const el = $(id);
+  el.textContent = msg;
+  el.className = 'notice' + (msg ? ' ' + type : '');
+  el.style.display = msg ? 'block' : 'none';
+}
+
+boot();
+</script>
+</body>
+</html>

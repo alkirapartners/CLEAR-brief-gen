@@ -1470,6 +1470,13 @@ def _show_welcome() -> None:
             else:
                 st.error("Enter a valid email address.")
 
+        st.markdown(
+            """<div style="text-align:center;margin-top:16px">
+            <a href="/auth.html" style="font-size:13px;color:#0D2F5E;font-weight:600;text-decoration:none">
+            Sign in with Magic Link &rarr;</a></div>""",
+            unsafe_allow_html=True,
+        )
+
     st.stop()
 
 
@@ -1799,8 +1806,13 @@ def main() -> None:
 
     # ── Auth gate ────────────────────────────────────────────
     if not st.session_state.get("user_email"):
-        _show_welcome()
-        return  # st.stop() already called inside _show_welcome
+        # Auto-fill email from magic-link auth redirect (?auth_email=...)
+        auth_email = st.query_params.get("auth_email", "").strip()
+        if auth_email and "@" in auth_email and "." in auth_email.split("@")[-1]:
+            st.session_state["user_email"] = auth_email.lower()
+        else:
+            _show_welcome()
+            return  # st.stop() already called inside _show_welcome
 
     # ── Load briefs from DB ──────────────────────────────────
     _ensure_briefs_loaded()

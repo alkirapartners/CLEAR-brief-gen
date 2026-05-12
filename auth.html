@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Sign In — Alkira Brief Generator</title>
+<link rel="icon" type="image/png" href="/favicon.png"/>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Inter', sans-serif; background: #F4F7FB; min-height: 100vh;
+       display: flex; align-items: center; justify-content: center; padding: 24px; }
+
+.card {
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 4px 24px rgba(13,47,94,.12);
+  padding: 48px 40px;
+  width: 100%;
+  max-width: 400px;
+  text-align: center;
+}
+.logo { height: 36px; width: auto; margin-bottom: 28px; }
+.title { font-size: 20px; font-weight: 700; color: #0D1B35; margin-bottom: 8px; }
+.sub   { font-size: 14px; color: #6b7280; line-height: 1.6; margin-bottom: 28px; }
+input  {
+  width: 100%; padding: 11px 14px; border: 1px solid #D1D5DB; border-radius: 8px;
+  font-size: 15px; font-family: inherit; outline: none; margin-bottom: 12px; transition: border .15s;
+}
+input:focus { border-color: #0D2F5E; box-shadow: 0 0 0 3px rgba(13,47,94,.1); }
+.btn {
+  width: 100%; padding: 12px; background: #0D2F5E; color: #fff; border: none;
+  border-radius: 8px; font-size: 15px; font-weight: 700; cursor: pointer;
+  transition: background .15s;
+}
+.btn:hover   { background: #164b8a; }
+.btn:disabled { opacity: .5; cursor: default; }
+.msg { font-size: 13px; color: #6b7280; margin-top: 14px; min-height: 20px; line-height: 1.5; }
+.msg.error { color: #DC2626; }
+.msg.ok    { color: #059669; }
+.admin-link {
+  display: inline-block;
+  margin-top: 24px;
+  font-size: 12px;
+  color: #9CA3AF;
+  text-decoration: none;
+  transition: color .15s;
+}
+.admin-link:hover { color: #0D2F5E; }
+.checking { color: #6b7280; font-size: 14px; }
+</style>
+</head>
+<body>
+<div class="card" id="card">
+  <div id="checking" class="checking">Checking session…</div>
+</div>
+
+<script>
+const params = new URLSearchParams(location.search);
+const errorParam = params.get('error');
+
+async function boot() {
+  // Check for existing session
+  try {
+    const r = await fetch('/api/auth/session', { cache: 'no-store', credentials: 'same-origin' });
+    if (r.ok) {
+      const d = await r.json();
+      if (d.ok && d.email) {
+        // Valid session — send to app with email pre-filled
+        const dest = d.role === 'admin' && params.get('next') === 'admin'
+          ? '/admin.html'
+          : '/?auth_email=' + encodeURIComponent(d.email);
+        location.replace(dest);
+        return;
+      }
+    }
+  } catch(e) { /* no session */ }
+
+  // Show auth form
+  showForm();
+}
+
+function showForm() {
+  const expired = errorParam === 'expired';
+  document.getElementById('card').innerHTML = `
+    <img src="/Alkira-Logo-Registered-Color.png" class="logo" alt="Alkira">
+    <div class="title">Alkira Brief Generator</div>
+    <div class="sub">Enter your work email to receive a sign-in link.</div>
+    ${expired ? '<div class="msg error" style="margin-bottom:12px">Your sign-in link has expired. Please request a new one.</div>' : ''}
+    <input id="email" type="email" placeholder="you@company.com" autocomplete="email">
+    <button class="btn" id="btn">Send Sign-In Link</button>
+    <div class="msg" id="msg"></div>
+    <a href="/auth.html?next=admin" class="admin-link">Admin sign in →</a>
+  `;
+
+  const emailEl = document.getElementById('email');
+  const btn     = document.getElementById('btn');
+  const msg     = document.getElementById('msg');
+  const isAdmin = params.get('next') === 'admin';
+
+  if (isAdmin) {
+    document.querySelector('.sub').textContent = 'Enter your admin email to sign in.';
+    document.querySelector('.admin-link').style.display = 'none';
+  }
+
+  async function submit() {
+    const email = emailEl.value.trim();
+    if (!email) return;
+    btn.disabled = true;
+    msg.className = 'msg';
+    msg.textContent = 'Sending…';
+    try {
+      const r = await fetch('/api/auth/request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ email, context: isAdmin ? 'admin' : 'user' }),
+      });
+      const d = await r.json();
+      if (r.status === 403) {
+        msg.className = 'msg error';
+        msg.textContent = 'Your email domain is not authorized. Contact your Alkira rep.';
+        btn.disabled = false;
+      } else if (r.ok) {
+        msg.className = 'msg ok';
+        msg.textContent = 'Check your email — a sign-in link is on its way.';
+      } else {
+        throw new Error('error');
+      }
+    } catch(e) {
+      msg.className = 'msg error';
+      msg.textContent = 'Something went wrong. Please try again.';
+      btn.disabled = false;
+    }
+  }
+
+  btn.addEventListener('click', submit);
+  emailEl.addEventListener('keydown', e => { if (e.key === 'Enter') submit(); });
+  emailEl.focus();
+}
+
+boot();
+</script>
+</body>
+</html>

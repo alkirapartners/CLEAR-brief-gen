@@ -1,0 +1,9 @@
+{
+  "name": "briefgen-proxy",
+  "version": "1.0.0",
+  "description": "Auth proxy for Alkira Brief Generator",
+  "main": "briefgen-proxy.js",
+  "dependencies": {
+    "@aws-sdk/client-ses": "^3.1045.0"
+  }
+}
