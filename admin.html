@@ -176,7 +176,7 @@ $('auth-btn').addEventListener('click', async () => {
     });
     if (r.ok) {
       $('auth-msg').className = 'auth-msg ok';
-      $('auth-msg').textContent = 'If you are an admin, you will receive a sign-in link.';
+      $('auth-msg').textContent = 'If this email belongs to an admin, a sign-in link is on its way.';
     } else {
       throw new Error();
     }
