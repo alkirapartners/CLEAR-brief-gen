@@ -1788,7 +1788,6 @@ render_brief_display = render_brief_bento
 def main() -> None:
     st.set_page_config(
         page_title="Alkira Brief Generator",
-        page_icon="https://resources.partners.alkira.cc/favicon.png",
         layout="centered",
         initial_sidebar_state="expanded",
     )
