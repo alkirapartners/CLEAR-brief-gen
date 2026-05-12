@@ -132,7 +132,9 @@ function showForm() {
         btn.disabled = false;
       } else if (r.ok) {
         msg.className = 'msg ok';
-        msg.textContent = 'Check your email — a sign-in link is on its way.';
+        msg.textContent = isAdmin
+          ? 'If this email belongs to an admin, a sign-in link is on its way.'
+          : 'Check your email — a sign-in link is on its way.';
       } else {
         throw new Error('error');
       }
