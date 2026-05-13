@@ -564,6 +564,19 @@ CUSTOM_CSS = """
         background: #f4f6f9;
     }
     .stDeployButton, #MainMenu, footer { display: none !important; }
+    /* Delete button in sidebar — compact, muted */
+    [data-testid="stSidebar"] [data-testid="stButton"]:has(button[title^="Delete"]) button {
+        padding: 2px 6px !important;
+        font-size: 13px !important;
+        background: transparent !important;
+        border: none !important;
+        color: #9CA3AF !important;
+        box-shadow: none !important;
+    }
+    [data-testid="stSidebar"] [data-testid="stButton"]:has(button[title^="Delete"]) button:hover {
+        color: #DC2626 !important;
+        background: transparent !important;
+    }
     [data-testid="stSidebar"] {
         min-width: 260px !important;
         max-width: 260px !important;
@@ -1759,6 +1772,35 @@ def _render_download_pdf_button(brief_md: str, company: str, score: int) -> None
 render_brief_display = render_brief_bento
 
 
+@st.dialog("Delete Brief")
+def _confirm_delete_dialog(idx: int) -> None:
+    """Modal confirmation dialog for deleting a brief."""
+    entry = st.session_state.brief_history[idx]
+    st.markdown(
+        f"Delete the brief for **{entry['company']}**? This cannot be undone.",
+    )
+    st.write("")
+    col_del, col_cancel = st.columns(2)
+    with col_del:
+        if st.button("Delete", type="primary", use_container_width=True):
+            # Remove from DB if it was persisted
+            brief_id = entry.get("id")
+            if brief_id:
+                db.delete_brief(brief_id)
+            # Remove from session state
+            st.session_state.brief_history.pop(idx)
+            # Adjust viewing pointer
+            vb = st.session_state.get("viewing_brief")
+            if vb == idx:
+                st.session_state["viewing_brief"] = None
+            elif vb is not None and vb > idx:
+                st.session_state["viewing_brief"] = vb - 1
+            st.rerun()
+    with col_cancel:
+        if st.button("Cancel", use_container_width=True):
+            st.rerun()
+
+
 # ── Streamlit UI ─────────────────────────────────────────────────
 
 def main() -> None:
@@ -1831,13 +1873,22 @@ def main() -> None:
                 is_active = st.session_state.get("viewing_brief") == i
                 prefix = "\u25B8 " if is_active else ""
                 label = f"{prefix}{entry['company']}  {star_str}"
-                if st.button(
-                    label,
-                    key=f"view_{i}",
-                    use_container_width=True,
-                ):
-                    st.session_state["viewing_brief"] = i
-                    st.rerun()
+                col_btn, col_del = st.columns([5, 1])
+                with col_btn:
+                    if st.button(
+                        label,
+                        key=f"view_{i}",
+                        use_container_width=True,
+                    ):
+                        st.session_state["viewing_brief"] = i
+                        st.rerun()
+                with col_del:
+                    if st.button(
+                        "\uD83D\uDDD1",
+                        key=f"del_{i}",
+                        help=f"Delete {entry['company']} brief",
+                    ):
+                        _confirm_delete_dialog(i)
 
         # Sign out
         st.markdown("---")
