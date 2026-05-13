@@ -252,4 +252,33 @@ http.createServer(async (req, res) => {
   }
 }).listen(PORT, '127.0.0.1', () => {
   console.log(`Brief Generator auth proxy on port ${PORT}`);
+  syncAdminsFromIntranet();
 });
+
+function syncAdminsFromIntranet() {
+  http.get('http://127.0.0.1:3457/api/internal/team-emails', res => {
+    let body = '';
+    res.on('data', c => body += c);
+    res.on('end', () => {
+      try {
+        const { emails } = JSON.parse(body);
+        if (!Array.isArray(emails)) return;
+        const current = readJson('admins.json', []);
+        const merged  = [...current];
+        let added = 0;
+        for (const e of emails) {
+          const norm = e.toLowerCase().trim();
+          if (norm && !merged.includes(norm)) { merged.push(norm); added++; }
+        }
+        if (added > 0) {
+          writeJson('admins.json', merged);
+          console.log(`[sync] Added ${added} admin(s) from intranet team`);
+        }
+      } catch(e) {
+        console.error('[sync] Failed to parse team-emails response:', e.message);
+      }
+    });
+  }).on('error', e => console.error('[sync] Could not reach intranet proxy:', e.message));
+}
+
+setInterval(syncAdminsFromIntranet, 60 * 60 * 1000);
