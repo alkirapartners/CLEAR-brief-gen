@@ -129,6 +129,10 @@ body { font-family: 'Inter', sans-serif; background: #F4F7FB; min-height: 100vh;
           <input id="admin-input" type="email" placeholder="admin@alkira.com">
           <button id="admin-add-btn" class="add-btn">Add Admin</button>
         </div>
+        <div style="margin-top:10px;display:flex;align-items:center;gap:10px">
+          <button id="sync-btn" class="add-btn" style="background:#6b7280">Sync Now</button>
+          <span id="sync-status" style="font-size:12px;color:#6b7280"></span>
+        </div>
       </div>
     </div>
   </div>
@@ -261,6 +265,26 @@ $('admin-add-btn').addEventListener('click', async () => {
 });
 
 $('admin-input').addEventListener('keydown', e => { if (e.key === 'Enter') $('admin-add-btn').click(); });
+
+$('sync-btn').addEventListener('click', async () => {
+  const btn = $('sync-btn'), status = $('sync-status');
+  btn.disabled = true; btn.textContent = 'Syncing…'; status.textContent = '';
+  try {
+    const r = await fetch('/api/admins/sync', { method: 'POST' });
+    const d = await r.json();
+    if (r.ok) {
+      status.style.color = '#16a34a';
+      status.textContent = `Synced — ${d.team} from team, ${d.manual} manual (${d.total} total)`;
+      await loadAdmins();
+    } else {
+      status.style.color = '#dc2626';
+      status.textContent = d.error || 'Sync failed';
+    }
+  } catch(e) {
+    status.style.color = '#dc2626'; status.textContent = 'Network error';
+  }
+  btn.disabled = false; btn.textContent = 'Sync Now';
+});
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function renderTags(listId, items, onRemove) {

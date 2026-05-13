@@ -245,6 +245,18 @@ http.createServer(async (req, res) => {
       return json(res, 200, { domains: list });
     }
 
+    // ── POST /api/admins/sync ───────────────────────────────────────────
+    if (req.method === 'POST' && p === '/api/admins/sync') {
+      const s = getSession(req);
+      if (!s || s.role !== 'admin') return json(res, 401, { error: 'Unauthorized' });
+      try {
+        const result = await syncAdminsFromIntranet();
+        return json(res, 200, result);
+      } catch(e) {
+        return json(res, 502, { error: e.message });
+      }
+    }
+
     json(res, 404, { error: 'Not found' });
   } catch(e) {
     console.error(`[${new Date().toISOString()}]`, e.message);
@@ -256,25 +268,29 @@ http.createServer(async (req, res) => {
 });
 
 function syncAdminsFromIntranet() {
-  http.get('http://127.0.0.1:3457/api/internal/team-emails', res => {
-    let body = '';
-    res.on('data', c => body += c);
-    res.on('end', () => {
-      try {
-        const { emails } = JSON.parse(body);
-        if (!Array.isArray(emails)) return;
-        const newTeam    = emails.map(e => e.toLowerCase().trim()).filter(Boolean);
-        const prevSynced = readJson('team-synced-admins.json', []);
-        const manual     = readJson('admins.json', []).filter(e => !prevSynced.includes(e));
-        const merged     = [...new Set([...manual, ...newTeam])];
-        writeJson('admins.json', merged);
-        writeJson('team-synced-admins.json', newTeam);
-        console.log(`[sync] Team admins updated (${newTeam.length} team, ${manual.length} manual)`);
-      } catch(e) {
-        console.error('[sync] Failed to parse team-emails response:', e.message);
-      }
-    });
-  }).on('error', e => console.error('[sync] Could not reach intranet proxy:', e.message));
+  return new Promise((resolve, reject) => {
+    http.get('http://127.0.0.1:3457/api/internal/team-emails', res => {
+      let body = '';
+      res.on('data', c => body += c);
+      res.on('end', () => {
+        try {
+          const { emails } = JSON.parse(body);
+          if (!Array.isArray(emails)) return reject(new Error('Invalid response from intranet'));
+          const newTeam    = emails.map(e => e.toLowerCase().trim()).filter(Boolean);
+          const prevSynced = readJson('team-synced-admins.json', []);
+          const manual     = readJson('admins.json', []).filter(e => !prevSynced.includes(e));
+          const merged     = [...new Set([...manual, ...newTeam])];
+          writeJson('admins.json', merged);
+          writeJson('team-synced-admins.json', newTeam);
+          console.log(`[sync] Team admins updated (${newTeam.length} team, ${manual.length} manual)`);
+          resolve({ team: newTeam.length, manual: manual.length, total: merged.length });
+        } catch(e) {
+          console.error('[sync] Failed:', e.message);
+          reject(e);
+        }
+      });
+    }).on('error', e => { console.error('[sync] Could not reach intranet proxy:', e.message); reject(e); });
+  });
 }
 
 setInterval(syncAdminsFromIntranet, 60 * 60 * 1000);
