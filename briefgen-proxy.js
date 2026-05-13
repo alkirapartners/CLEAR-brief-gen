@@ -175,7 +175,7 @@ http.createServer(async (req, res) => {
     // ── GET /api/auth/session ───────────────────────────────────────────
     if (req.method === 'GET' && p === '/api/auth/session') {
       const s = getSession(req);
-      if (!s) return json(res, 401, { error: 'Unauthorized' });
+      if (!s) return json(res, 200, { ok: false });
       return json(res, 200, { ok: true, email: s.email, role: s.role });
     }
 
