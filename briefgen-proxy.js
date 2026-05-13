@@ -206,20 +206,9 @@ http.createServer(async (req, res) => {
       }
       const { add, remove } = await readBody(req);
       let list = [...admins];
-      let newAdmin = null;
-      if (add) {
-        const e = add.toLowerCase().trim();
-        if (!list.includes(e)) { list.push(e); newAdmin = e; }
-      }
+      if (add)    { const e = add.toLowerCase().trim(); if (!list.includes(e)) list.push(e); }
       if (remove) { list = list.filter(x => x !== remove.toLowerCase().trim()); }
       writeJson('admins.json', list);
-      if (newAdmin) {
-        const token = mkRandom();
-        tokens.set(token, { email: newAdmin, role: 'admin', expires: Date.now() + 15 * 60 * 1000 });
-        setTimeout(() => tokens.delete(token), 15 * 60 * 1000);
-        const link = `${SITE}/api/auth/verify?token=${token}&to=${encodeURIComponent('/admin.html')}`;
-        await sendMagicLink(newAdmin, link, true).catch(e => console.error('Failed to email new admin:', e));
-      }
       return json(res, 200, { admins: list });
     }
 
