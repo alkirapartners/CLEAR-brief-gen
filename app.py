@@ -564,18 +564,16 @@ CUSTOM_CSS = """
         background: #f4f6f9;
     }
     .stDeployButton, #MainMenu, footer { display: none !important; }
-    /* Delete brief button at bottom of sidebar */
-    .sb-delete-btn button {
-        background: transparent !important;
-        border: 1px solid #FECACA !important;
+    /* Delete Brief button — red background */
+    .delete-brief-btn button {
+        background: #DC2626 !important;
+        color: #fff !important;
+        border: none !important;
         box-shadow: none !important;
-        color: #DC2626 !important;
-        font-size: 12px !important;
-        font-weight: 500 !important;
+        font-weight: 600 !important;
     }
-    .sb-delete-btn button:hover {
-        background: #FEF2F2 !important;
-        border-color: #DC2626 !important;
+    .delete-brief-btn button:hover {
+        background: #B91C1C !important;
     }
     [data-testid="stSidebar"] {
         min-width: 260px !important;
@@ -1607,6 +1605,7 @@ def render_brief_bento(
     brief_md: str,
     meta_right: str = "",
     show_update: bool = False,
+    brief_idx: int | None = None,
 ) -> None:
     """Render a brief as a bento tile layout."""
     score, reasoning = extract_score(brief_md)
@@ -1633,14 +1632,21 @@ def render_brief_bento(
     )
     st.markdown(hero_html, unsafe_allow_html=True)
 
-    # Download PDF button (wired in next task)
+    # Download PDF button
     _render_download_pdf_button(brief_md, company or "Brief", score)
 
-    # Update button stays as-is for re-research
+    # Update button
     if show_update and company:
         if st.button("Update Brief", key="update_brief", use_container_width=True):
             st.session_state["_update_company"] = company
             st.rerun()
+
+    # Delete button
+    if brief_idx is not None:
+        st.markdown('<div class="delete-brief-btn">', unsafe_allow_html=True)
+        if st.button("Delete Brief", key="delete_brief_main", use_container_width=True):
+            _confirm_delete_dialog(brief_idx)
+        st.markdown('</div>', unsafe_allow_html=True)
 
     # Score tile + infra grid (1/3 + 2/3)
     cells = extract_infra_cells(brief_md)
@@ -1881,16 +1887,6 @@ def main() -> None:
                     st.session_state["viewing_brief"] = i
                     st.rerun()
 
-        # Delete current brief
-        vb = st.session_state.get("viewing_brief")
-        if vb is not None and 0 <= vb < len(st.session_state.brief_history):
-            active_company = st.session_state.brief_history[vb].get("company", "this brief")
-            st.markdown("---")
-            st.markdown('<div class="sb-delete-btn">', unsafe_allow_html=True)
-            if st.button(f"Delete \"{active_company}\" brief", use_container_width=True, key="del_active"):
-                _confirm_delete_dialog(vb)
-            st.markdown('</div>', unsafe_allow_html=True)
-
         # Sign out
         st.markdown("---")
         st.markdown(
@@ -2097,6 +2093,7 @@ def main() -> None:
                     brief_md,
                     meta_right=entry.get("time", ""),
                     show_update=True,
+                    brief_idx=idx,
                 )
 
     # ── Home: dashboard cards or empty state ─────────────────
