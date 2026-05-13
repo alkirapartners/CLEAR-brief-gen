@@ -1648,16 +1648,12 @@ def render_brief_bento(
             st.session_state["_update_company"] = company
             st.rerun()
 
-    # Delete button — rendered as a styled HTML link that sets a query param,
-    # triggering a rerun where we detect it and open the confirmation dialog.
+    # Delete button — red HTML link; click sets ?_del=N which main() detects
     if brief_idx is not None:
         st.markdown(
             f'<a class="delete-brief-link" href="?_del={brief_idx}">Delete Brief</a>',
             unsafe_allow_html=True,
         )
-        if st.query_params.get("_del") == str(brief_idx):
-            st.query_params.clear()
-            _confirm_delete_dialog(brief_idx)
 
     # Score tile + infra grid (1/3 + 2/3)
     cells = extract_infra_cells(brief_md)
@@ -1812,9 +1808,11 @@ def _confirm_delete_dialog(idx: int) -> None:
                 st.session_state["viewing_brief"] = None
             elif vb is not None and vb > idx:
                 st.session_state["viewing_brief"] = vb - 1
+            st.session_state.pop("_pending_delete", None)
             st.rerun()
     with col_cancel:
         if st.button("Cancel", use_container_width=True):
+            st.session_state.pop("_pending_delete", None)
             st.rerun()
 
 
@@ -1854,6 +1852,22 @@ def main() -> None:
 
     if "brief_history" not in st.session_state:
         st.session_state.brief_history = []
+
+    # ── Delete-brief trigger (from red HTML link) ─────────────
+    # The HTML link sets ?_del=N. Detect it, store in session state,
+    # clear the param (triggers rerun), then open dialog on next render.
+    if "_del" in st.query_params:
+        try:
+            del_idx = int(st.query_params["_del"])
+            if 0 <= del_idx < len(st.session_state.brief_history):
+                st.session_state["_pending_delete"] = del_idx
+        except (ValueError, KeyError):
+            pass
+        st.query_params.clear()
+        st.rerun()
+
+    if "_pending_delete" in st.session_state:
+        _confirm_delete_dialog(st.session_state["_pending_delete"])
 
     user_email = st.session_state["user_email"]
     db_connected = db.is_available()
