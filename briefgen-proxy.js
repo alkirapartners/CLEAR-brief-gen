@@ -125,13 +125,21 @@ http.createServer(async (req, res) => {
       const admins = readJson('admins.json', []);
       const firstRun = admins.length === 0;
 
+      console.log(`[auth/request] context=${context} email=${norm} isAdmin=${admins.includes(norm)} firstRun=${firstRun}`);
+
       let role;
       if (context === 'admin') {
-        if (!firstRun && !admins.includes(norm)) return json(res, 200, { ok: true }); // silent fail
+        if (!firstRun && !admins.includes(norm)) {
+          console.log(`[auth/request] silent fail — not in admins list`);
+          return json(res, 200, { ok: true });
+        }
         role = 'admin';
       } else {
         const domains = readJson('domains.json', []);
-        if (!domains.includes(domain)) return json(res, 403, { error: 'Domain not authorized' });
+        if (!domains.includes(domain)) {
+          console.log(`[auth/request] domain not authorized: ${domain}`);
+          return json(res, 403, { error: 'Domain not authorized' });
+        }
         role = admins.includes(norm) ? 'admin' : 'user';
       }
 
@@ -141,7 +149,13 @@ http.createServer(async (req, res) => {
 
       const to   = context === 'admin' ? '/admin.html' : `/?auth_email=${encodeURIComponent(norm)}`;
       const link = `${SITE}/api/auth/verify?token=${token}&to=${encodeURIComponent(to)}`;
-      await sendMagicLink(norm, link, context === 'admin');
+      try {
+        await sendMagicLink(norm, link, context === 'admin');
+        console.log(`[auth/request] email sent to ${norm}`);
+      } catch(e) {
+        console.error(`[auth/request] SES error for ${norm}:`, e.message);
+        return json(res, 500, { error: 'Failed to send email' });
+      }
       return json(res, 200, { ok: true });
     }
 
