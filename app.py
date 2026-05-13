@@ -1130,10 +1130,10 @@ CUSTOM_CSS = """
     .sb-admin-link {
         font-size: 11px;
         color: var(--alkira-blue);
-        text-decoration: none;
+        text-decoration: none !important;
         font-weight: 600;
     }
-    .sb-admin-link:hover { text-decoration: underline; }
+    .sb-admin-link:hover { text-decoration: underline !important; }
     .sb-title {
         font-size: 10px;
         font-weight: 700;
