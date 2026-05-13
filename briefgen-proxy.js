@@ -58,7 +58,7 @@ async function sendMagicLink(to, link, isAdmin) {
   const subject = isAdmin
     ? 'Your admin sign-in link — Alkira Brief Generator'
     : 'Your access link — Alkira Brief Generator';
-  const heading = isAdmin ? 'Admin Sign In' : 'Access the Brief Generator';
+  const heading = isAdmin ? 'Admin Sign In — Alkira Brief Generator' : 'Sign In — Alkira Brief Generator';
   const btnText = isAdmin ? 'Open Admin Panel →' : 'Open Brief Generator →';
 
   await ses.send(new SendEmailCommand({
