@@ -564,18 +564,18 @@ CUSTOM_CSS = """
         background: #f4f6f9;
     }
     .stDeployButton, #MainMenu, footer { display: none !important; }
-    /* Delete button in sidebar — compact, muted */
-    [data-testid="stSidebar"] [data-testid="stButton"]:has(button[title^="Delete"]) button {
-        padding: 2px 6px !important;
-        font-size: 13px !important;
+    /* Delete brief button at bottom of sidebar */
+    .sb-delete-btn button {
         background: transparent !important;
-        border: none !important;
-        color: #9CA3AF !important;
+        border: 1px solid #FECACA !important;
         box-shadow: none !important;
-    }
-    [data-testid="stSidebar"] [data-testid="stButton"]:has(button[title^="Delete"]) button:hover {
         color: #DC2626 !important;
-        background: transparent !important;
+        font-size: 12px !important;
+        font-weight: 500 !important;
+    }
+    .sb-delete-btn button:hover {
+        background: #FEF2F2 !important;
+        border-color: #DC2626 !important;
     }
     [data-testid="stSidebar"] {
         min-width: 260px !important;
@@ -1873,22 +1873,23 @@ def main() -> None:
                 is_active = st.session_state.get("viewing_brief") == i
                 prefix = "\u25B8 " if is_active else ""
                 label = f"{prefix}{entry['company']}  {star_str}"
-                col_btn, col_del = st.columns([5, 1])
-                with col_btn:
-                    if st.button(
-                        label,
-                        key=f"view_{i}",
-                        use_container_width=True,
-                    ):
-                        st.session_state["viewing_brief"] = i
-                        st.rerun()
-                with col_del:
-                    if st.button(
-                        "\u2715",
-                        key=f"del_{i}",
-                        help=f"Delete {entry['company']} brief",
-                    ):
-                        _confirm_delete_dialog(i)
+                if st.button(
+                    label,
+                    key=f"view_{i}",
+                    use_container_width=True,
+                ):
+                    st.session_state["viewing_brief"] = i
+                    st.rerun()
+
+        # Delete current brief
+        vb = st.session_state.get("viewing_brief")
+        if vb is not None and 0 <= vb < len(st.session_state.brief_history):
+            active_company = st.session_state.brief_history[vb].get("company", "this brief")
+            st.markdown("---")
+            st.markdown('<div class="sb-delete-btn">', unsafe_allow_html=True)
+            if st.button(f"Delete \"{active_company}\" brief", use_container_width=True, key="del_active"):
+                _confirm_delete_dialog(vb)
+            st.markdown('</div>', unsafe_allow_html=True)
 
         # Sign out
         st.markdown("---")
