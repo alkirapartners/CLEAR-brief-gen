@@ -109,6 +109,7 @@ function showForm() {
   const isAdmin = params.get('next') === 'admin';
 
   if (isAdmin) {
+    document.querySelector('.title').textContent = 'Admin Sign In for Brief Generator';
     document.querySelector('.sub').textContent = 'Enter your admin email to sign in.';
     document.querySelector('.admin-link').style.display = 'none';
     document.getElementById('user-link').style.display = '';
