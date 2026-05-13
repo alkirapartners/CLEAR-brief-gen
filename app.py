@@ -564,19 +564,24 @@ CUSTOM_CSS = """
         background: #f4f6f9;
     }
     .stDeployButton, #MainMenu, footer { display: none !important; }
-    /* Delete Brief button — red background.
-       Uses a marker span + :has() since Streamlit renders each widget
-       as a sibling block, not a child of the preceding markdown div. */
-    .stMarkdown:has(.delete-brief-marker) + [data-testid="stButton"] button {
-        background: #DC2626 !important;
+    /* Delete Brief — HTML anchor styled as a red button */
+    a.delete-brief-link {
+        display: block;
+        width: 100%;
+        background: #DC2626;
         color: #fff !important;
-        border: none !important;
-        box-shadow: none !important;
-        font-weight: 600 !important;
+        text-align: center;
+        padding: 8px 16px;
+        border-radius: 8px;
+        text-decoration: none !important;
+        font-weight: 600;
+        font-size: 14px;
+        box-sizing: border-box;
+        cursor: pointer;
+        margin-bottom: 8px;
+        transition: background .15s;
     }
-    .stMarkdown:has(.delete-brief-marker) + [data-testid="stButton"] button:hover {
-        background: #B91C1C !important;
-    }
+    a.delete-brief-link:hover { background: #B91C1C; }
     [data-testid="stSidebar"] {
         min-width: 260px !important;
         max-width: 260px !important;
@@ -1643,10 +1648,15 @@ def render_brief_bento(
             st.session_state["_update_company"] = company
             st.rerun()
 
-    # Delete button
+    # Delete button — rendered as a styled HTML link that sets a query param,
+    # triggering a rerun where we detect it and open the confirmation dialog.
     if brief_idx is not None:
-        st.markdown('<span class="delete-brief-marker"></span>', unsafe_allow_html=True)
-        if st.button("Delete Brief", key="delete_brief_main", use_container_width=True):
+        st.markdown(
+            f'<a class="delete-brief-link" href="?_del={brief_idx}">Delete Brief</a>',
+            unsafe_allow_html=True,
+        )
+        if st.query_params.get("_del") == str(brief_idx):
+            st.query_params.clear()
             _confirm_delete_dialog(brief_idx)
 
     # Score tile + infra grid (1/3 + 2/3)
