@@ -564,13 +564,9 @@ CUSTOM_CSS = """
         background: #f4f6f9;
     }
     .stDeployButton, #MainMenu, footer { display: none !important; }
-    /* Lock sidebar open — hide collapse button */
-    button[data-testid="stSidebarCollapseButton"],
-    [data-testid="collapsedControl"] { display: none !important; }
     [data-testid="stSidebar"] {
         min-width: 260px !important;
         max-width: 260px !important;
-        transform: none !important;
     }
     .stSpinner, div[data-testid="stSpinner"] { display: none !important; }
 
