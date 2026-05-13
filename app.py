@@ -568,6 +568,16 @@ CUSTOM_CSS = """
         min-width: 260px !important;
         max-width: 260px !important;
     }
+    /* When collapsed: release the reserved space so main content fills full width */
+    [data-testid="stSidebar"][aria-expanded="false"] {
+        min-width: 0 !important;
+        max-width: 0 !important;
+        overflow: hidden !important;
+    }
+    /* Keep the expand arrow visible */
+    [data-testid="stSidebarCollapsedControl"] {
+        display: flex !important;
+    }
     .stSpinner, div[data-testid="stSpinner"] { display: none !important; }
 
     .block-container {
