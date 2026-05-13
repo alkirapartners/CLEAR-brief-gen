@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Sign In — Alkira Brief Generator</title>
+<title>Sign In — Alkira | Brief Generator</title>
 <link rel="icon" type="image/png" href="/favicon.png"/>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -92,7 +92,7 @@ function showForm() {
   const expired = errorParam === 'expired';
   document.getElementById('card').innerHTML = `
     <img src="/Alkira-Logo-Registered-Color.png" class="logo" alt="Alkira">
-    <div class="title">Alkira Brief Generator</div>
+    <div class="title">Alkira | Brief Generator</div>
     <div class="sub">Enter your work email to receive a sign-in link.</div>
     ${expired ? '<div class="msg error" style="margin-bottom:12px">Your sign-in link has expired. Please request a new one.</div>' : ''}
     <input id="email" type="email" placeholder="you@company.com" autocomplete="email">
