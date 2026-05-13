@@ -1884,7 +1884,7 @@ def main() -> None:
                         st.rerun()
                 with col_del:
                     if st.button(
-                        "\uD83D\uDDD1",
+                        "\u2715",
                         key=f"del_{i}",
                         help=f"Delete {entry['company']} brief",
                     ):
