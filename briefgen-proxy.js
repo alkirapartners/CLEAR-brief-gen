@@ -263,17 +263,13 @@ function syncAdminsFromIntranet() {
       try {
         const { emails } = JSON.parse(body);
         if (!Array.isArray(emails)) return;
-        const current = readJson('admins.json', []);
-        const merged  = [...current];
-        let added = 0;
-        for (const e of emails) {
-          const norm = e.toLowerCase().trim();
-          if (norm && !merged.includes(norm)) { merged.push(norm); added++; }
-        }
-        if (added > 0) {
-          writeJson('admins.json', merged);
-          console.log(`[sync] Added ${added} admin(s) from intranet team`);
-        }
+        const newTeam    = emails.map(e => e.toLowerCase().trim()).filter(Boolean);
+        const prevSynced = readJson('team-synced-admins.json', []);
+        const manual     = readJson('admins.json', []).filter(e => !prevSynced.includes(e));
+        const merged     = [...new Set([...manual, ...newTeam])];
+        writeJson('admins.json', merged);
+        writeJson('team-synced-admins.json', newTeam);
+        console.log(`[sync] Team admins updated (${newTeam.length} team, ${manual.length} manual)`);
       } catch(e) {
         console.error('[sync] Failed to parse team-emails response:', e.message);
       }
