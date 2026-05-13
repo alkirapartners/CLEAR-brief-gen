@@ -1758,7 +1758,7 @@ render_brief_display = render_brief_bento
 def main() -> None:
     _favicon = Image.open(os.path.join(os.path.dirname(__file__), "favicon.png"))
     st.set_page_config(
-        page_title="Alkira Brief Generator",
+        page_title="Alkira | Brief Generator",
         page_icon=_favicon,
         layout="centered",
         initial_sidebar_state="expanded",
