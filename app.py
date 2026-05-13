@@ -564,15 +564,17 @@ CUSTOM_CSS = """
         background: #f4f6f9;
     }
     .stDeployButton, #MainMenu, footer { display: none !important; }
-    /* Delete Brief button — red background */
-    .delete-brief-btn button {
+    /* Delete Brief button — red background.
+       Uses a marker span + :has() since Streamlit renders each widget
+       as a sibling block, not a child of the preceding markdown div. */
+    .stMarkdown:has(.delete-brief-marker) + [data-testid="stButton"] button {
         background: #DC2626 !important;
         color: #fff !important;
         border: none !important;
         box-shadow: none !important;
         font-weight: 600 !important;
     }
-    .delete-brief-btn button:hover {
+    .stMarkdown:has(.delete-brief-marker) + [data-testid="stButton"] button:hover {
         background: #B91C1C !important;
     }
     [data-testid="stSidebar"] {
@@ -1643,10 +1645,9 @@ def render_brief_bento(
 
     # Delete button
     if brief_idx is not None:
-        st.markdown('<div class="delete-brief-btn">', unsafe_allow_html=True)
+        st.markdown('<span class="delete-brief-marker"></span>', unsafe_allow_html=True)
         if st.button("Delete Brief", key="delete_brief_main", use_container_width=True):
             _confirm_delete_dialog(brief_idx)
-        st.markdown('</div>', unsafe_allow_html=True)
 
     # Score tile + infra grid (1/3 + 2/3)
     cells = extract_infra_cells(brief_md)
