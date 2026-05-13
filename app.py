@@ -1843,16 +1843,10 @@ def main() -> None:
         )
 
     # ── Hero ─────────────────────────────────────────────────
-    try:
-        with open("assets/alkira-logo.svg", "r", encoding="utf-8") as f:
-            logo_svg = f.read()
-    except FileNotFoundError:
-        logo_svg = '<span style="font-weight:800;font-size:18px;color:#fff">ALKIRA</span>'
-
     st.markdown(
         f'<div class="hero">'
         f'<div class="hero-top" style="margin-bottom:1rem">'
-        f'<div style="height:32px;display:inline-block">{_render_logo(logo_svg)}</div>'
+        f'<img src="/Alkira-Logo-Registered-White.png" style="height:32px;width:auto">'
         f'</div>'
         f'<h1 style="color:#fff;font-size:32px;margin:0 0 4px;font-weight:700">Alkira Brief Generator</h1>'
         f'<p style="color:rgba(255,255,255,0.85);margin:0;font-size:14px">'
