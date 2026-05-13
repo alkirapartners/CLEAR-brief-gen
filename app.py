@@ -1119,12 +1119,21 @@ CUSTOM_CSS = """
         align-items: center;
         justify-content: center;
         font-size: 14px;
+        flex-shrink: 0;
     }
+    .sb-user-info { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
     .sb-email {
         font-size: 12px;
         color: var(--alkira-ink);
         font-weight: 500;
     }
+    .sb-admin-link {
+        font-size: 11px;
+        color: var(--alkira-blue);
+        text-decoration: none;
+        font-weight: 600;
+    }
+    .sb-admin-link:hover { text-decoration: underline; }
     .sb-title {
         font-size: 10px;
         font-weight: 700;
@@ -1876,10 +1885,20 @@ def main() -> None:
     with st.sidebar:
         # User identity
         initial = user_email[0].upper()
+        try:
+            import json as _json
+            _admins = _json.loads(open('/var/www/briefgen/data/admins.json').read())
+            is_admin = user_email.lower() in [e.lower() for e in _admins]
+        except Exception:
+            is_admin = False
+        admin_link_html = '<a class="sb-admin-link" href="/admin.html">⚙️ Admin Portal →</a>' if is_admin else ''
         st.markdown(
             f'<div class="sb-user">'
             f'<div class="sb-avatar">{initial}</div>'
+            f'<div class="sb-user-info">'
             f'<span class="sb-email">{user_email}</span>'
+            f'{admin_link_html}'
+            f'</div>'
             f"</div>",
             unsafe_allow_html=True,
         )
