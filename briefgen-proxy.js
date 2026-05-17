@@ -22,6 +22,16 @@ function writeJson(file, data) {
   fs.writeFileSync(path.join(DATA_DIR, file), JSON.stringify(data, null, 2));
 }
 
+// For any alkira.net email also include alkira.com and vice versa
+function expandAlkiraEmails(emails) {
+  const result = new Set(emails);
+  for (const email of emails) {
+    if (email.endsWith('@alkira.net')) result.add(email.replace('@alkira.net', '@alkira.com'));
+    if (email.endsWith('@alkira.com')) result.add(email.replace('@alkira.com', '@alkira.net'));
+  }
+  return [...result];
+}
+
 // In-memory sessions (7-day TTL) and pending magic-link tokens (15-min TTL)
 const sessions = new Map();
 const tokens   = new Map();
@@ -122,7 +132,7 @@ http.createServer(async (req, res) => {
 
       const norm   = email.toLowerCase().trim();
       const domain = norm.split('@')[1];
-      const admins = readJson('admins.json', []);
+      const admins = expandAlkiraEmails(readJson('admins.json', []));
       const firstRun = admins.length === 0;
 
       console.log(`[auth/request] context=${context} email=${norm} isAdmin=${admins.includes(norm)} firstRun=${firstRun}`);
