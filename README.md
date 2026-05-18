@@ -132,7 +132,7 @@ Access is controlled by `briefgen-proxy.js`:
 
 - **Users** sign in via magic link if their email domain is on the trusted domains list
 - **Admins** manage trusted domains and other admins at `/admin.html`
-- Sessions are cookie-based (7-day TTL, HttpOnly, Secure, SameSite=Strict)
+- Sessions are cookie-based (7-day TTL, HttpOnly, Secure, SameSite=Strict), persisted to `data/sessions.json` — survive process restarts
 - Magic links expire after 15 minutes
 - nginx `auth_request` gates all Streamlit traffic — unauthenticated requests redirect to `/auth.html`
 
