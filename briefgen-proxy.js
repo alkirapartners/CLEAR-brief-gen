@@ -32,9 +32,16 @@ function expandAlkiraEmails(emails) {
   return [...result];
 }
 
-// In-memory sessions (7-day TTL) and pending magic-link tokens (15-min TTL)
-const sessions = new Map();
-const tokens   = new Map();
+// File-backed sessions (7-day TTL) and in-memory pending magic-link tokens (15-min TTL)
+const tokens = new Map();
+
+function readSessions() {
+  try { return JSON.parse(fs.readFileSync(path.join(DATA_DIR, 'sessions.json'), 'utf8')); }
+  catch(e) { return {}; }
+}
+function writeSessions(data) {
+  fs.writeFileSync(path.join(DATA_DIR, 'sessions.json'), JSON.stringify(data, null, 2));
+}
 
 function mkRandom() { return crypto.randomBytes(32).toString('hex'); }
 
@@ -50,8 +57,9 @@ function parseCookies(req) {
 function getSession(req) {
   const sid = parseCookies(req)['briefgen_session'];
   if (!sid) return null;
-  const s = sessions.get(sid);
-  if (!s || s.expires < Date.now()) { sessions.delete(sid); return null; }
+  const all = readSessions();
+  const s = all[sid];
+  if (!s || s.expires < Date.now()) { delete all[sid]; writeSessions(all); return null; }
   return s;
 }
 
@@ -181,7 +189,9 @@ http.createServer(async (req, res) => {
       }
       tokens.delete(token);
       const sid = mkRandom();
-      sessions.set(sid, { email: t.email, role: t.role, expires: Date.now() + 7 * 86400 * 1000 });
+      const all = readSessions();
+      all[sid] = { email: t.email, role: t.role, expires: Date.now() + 7 * 86400 * 1000 };
+      writeSessions(all);
       setCookie(res, sid);
       res.writeHead(302, { Location: to });
       return res.end();
@@ -206,7 +216,7 @@ http.createServer(async (req, res) => {
     // ── POST /api/auth/logout ───────────────────────────────────────────
     if (req.method === 'POST' && p === '/api/auth/logout') {
       const sid = parseCookies(req)['briefgen_session'];
-      if (sid) sessions.delete(sid);
+      if (sid) { const all = readSessions(); delete all[sid]; writeSessions(all); }
       clearCookie(res);
       return json(res, 200, { ok: true });
     }
