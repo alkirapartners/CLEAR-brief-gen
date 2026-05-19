@@ -25,7 +25,7 @@ Browser
         │
         ├─► /api/*  ──► briefgen-proxy.js   (Node.js, port 3461)
         │                  Magic link auth, session cookies,
-        │                  trusted domain + admin management
+        │                  trusted domain + admin read APIs
         │
         ├─► /auth.html, /admin.html  ──► static files (/var/www/briefgen)
         │
@@ -40,14 +40,20 @@ Browser
 |------|---------|
 | `app.py` | Streamlit web app — UI, auth gate, brief rendering |
 | `generate_brief.py` | CLI tool for generating briefs from the terminal |
-| `briefgen-proxy.js` | Node.js auth backend — magic links, sessions, admin API |
+| `briefgen-proxy.js` | Node.js auth backend — magic links, sessions, admin read API |
 | `db.py` | Supabase persistence layer for brief history |
 | `pdf.py` | PDF generation (fpdf2) |
 | `system_prompt.py` | Alkira knowledge base embedded in the agent's system prompt |
 | `auth.html` | Magic link sign-in page (static) |
-| `admin.html` | Admin panel — manage trusted domains and admin users |
+| `admin.html` | Admin panel — read-only view of trusted domains and admins |
 | `setup_agent.py` | One-time setup: creates the Claude agent + environment |
 | `setup_skills.py` | Registers web-search and other skills on the agent |
+
+---
+
+## Admin management
+
+Trusted domains and admin accounts are managed centrally via the **[Admin Portal](https://admin.partners.alkira.cc)**. The per-app admin panel at `/admin.html` is read-only — it shows the current lists but changes must be made in the admin portal.
 
 ---
 
@@ -121,8 +127,8 @@ Every push to `main` triggers the GitHub webhook → server pulls latest code, i
 
 **Secrets on server** (not in repo):
 - `/var/www/briefgen/.env` — API keys and Supabase credentials
-- `/var/www/briefgen/data/admins.json` — admin user list
-- `/var/www/briefgen/data/domains.json` — trusted domain list
+- `/var/www/briefgen/data/admins.json` — admin user list (written by admin portal)
+- `/var/www/briefgen/data/domains.json` — trusted domain list (written by admin portal)
 
 ---
 
@@ -131,12 +137,10 @@ Every push to `main` triggers the GitHub webhook → server pulls latest code, i
 Access is controlled by `briefgen-proxy.js`:
 
 - **Users** sign in via magic link if their email domain is on the trusted domains list
-- **Admins** manage trusted domains and other admins at `/admin.html`
+- **Admins** can view the admin panel at `/admin.html` (read-only — manage via [Admin Portal](https://admin.partners.alkira.cc))
 - Sessions are cookie-based (7-day TTL, HttpOnly, Secure, SameSite=Strict), persisted to `data/sessions.json` — survive process restarts
 - Magic links expire after 15 minutes
 - nginx `auth_request` gates all Streamlit traffic — unauthenticated requests redirect to `/auth.html`
-
-**First-time admin setup:** visit `/admin.html`, enter your email, and you'll become the first admin (no existing admin needed).
 
 ---
 
@@ -156,7 +160,7 @@ This creates a new agent version. Update `ALKIRA_AGENT_ID` in `.env` with the ne
 
 | Item | Estimate |
 |------|----------|
-| Claude Sonnet 4.5 tokens | ~$0.10–0.30 |
+| Claude Sonnet tokens | ~$0.10–0.30 |
 | Managed Agents session | ~$0.08/hr |
 | Web search queries (~5–10) | ~$0.05–0.10 |
 | **Total** | **~$0.15–0.40 per brief** |
