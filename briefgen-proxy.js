@@ -230,53 +230,11 @@ http.createServer(async (req, res) => {
       return json(res, 200, { admins });
     }
 
-    // ── POST /api/admins ────────────────────────────────────────────────
-    if (req.method === 'POST' && p === '/api/admins') {
-      const admins   = readJson('admins.json', []);
-      const firstRun = admins.length === 0;
-      if (!firstRun) {
-        const s = getSession(req);
-        if (!s || s.role !== 'admin') return json(res, 401, { error: 'Unauthorized' });
-      }
-      const { add, remove } = await readBody(req);
-      let list = [...admins];
-      if (add)    { const e = add.toLowerCase().trim(); if (!list.includes(e)) list.push(e); }
-      if (remove) { list = list.filter(x => x !== remove.toLowerCase().trim()); }
-      writeJson('admins.json', list);
-      return json(res, 200, { admins: list });
-    }
-
     // ── GET /api/domains ────────────────────────────────────────────────
     if (req.method === 'GET' && p === '/api/domains') {
       const s = getSession(req);
       if (!s || s.role !== 'admin') return json(res, 401, { error: 'Unauthorized' });
       return json(res, 200, { domains: readJson('domains.json', []) });
-    }
-
-    // ── POST /api/domains ───────────────────────────────────────────────
-    if (req.method === 'POST' && p === '/api/domains') {
-      const s = getSession(req);
-      if (!s || s.role !== 'admin') return json(res, 401, { error: 'Unauthorized' });
-      const { add, remove } = await readBody(req);
-      let list = readJson('domains.json', []);
-      if (add)    { const d = add.toLowerCase().trim().replace(/^@/, ''); if (!list.includes(d)) list.push(d); }
-      if (remove) { list = list.filter(x => x !== remove.toLowerCase().trim().replace(/^@/, '')); }
-      writeJson('domains.json', list);
-      return json(res, 200, { domains: list });
-    }
-
-    // ── POST /api/admins/sync ───────────────────────────────────────────
-    if (req.method === 'POST' && p === '/api/admins/sync') {
-      const ip = req.socket.remoteAddress;
-      const isLocalhost = ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1';
-      const s = getSession(req);
-      if (!isLocalhost && (!s || s.role !== 'admin')) return json(res, 401, { error: 'Unauthorized' });
-      try {
-        const result = await syncAdminsFromIntranet();
-        return json(res, 200, result);
-      } catch(e) {
-        return json(res, 502, { error: e.message });
-      }
     }
 
     json(res, 404, { error: 'Not found' });
@@ -286,33 +244,4 @@ http.createServer(async (req, res) => {
   }
 }).listen(PORT, '127.0.0.1', () => {
   console.log(`Brief Generator auth proxy on port ${PORT}`);
-  syncAdminsFromIntranet();
 });
-
-function syncAdminsFromIntranet() {
-  return new Promise((resolve, reject) => {
-    http.get('http://127.0.0.1:3457/api/internal/team-emails', res => {
-      let body = '';
-      res.on('data', c => body += c);
-      res.on('end', () => {
-        try {
-          const { emails } = JSON.parse(body);
-          if (!Array.isArray(emails)) return reject(new Error('Invalid response from intranet'));
-          const newTeam    = emails.map(e => e.toLowerCase().trim()).filter(Boolean);
-          const prevSynced = readJson('team-synced-admins.json', []);
-          const manual     = readJson('admins.json', []).filter(e => !prevSynced.includes(e));
-          const merged     = [...new Set([...manual, ...newTeam])];
-          writeJson('admins.json', merged);
-          writeJson('team-synced-admins.json', newTeam);
-          console.log(`[sync] Team admins updated (${newTeam.length} team, ${manual.length} manual)`);
-          resolve({ team: newTeam.length, manual: manual.length, total: merged.length });
-        } catch(e) {
-          console.error('[sync] Failed:', e.message);
-          reject(e);
-        }
-      });
-    }).on('error', e => { console.error('[sync] Could not reach intranet proxy:', e.message); reject(e); });
-  });
-}
-
-setInterval(syncAdminsFromIntranet, 60 * 60 * 1000);

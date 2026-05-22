@@ -98,7 +98,12 @@ body { font-family: 'Inter', sans-serif; background: #F4F7FB; min-height: 100vh;
 
   <div class="page">
     <div class="page-title">Admin Panel</div>
-    <div class="page-sub">Manage access to the Alkira Brief Generator.</div>
+    <div class="page-sub">Access settings for the Alkira Brief Generator.</div>
+
+    <div style="background:#EFF6FF;border:1px solid #BFDBFE;border-radius:10px;padding:14px 18px;margin-bottom:24px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap">
+      <span style="font-size:13px;color:#1D4ED8">Trusted domains and admins are managed centrally in the Admin Portal.</span>
+      <a href="https://admin.partners.alkira.cc" target="_blank" style="font-size:13px;font-weight:600;color:#fff;background:#1D4ED8;padding:7px 16px;border-radius:7px;text-decoration:none;white-space:nowrap">Open Admin Portal →</a>
+    </div>
 
     <!-- Trusted Domains -->
     <div class="card">
@@ -107,12 +112,7 @@ body { font-family: 'Inter', sans-serif; background: #F4F7FB; min-height: 100vh;
       </div>
       <div class="card-body">
         <p style="font-size:13px;color:#6b7280;margin-bottom:14px">Users with an email from a trusted domain can request access via magic link.</p>
-        <div id="domains-notice" class="notice"></div>
         <div id="domains-list" class="tag-list"></div>
-        <div class="add-row">
-          <input id="domain-input" type="text" placeholder="e.g. partnercompany.com">
-          <button id="domain-add-btn" class="add-btn">Add Domain</button>
-        </div>
       </div>
     </div>
 
@@ -122,18 +122,8 @@ body { font-family: 'Inter', sans-serif; background: #F4F7FB; min-height: 100vh;
         <span class="card-title">Admin Users</span>
       </div>
       <div class="card-body">
-        <p style="font-size:13px;color:#6b7280;margin-bottom:14px">Admins can sign in to this panel and manage domains and other admins.</p>
-        <div id="admins-notice" class="notice"></div>
+        <p style="font-size:13px;color:#6b7280;margin-bottom:14px">Admins can sign in to this panel.</p>
         <div id="admins-list" class="tag-list"></div>
-        <div class="add-row">
-          <input id="admin-input" type="email" placeholder="admin@alkira.com">
-          <button id="admin-add-btn" class="add-btn">Add Admin</button>
-        </div>
-        <div style="margin-top:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-          <button id="sync-btn" class="add-btn" style="background:#6b7280">Sync Now</button>
-          <span style="font-size:12px;color:#9ca3af">Force Sync from Internal Portal (automatically every hour)</span>
-          <span id="sync-status" style="font-size:12px;color:#6b7280"></span>
-        </div>
       </div>
     </div>
   </div>
@@ -213,108 +203,21 @@ $('logout-btn').addEventListener('click', async () => {
 async function loadDomains() {
   const r = await fetch('/api/domains', { cache: 'no-store', credentials: 'same-origin' });
   const d = await r.json();
-  renderTags('domains-list', d.domains || [], removeDomain);
+  renderTags('domains-list', d.domains || []);
 }
-
-async function removeDomain(domain) {
-  await apiFetch('/api/domains', { remove: domain });
-  await loadDomains();
-}
-
-$('domain-add-btn').addEventListener('click', async () => {
-  const val = $('domain-input').value.trim().replace(/^@/, '');
-  if (!val) return;
-  showNotice('domains-notice', '');
-  const r = await apiFetch('/api/domains', { add: val });
-  if (r.ok) {
-    $('domain-input').value = '';
-    await loadDomains();
-  } else {
-    showNotice('domains-notice', r.error || 'Error adding domain', 'error');
-  }
-});
-
-$('domain-input').addEventListener('keydown', e => { if (e.key === 'Enter') $('domain-add-btn').click(); });
 
 // ── Admins ────────────────────────────────────────────────────────────────────
 async function loadAdmins() {
   const r = await fetch('/api/admins', { cache: 'no-store', credentials: 'same-origin' });
   const d = await r.json();
-  renderTags('admins-list', d.admins || [], removeAdmin);
+  renderTags('admins-list', d.admins || []);
 }
-
-async function removeAdmin(email) {
-  if (email === currentUser.email) {
-    showNotice('admins-notice', 'You cannot remove yourself.', 'error');
-    return;
-  }
-  await apiFetch('/api/admins', { remove: email });
-  await loadAdmins();
-}
-
-$('admin-add-btn').addEventListener('click', async () => {
-  const val = $('admin-input').value.trim();
-  if (!val) return;
-  showNotice('admins-notice', '');
-  const r = await apiFetch('/api/admins', { add: val });
-  if (r.ok) {
-    $('admin-input').value = '';
-    await loadAdmins();
-  } else {
-    showNotice('admins-notice', r.error || 'Error adding admin', 'error');
-  }
-});
-
-$('admin-input').addEventListener('keydown', e => { if (e.key === 'Enter') $('admin-add-btn').click(); });
-
-$('sync-btn').addEventListener('click', async () => {
-  const btn = $('sync-btn'), status = $('sync-status');
-  btn.disabled = true; btn.textContent = 'Syncing…'; status.textContent = '';
-  try {
-    const r = await fetch('/api/admins/sync', { method: 'POST' });
-    const d = await r.json();
-    if (r.ok) {
-      status.style.color = '#16a34a';
-      status.textContent = `Synced — ${d.team} from team, ${d.manual} manual (${d.total} total)`;
-      await loadAdmins();
-    } else {
-      status.style.color = '#dc2626';
-      status.textContent = d.error || 'Sync failed';
-    }
-  } catch(e) {
-    status.style.color = '#dc2626'; status.textContent = 'Network error';
-  }
-  btn.disabled = false; btn.textContent = 'Sync Now';
-});
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-function renderTags(listId, items, onRemove) {
+function renderTags(listId, items) {
   const el = $(listId);
-  if (!items.length) { el.innerHTML = '<span class="tag-empty">None added yet.</span>'; return; }
-  el.innerHTML = items.map(item => `
-    <span class="tag">${item}
-      <button class="tag-remove" title="Remove" data-val="${item}">×</button>
-    </span>`).join('');
-  el.querySelectorAll('.tag-remove').forEach(btn => {
-    btn.addEventListener('click', () => onRemove(btn.dataset.val));
-  });
-}
-
-async function apiFetch(url, body) {
-  const r = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    credentials: 'same-origin',
-    body: JSON.stringify(body),
-  });
-  return { ok: r.ok, ...(await r.json()) };
-}
-
-function showNotice(id, msg, type = 'info') {
-  const el = $(id);
-  el.textContent = msg;
-  el.className = 'notice' + (msg ? ' ' + type : '');
-  el.style.display = msg ? 'block' : 'none';
+  if (!items.length) { el.innerHTML = '<span class="tag-empty">None configured.</span>'; return; }
+  el.innerHTML = items.map(item => `<span class="tag" style="padding:4px 14px">${item}</span>`).join('');
 }
 
 boot();
