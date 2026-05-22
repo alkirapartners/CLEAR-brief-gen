@@ -19,20 +19,25 @@ Powered by Claude Managed Agents (Anthropic) for research and generation, with m
 ## Architecture
 
 ```
-Browser
+Browser (HTTPS)
   │
-  └─► nginx (HTTPS, briefgen.partners.alkira.cc)
-        │
-        ├─► /api/*  ──► briefgen-proxy.js   (Node.js, port 3461)
-        │                  Magic link auth, session cookies,
-        │                  trusted domain + admin read APIs
-        │
-        ├─► /auth.html, /admin.html  ──► static files (/var/www/briefgen)
-        │
-        └─► /*  ──► Streamlit app (Python, port 8501)
-                     auth_request gate: valid session required
-                     X-Auth-Email header passed from nginx
+  └─► ALB (SSL termination, *.partners.alkira.cc)
+        │         [sticky sessions enabled — required for Streamlit WebSocket]
+        ├─► Instance A  →  nginx (HTTP)
+        │     ├─► /api/*  →  briefgen-proxy.js (port 3461)
+        │     └─► /*      →  Streamlit app (port 8501, auth_request gated)
+        └─► Instance B  →  nginx (HTTP)
+              ├─► /api/*  →  briefgen-proxy.js (port 3461)
+              └─► /*      →  Streamlit app (port 8501, auth_request gated)
 ```
+
+**Load balancer:** `ALB-Alkira-Channel-Team-Tools-170715566.us-west-2.elb.amazonaws.com`  
+**SSL cert:** ACM wildcard `*.partners.alkira.cc` (auto-renewed)  
+**Instance A:** `35.166.223.217` (us-west-2c)  
+**Instance B:** `32.184.242.60` (us-west-2b)  
+**EFS:** `fs-00082cbd5d53945eb` — shared data storage, mounted on both instances
+
+> **Sticky sessions** are enabled on the ALB target group (load balancer generated cookie, 1-day duration). This is required because Streamlit uses WebSockets — all requests from a user must go to the same instance.
 
 **Key components:**
 
@@ -113,9 +118,7 @@ python generate_brief.py "Chevron" --verbose
 
 ## Production Deployment
 
-The app runs on an EC2 instance (`briefgen.partners.alkira.cc`) managed by PM2 and nginx.
-
-**Processes:**
+**Processes on each instance:**
 
 | PM2 name | What it runs |
 |----------|-------------|
@@ -123,12 +126,27 @@ The app runs on an EC2 instance (`briefgen.partners.alkira.cc`) managed by PM2 a
 | `briefgen-proxy` | `node briefgen-proxy.js` (port 3461) |
 
 **Auto-deploy:**  
-Every push to `main` triggers the GitHub webhook → server pulls latest code, installs dependencies, and restarts both PM2 processes automatically. No manual SSH needed.
+Every push to `main` triggers webhooks on both instances → each server pulls latest code, installs dependencies, and restarts both PM2 processes automatically. No manual SSH needed.
+
+- **Instance A webhook:** `http://35.166.223.217/webhook`
+- **Instance B webhook:** `http://32.184.242.60/webhook`
 
 **Secrets on server** (not in repo):
 - `/var/www/briefgen/.env` — API keys and Supabase credentials
-- `/var/www/briefgen/data/admins.json` — admin user list (written by admin portal)
-- `/var/www/briefgen/data/domains.json` — trusted domain list (written by admin portal)
+- `/var/www/briefgen/data/admins.json` — admin user list (written by admin portal, stored on EFS)
+- `/var/www/briefgen/data/domains.json` — trusted domain list (written by admin portal, stored on EFS)
+
+---
+
+## SSH access
+
+```bash
+# Instance A
+ssh -i ~/.ssh/alkira-channel.pem ubuntu@35.166.223.217
+
+# Instance B
+ssh -i ~/.ssh/alkira-channel.pem ubuntu@32.184.242.60
+```
 
 ---
 
@@ -138,9 +156,53 @@ Access is controlled by `briefgen-proxy.js`:
 
 - **Users** sign in via magic link if their email domain is on the trusted domains list
 - **Admins** can view the admin panel at `/admin.html` (read-only — manage via [Admin Portal](https://admin.partners.alkira.cc))
-- Sessions are cookie-based (7-day TTL, HttpOnly, Secure, SameSite=Strict), persisted to `data/sessions.json` — survive process restarts
+- Sessions are cookie-based (7-day TTL, HttpOnly, Secure, SameSite=Strict), persisted to `data/sessions.json` on EFS — shared between instances
 - Magic links expire after 15 minutes
 - nginx `auth_request` gates all Streamlit traffic — unauthenticated requests redirect to `/auth.html`
+
+---
+
+## Restore procedure (replacing a failed instance)
+
+> If restoring from AMI, most steps can be skipped — launch from the latest AMI snapshot and proceed from step 3.
+
+1. **Launch new EC2** — Ubuntu, us-west-2, security group `sg-0916d14b598c043d0`.
+
+2. **Install dependencies** (skip if launching from AMI):
+   ```bash
+   sudo apt update && sudo apt install -y nginx nodejs npm nfs-common python3 python3-venv python3-pip
+   sudo npm install -g pm2
+   ```
+
+3. **Mount EFS:**
+   ```bash
+   # Replace <AZ> with the instance's availability zone (e.g. us-west-2b)
+   sudo mkdir -p /mnt/efs
+   echo "<AZ>.fs-00082cbd5d53945eb.efs.us-west-2.amazonaws.com:/ /mnt/efs nfs4 defaults,_netdev 0 0" | sudo tee -a /etc/fstab
+   sudo mount /mnt/efs
+   ```
+
+4. **Deploy:**
+   ```bash
+   sudo mkdir -p /var/www/briefgen
+   sudo chown -R ubuntu:ubuntu /var/www/briefgen
+   git clone https://github.com/alkirapartners/CLEAR-brief-gen.git /var/www/briefgen
+   cd /var/www/briefgen
+   python3 -m venv venv && venv/bin/pip install -r requirements.txt
+   npm install @aws-sdk/client-ses
+   # Copy .env from another instance or restore from secure storage
+   ln -s /mnt/efs/briefgen/data /var/www/briefgen/data
+   sudo cp nginx-briefgen.conf /etc/nginx/sites-available/briefgen
+   sudo ln -s /etc/nginx/sites-available/briefgen /etc/nginx/sites-enabled/
+   sudo nginx -t && sudo systemctl reload nginx
+   pm2 start "venv/bin/streamlit run app.py --server.port 8501" --name briefgen
+   pm2 start briefgen-proxy.js --name briefgen-proxy
+   pm2 save && pm2 startup
+   ```
+
+5. **Register with ALB** — add the new instance to the ALB target group.
+
+6. **Add GitHub webhook** — add `http://<new-instance-eip>/webhook` to repo Settings → Webhooks.
 
 ---
 
