@@ -200,7 +200,7 @@ http.createServer(async (req, res) => {
     // ── GET /api/auth/signout — clears session and redirects to auth page ─
     if (req.method === 'GET' && p === '/api/auth/signout') {
       const sid = parseCookies(req)['briefgen_session'];
-      if (sid) sessions.delete(sid);
+      if (sid) { const all = readSessions(); delete all[sid]; writeSessions(all); }
       clearCookie(res);
       res.writeHead(302, { Location: '/auth.html' });
       return res.end();
