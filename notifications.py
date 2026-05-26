@@ -47,9 +47,10 @@ def _post(url: str, payload: dict, timeout: float = 5.0) -> None:
 
 def _format_message(email: str, company: str, score: int) -> str:
     """Return the Slack-formatted notification text for a brief generation."""
-    if score >= 80:
+    # Alkira Fit Score is a 1-5 scale (see README).
+    if score >= 5:
         emoji = ":large_green_circle:"
-    elif score >= 60:
+    elif score >= 3:
         emoji = ":large_yellow_circle:"
     else:
         emoji = ":red_circle:"

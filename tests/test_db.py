@@ -9,7 +9,7 @@ def test_save_brief_triggers_notification_on_success():
         "id": "abc-123",
         "email": "user@example.com",
         "company": "Acme",
-        "score": 82,
+        "score": 5,
         "brief_md": "# brief",
         "created_at": "2026-05-22T14:30:00Z",
     }
@@ -23,10 +23,10 @@ def test_save_brief_triggers_notification_on_success():
         "notifications.notify_brief_generated"
     ) as mock_notify:
         import db
-        result = db.save_brief("user@example.com", "Acme", 82, "# brief")
+        result = db.save_brief("user@example.com", "Acme", 5, "# brief")
 
     assert result == fake_inserted
-    mock_notify.assert_called_once_with("user@example.com", "Acme", 82)
+    mock_notify.assert_called_once_with("user@example.com", "Acme", 5)
 
 
 def test_save_brief_returns_record_even_if_notification_raises():
@@ -42,7 +42,7 @@ def test_save_brief_returns_record_even_if_notification_raises():
         side_effect=RuntimeError("boom"),
     ):
         import db
-        result = db.save_brief("user@example.com", "Acme", 82, "# brief")
+        result = db.save_brief("user@example.com", "Acme", 5, "# brief")
 
     assert result == fake_inserted
 
@@ -56,7 +56,7 @@ def test_save_brief_does_not_notify_when_insert_returns_no_rows():
         "notifications.notify_brief_generated"
     ) as mock_notify:
         import db
-        result = db.save_brief("user@example.com", "Acme", 82, "# brief")
+        result = db.save_brief("user@example.com", "Acme", 5, "# brief")
 
     assert result is None
     mock_notify.assert_not_called()
