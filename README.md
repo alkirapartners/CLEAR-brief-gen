@@ -93,6 +93,7 @@ ALKIRA_AGENT_ID=...
 ALKIRA_ENV_ID=...
 SUPABASE_URL=https://xxxx.supabase.co      # optional
 SUPABASE_KEY=sb_secret_...                  # optional
+SLACK_WEBHOOK_URL=https://hooks.slack.com/services/...  # optional — posts a notification to Slack on successful brief generation
 ```
 
 ```bash

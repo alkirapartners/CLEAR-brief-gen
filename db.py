@@ -103,10 +103,21 @@ def save_brief(
             .execute()
         )
         rows = result.data or []
-        return rows[0] if rows else None
+        saved = rows[0] if rows else None
     except Exception as exc:
         logger.error("Failed to save brief for %s / %s: %s", email, company, exc)
         return None
+
+    if saved is not None:
+        try:
+            import notifications
+            notifications.notify_brief_generated(email, company, score)
+        except Exception as exc:
+            logger.error(
+                "Notification dispatch failed for %s / %s: %s", email, company, exc
+            )
+
+    return saved
 
 
 def delete_brief(brief_id: str) -> bool:
