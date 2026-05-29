@@ -1891,7 +1891,7 @@ def main() -> None:
             is_admin = user_email.lower() in [e.lower() for e in _admins]
         except Exception:
             is_admin = False
-        admin_link_html = '<a class="sb-admin-link" href="/admin.html">⚙️ Admin Portal →</a>' if is_admin else ''
+        admin_link_html = '<a class="sb-admin-link" href="/admin.html">⚙️ Settings →</a>' if is_admin else ''
         st.markdown(
             f'<div class="sb-user">'
             f'<div class="sb-avatar">{initial}</div>'
