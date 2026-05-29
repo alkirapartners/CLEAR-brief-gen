@@ -32,8 +32,31 @@ function expandAlkiraEmails(emails) {
   return [...result];
 }
 
-// File-backed sessions (7-day TTL) and in-memory pending magic-link tokens (15-min TTL)
-const tokens = new Map();
+// EFS-backed tokens so both instances can verify magic links regardless of which generated them
+function readTokens() {
+  try { return JSON.parse(fs.readFileSync(path.join(DATA_DIR, 'tokens.json'), 'utf8')); }
+  catch(e) { return {}; }
+}
+function writeTokens(data) {
+  fs.writeFileSync(path.join(DATA_DIR, 'tokens.json'), JSON.stringify(data, null, 2));
+}
+function storeToken(token, payload) {
+  const all = readTokens(); all[token] = payload; writeTokens(all);
+}
+function consumeToken(token) {
+  const all = readTokens();
+  const t = all[token];
+  if (!t) return null;
+  if (t.expires < Date.now()) { delete all[token]; writeTokens(all); return null; }
+  delete all[token]; writeTokens(all); return t;
+}
+setInterval(() => {
+  try {
+    const all = readTokens(); const now = Date.now(); let changed = false;
+    for (const [k, v] of Object.entries(all)) { if (v.expires < now) { delete all[k]; changed = true; } }
+    if (changed) writeTokens(all);
+  } catch(e) {}
+}, 5 * 60 * 1000);
 
 function readSessions() {
   try { return JSON.parse(fs.readFileSync(path.join(DATA_DIR, 'sessions.json'), 'utf8')); }
@@ -162,8 +185,7 @@ http.createServer(async (req, res) => {
       }
 
       const token = mkRandom();
-      tokens.set(token, { email: norm, role, expires: Date.now() + 15 * 60 * 1000 });
-      setTimeout(() => tokens.delete(token), 15 * 60 * 1000);
+      storeToken(token, { email: norm, role, expires: Date.now() + 15 * 60 * 1000 });
 
       const to   = context === 'admin' ? '/admin.html' : `/?auth_email=${encodeURIComponent(norm)}`;
       const link = `${SITE}/api/auth/verify?token=${token}&to=${encodeURIComponent(to)}`;
@@ -181,13 +203,11 @@ http.createServer(async (req, res) => {
     if (req.method === 'GET' && p === '/api/auth/verify') {
       const token = url.searchParams.get('token');
       const to    = url.searchParams.get('to') || '/';
-      const t     = token && tokens.get(token);
-      if (!t || t.expires < Date.now()) {
-        tokens.delete(token);
+      const t = token && consumeToken(token);
+      if (!t) {
         res.writeHead(302, { Location: `/auth.html?error=expired` });
         return res.end();
       }
-      tokens.delete(token);
       const sid = mkRandom();
       const all = readSessions();
       all[sid] = { email: t.email, role: t.role, expires: Date.now() + 7 * 86400 * 1000 };
