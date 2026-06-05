@@ -158,7 +158,7 @@ Access is controlled by `briefgen-proxy.js`:
 - **Users** sign in via magic link if their email domain is on the trusted domains list
 - **Admins** can view the admin panel at `/admin.html` (read-only — manage via [Admin Portal](https://admin.partners.alkira.cc))
 - Sessions are cookie-based (7-day TTL, HttpOnly, Secure, SameSite=Strict), persisted to `data/sessions.json` on EFS — shared between instances
-- Magic links expire after 15 minutes
+- Magic-link tokens are persisted to `data/tokens.json` on EFS (15-min TTL) so either instance can verify a link regardless of which generated it
 - nginx `auth_request` gates all Streamlit traffic — unauthenticated requests redirect to `/auth.html`
 
 ---
