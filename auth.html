@@ -124,6 +124,7 @@ function showForm() {
   async function submit() {
     const email = emailEl.value.trim();
     if (!email) return;
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { msg.className = 'msg error'; msg.textContent = 'Please enter a valid email address.'; return; }
     btn.disabled = true;
     msg.className = 'msg';
     msg.textContent = 'Sending…';
