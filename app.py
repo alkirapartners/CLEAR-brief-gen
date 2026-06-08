@@ -357,28 +357,28 @@ def extract_exec_snippet(brief_md: str, max_chars: int = 120) -> str:
 
 
 def get_brief_body(brief: str) -> str:
-    """Get the brief content starting from the first content section,
-    excluding the title, company header, and score (rendered separately)."""
-    markers = [
-        "### Infrastructure Snapshot",
-        "### Executive Summary",
-        "## Executive Summary",
-        "### Company Snapshot",
-        "### Cloud & Infrastructure",
-        "### Signals & Timing",
-    ]
-    for marker in markers:
-        idx = brief.find(marker)
-        if idx != -1:
-            # Find the CONFIDENTIAL marker or end
-            end_markers = ["*CONFIDENTIAL*", "*\"CONFIDENTIAL\"*", "CONFIDENTIAL"]
-            end_idx = len(brief)
-            for em in end_markers:
-                ei = brief.find(em, idx)
-                if ei != -1:
-                    end_idx = min(end_idx, ei + len(em))
-            return brief[idx:end_idx].strip()
-    return brief
+    """Return the brief body: the first ## / ### section after the Fit Score line,
+    through (but excluding) the CONFIDENTIAL footer.
+
+    Excludes the title, company header, and the score line/rationale, which are
+    rendered separately. Robust to both ## and ### section heading levels.
+    """
+    score = re.search(r"\*?\*?Alkira Fit Score:\s*\d\s*/\s*5\*?\*?", brief)
+    if score:
+        base = score.end()
+        m = re.search(r"(?m)^\s*#{2,3}\s+\S.*$", brief[base:])
+        start = base + m.start() if m else None
+    else:
+        heads = list(re.finditer(r"(?m)^\s*#{2,3}\s+\S.*$", brief))
+        start = heads[1].start() if len(heads) > 1 else None
+    if start is None:
+        return ""
+    end = len(brief)
+    for marker in ("*CONFIDENTIAL*", "CONFIDENTIAL"):
+        ei = brief.find(marker, start)
+        if ei != -1:
+            end = min(end, ei)
+    return brief[start:end].strip()
 
 
 # ── HTML Rendering ───────────────────────────────────────────────
@@ -1615,6 +1615,46 @@ def _format_starters_text(starters_md: str) -> str:
         else:
             out.append(line)
     return "\n".join(out)
+
+
+def build_brief_document_html(brief_md: str, meta_right: str = "") -> str:
+    """Build the full document HTML for a brief: header band + lead rationale + body.
+
+    Pure (no Streamlit side effects) so it is unit-testable. Reuses md_to_html for the
+    body; the score badge and company header are the only special-cased pieces. Missing
+    sections simply don't appear, and the company/score are never duplicated in the body
+    (get_brief_body strips everything up to the first section after the score line).
+    """
+    score, reasoning = extract_score(brief_md)
+    company, stats_line = extract_company_header(brief_md)
+    cleaned_stats = (stats_line or "").replace("**", "").strip()
+
+    badge = (
+        f'<div class="brief-score-badge">'
+        f'<span class="bsb-label">Fit</span>'
+        f'<span class="bsb-num">{score}<span class="bsb-den">/5</span></span>'
+        f'</div>'
+    ) if score else ""
+
+    meta = (
+        f'<span class="brief-band-meta">{html.escape(meta_right)}</span>'
+        if meta_right else ""
+    )
+
+    header = (
+        f'<div class="brief-header-band">'
+        f'<div class="brief-band-main">'
+        f'<h1 class="brief-company">{html.escape(company or "Brief")}</h1>'
+        f'<p class="brief-stats">{html.escape(cleaned_stats)}{meta}</p>'
+        f'</div>'
+        f'{badge}'
+        f'</div>'
+    )
+
+    lead = f'<p class="brief-lead">{inline(reasoning)}</p>' if reasoning else ""
+    body_html = md_to_html(get_brief_body(brief_md))
+
+    return f'<div class="brief-doc">{header}{lead}{body_html}</div>'
 
 
 def render_brief_bento(
