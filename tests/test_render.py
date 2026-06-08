@@ -98,3 +98,8 @@ def test_empty_input_does_not_crash():
 
 def test_meta_right_included():
     assert "Generated in 42s" in build_brief_document_html(SAMPLE, meta_right="Generated in 42s")
+
+def test_score_zero_suppresses_badge():
+    no_score = SAMPLE.replace("**Alkira Fit Score: 4 / 5**", "")
+    html = build_brief_document_html(no_score)
+    assert "brief-score-badge" not in html

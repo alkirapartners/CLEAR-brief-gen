@@ -145,8 +145,11 @@ def clean_brief(raw: str) -> str:
     return raw
 
 
+_SCORE_LINE_RE = re.compile(r"\*?\*?Alkira Fit Score:\s*(\d)\s*/\s*5\*?\*?")
+
+
 def extract_score(brief: str) -> tuple[int, str]:
-    match = re.search(r"\*?\*?Alkira Fit Score:\s*(\d)\s*/\s*5\*?\*?", brief)
+    match = _SCORE_LINE_RE.search(brief)
     score = int(match.group(1)) if match else 0
     reasoning = ""
     if match:
@@ -363,7 +366,7 @@ def get_brief_body(brief: str) -> str:
     Excludes the title, company header, and the score line/rationale, which are
     rendered separately. Robust to both ## and ### section heading levels.
     """
-    score = re.search(r"\*?\*?Alkira Fit Score:\s*\d\s*/\s*5\*?\*?", brief)
+    score = _SCORE_LINE_RE.search(brief)
     if score:
         base = score.end()
         m = re.search(r"(?m)^\s*#{2,3}\s+\S.*$", brief[base:])
@@ -373,11 +376,8 @@ def get_brief_body(brief: str) -> str:
         start = heads[1].start() if len(heads) > 1 else None
     if start is None:
         return ""
-    end = len(brief)
-    for marker in ("*CONFIDENTIAL*", "CONFIDENTIAL"):
-        ei = brief.find(marker, start)
-        if ei != -1:
-            end = min(end, ei)
+    m_end = re.search(r'\*?"?CONFIDENTIAL"?\*?', brief[start:])
+    end = start + m_end.start() if m_end else len(brief)
     return brief[start:end].strip()
 
 
@@ -1627,7 +1627,7 @@ def build_brief_document_html(brief_md: str, meta_right: str = "") -> str:
     """
     score, reasoning = extract_score(brief_md)
     company, stats_line = extract_company_header(brief_md)
-    cleaned_stats = (stats_line or "").replace("**", "").strip()
+    cleaned_stats = (stats_line or "").strip()
 
     badge = (
         f'<div class="brief-score-badge">'
@@ -1651,7 +1651,7 @@ def build_brief_document_html(brief_md: str, meta_right: str = "") -> str:
         f'</div>'
     )
 
-    lead = f'<p class="brief-lead">{inline(reasoning)}</p>' if reasoning else ""
+    lead = f'<p class="brief-lead">{inline(html.escape(reasoning))}</p>' if reasoning else ""
     body_html = md_to_html(get_brief_body(brief_md))
 
     return f'<div class="brief-doc">{header}{lead}{body_html}</div>'
