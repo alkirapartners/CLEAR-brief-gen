@@ -78,7 +78,7 @@ def _safe_text(s: str) -> str:
 
 def _iter_sections(body_md: str) -> list[tuple[str, str]]:
     """Split brief body markdown into (heading, body) pairs by ## / ### headings, in order."""
-    parts = re.split(r"(?m)^\s*#{2,3}\s+(.+?)\s*$", body_md)
+    parts = re.split(r"(?m)^[ \t]*#{2,3}[ \t]+(.+?)[ \t]*$", body_md)
     out: list[tuple[str, str]] = []
     it = iter(parts[1:])  # parts[0] is any pre-heading text; ignore it
     for title in it:
@@ -263,7 +263,7 @@ def _draw_section(pdf: "_BriefPDF", title: str, body_md: str) -> None:
         if bullet:
             pdf.set_x(15)
             pdf.cell(3, 4.6, "-")
-            pdf.multi_cell(190.5 - 5, 4.6, _safe_text(text))
+            pdf.multi_cell(190.5 - 5.3, 4.6, _safe_text(text))
         else:
             pdf.set_x(12.7)
             pdf.multi_cell(0, 4.8, _safe_text(text))

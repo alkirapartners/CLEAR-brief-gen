@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from pdf import build_filename, ALKIRA_BLUE
+from pdf import build_filename, ALKIRA_BLUE, _iter_sections, generate_brief_pdf
 
 
 def test_filename_basic():
@@ -185,7 +185,6 @@ def test_full_brief_renders():
     # document layout is more byte-efficient than the old bento tiles' vector fills.
 
 
-from pdf import _iter_sections, generate_brief_pdf
 
 
 def test_iter_sections_splits_in_order():
