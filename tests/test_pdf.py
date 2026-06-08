@@ -181,7 +181,8 @@ def test_full_brief_renders():
     )
     assert isinstance(out, bytes)
     assert out.startswith(b"%PDF")
-    assert len(out) > 3000  # Real brief renders to substantive bytes (compressed)
+    assert len(out) > 2000  # Substantive content (not a stub). Lowered from >3000: the
+    # document layout is more byte-efficient than the old bento tiles' vector fills.
 
 
 from pdf import _iter_sections, generate_brief_pdf
