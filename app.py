@@ -1094,6 +1094,56 @@ CUSTOM_CSS = """
         border-top: 1px solid #edf0f4;
     }
 
+    /* ── Style C: document header band + score badge ── */
+    .brief-header-band {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 18px;
+        padding-bottom: 14px;
+        margin-bottom: 18px;
+        border-bottom: 2px solid var(--alkira-border);
+    }
+    .brief-band-main { min-width: 0; }
+    .brief-company {
+        margin: 0 0 4px;
+        font-size: 26px;
+        font-weight: 800;
+        color: var(--alkira-ink);
+        letter-spacing: -0.01em;
+    }
+    .brief-stats { margin: 0; font-size: 12.5px; color: var(--alkira-muted); }
+    .brief-band-meta { margin-left: 8px; font-style: italic; color: var(--alkira-muted); }
+    .brief-score-badge {
+        flex: none;
+        display: flex; flex-direction: column;
+        align-items: center; justify-content: center;
+        width: 74px; height: 74px;
+        border-radius: 14px;
+        background: var(--alkira-navy);
+        color: #fff;
+    }
+    .bsb-label { font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: #9fb0d6; }
+    .bsb-num { font-size: 24px; font-weight: 800; line-height: 1; margin-top: 2px; }
+    .bsb-den { font-size: 13px; font-weight: 600; color: #9fb0d6; }
+    .brief-doc .brief-lead { font-size: 14.5px; color: #3a465e; margin: 0 0 1rem; }
+
+    /* Unify ## (h2) and ### (.sec) section headers as document headers, since the
+       agent's heading level is not strictly pinned. */
+    .brief-doc h2,
+    .brief-doc .sec {
+        margin: 1.5rem 0 0.55rem;
+        padding-bottom: 0.3rem;
+        border-bottom: 1px solid var(--alkira-border);
+    }
+    .brief-doc h2 {
+        font-size: 0.82rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: #152a4e;
+        font-weight: 700;
+    }
+
     /* ── Sidebar ──────────────────────────────────── */
     [data-testid="stSidebar"] {
         background: #fff !important;

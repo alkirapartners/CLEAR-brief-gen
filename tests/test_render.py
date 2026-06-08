@@ -103,3 +103,7 @@ def test_score_zero_suppresses_badge():
     no_score = SAMPLE.replace("**Alkira Fit Score: 4 / 5**", "")
     html = build_brief_document_html(no_score)
     assert "brief-score-badge" not in html
+
+def test_custom_css_defines_style_c_classes():
+    for cls in (".brief-header-band", ".brief-score-badge", ".brief-lead", ".bsb-num"):
+        assert cls in CUSTOM_CSS
