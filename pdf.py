@@ -1,7 +1,8 @@
 """PDF generator for Alkira opportunity briefs.
 
-Uses fpdf2 (programmatic, pure Python). Mirrors the bento web layout
-in a print-optimized form. See docs/superpowers/specs/2026-05-06-bento-brief-pdf-export-design.md.
+Uses fpdf2 (programmatic, pure Python). Renders the brief as a flowing
+single-column document (header band + score badge + sections), mirroring the
+on-screen layout. See docs/superpowers/specs/2026-06-08-document-brief-redesign-design.md.
 """
 
 from __future__ import annotations
