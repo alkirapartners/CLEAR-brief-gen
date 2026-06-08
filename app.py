@@ -1707,143 +1707,37 @@ def build_brief_document_html(brief_md: str, meta_right: str = "") -> str:
     return f'<div class="brief-doc">{header}{lead}{body_html}</div>'
 
 
-def render_brief_bento(
+def render_brief_document(
     brief_md: str,
     meta_right: str = "",
     show_update: bool = False,
     brief_idx: int | None = None,
 ) -> None:
-    """Render a brief as a bento tile layout."""
-    score, reasoning = extract_score(brief_md)
-    company, stats_line = extract_company_header(brief_md)
+    """Render a brief as a clean single-column document (Style C).
 
-    # Stats pills line (cleaned)
-    cleaned_stats = (stats_line or "").replace("**", "").strip()
+    A slim 3-column action toolbar (Download / Update / Delete) sits above the
+    document instead of the old stacked full-width buttons that pushed content
+    below the fold.
+    """
+    score, _ = extract_score(brief_md)
+    company, _ = extract_company_header(brief_md)
 
-    # Stars
-    filled = "★" * max(0, min(5, score))
-    empty = "☆" * max(0, 5 - max(0, min(5, score)))
-
-    # Hero tile (full width)
-    hero_html = (
-        f'<div class="tile full" style="margin-bottom:12px">'
-        f'<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">'
-        f'<div>'
-        f'<h2 style="margin:0;font-size:24px;font-weight:700;color:var(--alkira-ink)">{html.escape(company or "Brief")}</h2>'
-        f'<p style="margin:4px 0 0;color:var(--alkira-muted);font-size:13px">{html.escape(cleaned_stats)}</p>'
-        f'</div>'
-        f'<div style="text-align:right;color:var(--alkira-muted);font-size:12px;white-space:nowrap">{html.escape(meta_right)}</div>'
-        f'</div>'
-        f'</div>'
-    )
-    st.markdown(hero_html, unsafe_allow_html=True)
-
-    # Download PDF button
-    _render_download_pdf_button(brief_md, company or "Brief", score)
-
-    # Update button
-    if show_update and company:
-        if st.button("Update Brief", key="update_brief", use_container_width=True):
-            st.session_state["_update_company"] = company
-            st.rerun()
-
-    # Delete button — red HTML link; click sets ?_del=N which main() detects
-    if brief_idx is not None:
-        st.markdown(
-            f'<a class="delete-brief-link" href="?_del={brief_idx}">Delete Brief</a>',
-            unsafe_allow_html=True,
-        )
-
-    # Score tile + infra grid (1/3 + 2/3)
-    cells = extract_infra_cells(brief_md)
-    score_html = (
-        f'<div class="tile gradient">'
-        f'<p class="tile-label">Alkira Fit</p>'
-        f'<div class="score-big">{score}</div>'
-        f'<div class="score-stars-bento">{filled}{empty}</div>'
-        f'<p class="score-rationale">{html.escape(reasoning)}</p>'
-        f'</div>'
-    )
-    infra_html = (
-        f'<div>'
-        f'<div class="infra-grid">'
-        f'<div class="tile"><p class="tile-label">Cloud Platforms</p>'
-        f'<p class="tile-value">{html.escape(cells["cloud_platforms"]) or "—"}</p></div>'
-        f'<div class="tile"><p class="tile-label">On-Prem / Hybrid</p>'
-        f'<p class="tile-value">{html.escape(cells["on_prem"]) or "—"}</p></div>'
-        f'<div class="tile"><p class="tile-label">Deployment Model</p>'
-        f'<p class="tile-value">{html.escape(cells["deployment"]) or "—"}</p></div>'
-        f'<div class="tile"><p class="tile-label">Resulting Complexity</p>'
-        f'<p class="tile-value">{html.escape(cells["complexity"]) or "—"}</p></div>'
-        f'</div>'
-        f'</div>'
-    )
-    st.markdown(
-        f'<div class="bento-grid">{score_html}{infra_html}</div>',
-        unsafe_allow_html=True,
-    )
-
-    # Signals tile (full width)
-    signals_md = extract_section(brief_md, "Signals & Timing") or extract_section(brief_md, "Signals and Timing")
-    if signals_md.strip():
-        _bullet_prefix = re.compile(r"^[-*]\s+")
-        bullets = "".join(
-            f"<li>{inline(_bullet_prefix.sub('', ln.strip()))}</li>"
-            for ln in signals_md.splitlines() if ln.strip()
-        )
-        st.markdown(
-            f'<div class="tile full" style="margin-top:12px">'
-            f'<p class="tile-label">Signals &amp; Timing</p>'
-            f'<ul style="margin:6px 0 0;padding-left:18px;font-size:13px;line-height:1.5;color:var(--alkira-ink)">{bullets}</ul>'
-            f'</div>',
-            unsafe_allow_html=True,
-        )
-
-    # Three entry-point tiles
-    points = extract_entry_points(brief_md)
-    if points:
-        cards = []
-        for i, p in enumerate(points[:3]):
-            heading = html.escape(p.get("heading", ""))
-            sig = html.escape(p.get("signal", "") or "—")
-            sol = html.escape(p.get("solution", "") or "—")
-            prf = html.escape(p.get("proof", "") or "—")
-            cards.append(
-                f'<div class="tile entry">'
-                f'<p class="tile-label">Entry 0{i+1}</p>'
-                f'<h3 class="entry-heading">{heading}</h3>'
-                f'<div class="entry-row"><b>Signal</b>{sig}</div>'
-                f'<div class="entry-row"><b>Solution</b>{sol}</div>'
-                f'<div class="entry-row"><b>Proof</b>{prf}</div>'
-                f'</div>'
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        _render_download_pdf_button(brief_md, company or "Brief", score)
+    with c2:
+        if show_update and company:
+            if st.button("Update Brief", key="update_brief", use_container_width=True):
+                st.session_state["_update_company"] = company
+                st.rerun()
+    with c3:
+        if brief_idx is not None:
+            st.markdown(
+                f'<a class="delete-brief-link" href="?_del={brief_idx}">Delete Brief</a>',
+                unsafe_allow_html=True,
             )
-        st.markdown(
-            f'<div class="row3">{"".join(cards)}</div>',
-            unsafe_allow_html=True,
-        )
 
-    # Conversation Starters tile (dark navy)
-    starters = extract_section(brief_md, "Conversation Starters")
-    if starters.strip():
-        formatted_starters = _format_starters_text(starters)
-        st.markdown(
-            f'<div class="tile dark full" style="margin-top:12px">'
-            f'<p class="tile-label">Conversation Starters</p>'
-            f'<div class="tile-value brief-doc" style="margin-top:6px">{md_to_html(formatted_starters)}</div>'
-            f'</div>',
-            unsafe_allow_html=True,
-        )
-
-    # References tile (full width, footer-style)
-    refs = extract_section(brief_md, "References")
-    if refs.strip():
-        st.markdown(
-            f'<div class="tile full" style="margin-top:12px">'
-            f'<p class="tile-label">References</p>'
-            f'<div class="tile-value brief-doc" style="font-size:12px">{md_to_html(refs)}</div>'
-            f'</div>',
-            unsafe_allow_html=True,
-        )
+    st.markdown(build_brief_document_html(brief_md, meta_right), unsafe_allow_html=True)
 
 
 def _render_download_pdf_button(brief_md: str, company: str, score: int) -> None:
@@ -1880,8 +1774,8 @@ def _render_download_pdf_button(brief_md: str, company: str, score: int) -> None
     )
 
 
-# Keep render_brief_display as an alias for backwards compatibility
-render_brief_display = render_brief_bento
+# Public entry point for rendering a brief (keeps call sites stable)
+render_brief_display = render_brief_document
 
 
 @st.dialog("Delete Brief")
