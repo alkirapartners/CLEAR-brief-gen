@@ -90,6 +90,11 @@ async function boot() {
     }
   } catch(e) { /* no session */ }
 
+  if (document.cookie.split(';').some(c => c.trim() === 'ak_admin=1')) {
+    location.href = 'https://dashboard.partners.alkira.cc/?return_to=briefgen';
+    return;
+  }
+
   // Show auth form
   showForm();
 }
