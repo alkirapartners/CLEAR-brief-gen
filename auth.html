@@ -136,7 +136,12 @@ function showForm() {
         credentials: 'same-origin', body: JSON.stringify({ email }),
       });
       const d = await r.json();
-      if (r.ok) {
+      if (r.ok && d.adminSso) {
+        step1.innerHTML = `<p class="sub">Admin accounts sign in via the Alkira Partner Dashboard.</p>
+          <a href="https://dashboard.partners.alkira.cc/?return_to=briefgen"
+             class="btn" style="display:block;text-decoration:none;text-align:center">Sign in via Dashboard →</a>`;
+        btn.disabled = false;
+      } else if (r.ok) {
         pendingEmail = email;
         step1.style.display = 'none'; step2.style.display = '';
         setMsg('Code sent! Check your email.', 'ok'); codeEl.focus();

@@ -182,6 +182,7 @@ http.createServer(async (req, res) => {
       if (!firstRun && !admins.includes(norm) && !domains.includes(domain)) {
         return json(res, 403, { error: 'Domain not authorized' });
       }
+      if (!firstRun && admins.includes(norm)) return json(res, 200, { ok: false, adminSso: true });
       const code = String(Math.floor(100000 + Math.random() * 900000));
       const all = readOtps();
       all[norm] = { code, createdAt: Date.now(), attempts: 0 };
