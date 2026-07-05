@@ -137,11 +137,7 @@ function showForm() {
       });
       const d = await r.json();
       if (r.ok && d.adminSso) {
-        setMsg('');
-        step1.innerHTML = `<p class="sub">Admin accounts sign in via the Alkira Partner Dashboard.</p>
-          <a href="https://dashboard.partners.alkira.cc/?return_to=briefgen"
-             class="btn" style="display:block;text-decoration:none;text-align:center">Sign in via Dashboard →</a>`;
-        btn.disabled = false;
+        location.href = 'https://dashboard.partners.alkira.cc/?return_to=briefgen';
       } else if (r.ok) {
         pendingEmail = email;
         step1.style.display = 'none'; step2.style.display = '';
