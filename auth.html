@@ -95,68 +95,81 @@ async function boot() {
 }
 
 function showForm() {
-  const expired = errorParam === 'expired';
   document.getElementById('card').innerHTML = `
     <img src="/Alkira-Logo-Registered-Color.png" class="logo" alt="Alkira">
     <div class="title">Alkira Brief Generator</div>
-    <div class="sub">Enter your work email to receive a sign-in link.</div>
-    ${expired ? '<div class="msg error" style="margin-bottom:12px">Your sign-in link has expired. Please request a new one.</div>' : ''}
-    <input id="email" type="email" placeholder="you@company.com" autocomplete="email">
-    <button class="btn" id="btn">Send Sign-in Link</button>
+    <div id="step1">
+      <div class="sub">Enter your work email to receive a sign-in code.</div>
+      <input id="email" type="email" placeholder="you@company.com" autocomplete="email">
+      <button class="btn" id="btn">Send Code</button>
+    </div>
+    <div id="step2" style="display:none">
+      <div class="sub">Enter the 6-digit code sent to your email.</div>
+      <input id="code" type="text" inputmode="numeric" maxlength="6" placeholder="000000" autocomplete="one-time-code" style="letter-spacing:6px;font-size:22px;text-align:center">
+      <button class="btn" id="verify-btn">Sign In</button>
+      <button id="back-btn" style="background:none;border:none;color:#6b7280;font-size:13px;cursor:pointer;margin-top:4px;text-decoration:underline;font-family:inherit">Use a different email</button>
+    </div>
     <div class="msg" id="msg"></div>
     <div class="warning">⚠️ This system is for authorized users only. Unauthorized access is strictly prohibited and may be subject to legal action.</div>
-    <a href="/auth.html?next=admin" class="admin-link">Admin sign in →</a>
-    <a href="/auth.html" class="admin-link" id="user-link" style="display:none">User sign in →</a>
   `;
 
-  const emailEl = document.getElementById('email');
-  const btn     = document.getElementById('btn');
-  const msg     = document.getElementById('msg');
-  const isAdmin = params.get('next') === 'admin';
+  const emailEl   = document.getElementById('email');
+  const btn       = document.getElementById('btn');
+  const msg       = document.getElementById('msg');
+  const codeEl    = document.getElementById('code');
+  const verifyBtn = document.getElementById('verify-btn');
+  const backBtn   = document.getElementById('back-btn');
+  const step1     = document.getElementById('step1');
+  const step2     = document.getElementById('step2');
+  let pendingEmail = '';
 
-  if (isAdmin) {
-    document.querySelector('.title').textContent = 'Admin Sign In for Brief Generator';
-    document.querySelector('.sub').textContent = 'Enter your admin email to sign in.';
-    document.querySelector('.admin-link').style.display = 'none';
-    document.getElementById('user-link').style.display = '';
-  }
+  function setMsg(text, type) { msg.className = 'msg' + (type ? ' ' + type : ''); msg.textContent = text; }
 
   async function submit() {
     const email = emailEl.value.trim();
     if (!email) return;
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { msg.className = 'msg error'; msg.textContent = 'Please enter a valid email address.'; return; }
-    btn.disabled = true;
-    msg.className = 'msg';
-    msg.textContent = 'Sending…';
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { setMsg('Please enter a valid email address.', 'error'); return; }
+    btn.disabled = true; setMsg('Sending…');
     try {
-      const r = await fetch('/api/auth/request', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'same-origin',
-        body: JSON.stringify({ email, context: isAdmin ? 'admin' : 'user' }),
+      const r = await fetch('/api/auth/send', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin', body: JSON.stringify({ email }),
       });
       const d = await r.json();
-      if (r.status === 403) {
-        msg.className = 'msg error';
-        msg.textContent = 'Your email domain is not authorized. Contact your Alkira representative.';
-        btn.disabled = false;
-      } else if (r.ok) {
-        msg.className = 'msg ok';
-        msg.textContent = isAdmin
-          ? 'If this email belongs to an admin, a sign-in link is on its way.'
-          : 'Check your email — a sign-in link is on its way.';
+      if (r.ok) {
+        pendingEmail = email;
+        step1.style.display = 'none'; step2.style.display = '';
+        setMsg('Code sent! Check your email.', 'ok'); codeEl.focus();
       } else {
-        throw new Error('error');
+        setMsg(r.status === 403 ? 'Your email domain is not authorized. Contact your Alkira representative.' : (d.error || 'Something went wrong.'), 'error');
+        btn.disabled = false;
       }
-    } catch(e) {
-      msg.className = 'msg error';
-      msg.textContent = 'Something went wrong. Please try again.';
-      btn.disabled = false;
-    }
+    } catch(e) { setMsg('Something went wrong. Please try again.', 'error'); btn.disabled = false; }
+  }
+
+  async function verify() {
+    const code = codeEl.value.trim();
+    if (!code) return;
+    verifyBtn.disabled = true; setMsg('Verifying…');
+    try {
+      const r = await fetch('/api/auth/verify', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin', body: JSON.stringify({ email: pendingEmail, code }),
+      });
+      const d = await r.json();
+      if (r.ok && d.ok) { location.href = d.redirect || '/'; }
+      else { setMsg(d.error || 'Invalid code.', 'error'); verifyBtn.disabled = false; }
+    } catch(e) { setMsg('Something went wrong. Please try again.', 'error'); verifyBtn.disabled = false; }
   }
 
   btn.addEventListener('click', submit);
   emailEl.addEventListener('keydown', e => { if (e.key === 'Enter') submit(); });
+  verifyBtn.addEventListener('click', verify);
+  codeEl.addEventListener('keydown', e => { if (e.key === 'Enter') verify(); });
+  backBtn.addEventListener('click', () => {
+    step2.style.display = 'none'; step1.style.display = '';
+    codeEl.value = ''; btn.disabled = false; setMsg('');
+  });
   emailEl.focus();
 }
 
