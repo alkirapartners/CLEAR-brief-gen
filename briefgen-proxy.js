@@ -246,6 +246,8 @@ http.createServer(async (req, res) => {
     if (req.method === 'GET' && p === '/api/auth/session') {
       const s = getSession(req);
       if (!s) return json(res, 200, { ok: false });
+      if (s.role === 'admin' && !expandAlkiraEmails(readJson('admins.json', [])).includes(s.email))
+        return json(res, 200, { ok: false });
       return json(res, 200, { ok: true, email: s.email, role: s.role });
     }
 
