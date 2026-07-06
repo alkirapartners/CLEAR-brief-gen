@@ -134,6 +134,7 @@ function showForm() {
       <input id="code" type="text" inputmode="numeric" maxlength="6" placeholder="000000" autocomplete="one-time-code" style="letter-spacing:6px;font-size:22px;text-align:center">
       <button class="btn" id="verify-btn">Sign In</button>
       <button id="back-btn" style="background:none;border:none;color:#6b7280;font-size:13px;cursor:pointer;margin-top:4px;text-decoration:underline;font-family:inherit">Use a different email</button>
+      <button id="resend-btn" style="background:none;border:none;color:#0066ff;font-size:13px;cursor:pointer;margin-top:2px;text-decoration:underline;font-family:inherit">Generate new code</button>
     </div>
     <div class="msg" id="msg"></div>
     <div class="warning">⚠️ This system is for authorized users only. Unauthorized access is strictly prohibited and may be subject to legal action.</div>
@@ -197,6 +198,20 @@ function showForm() {
   backBtn.addEventListener('click', () => {
     step2.style.display = 'none'; step1.style.display = '';
     codeEl.value = ''; btn.disabled = false; setMsg('');
+  });
+
+  document.getElementById('resend-btn').addEventListener('click', async () => {
+    if (!pendingEmail) return;
+    setMsg('Sending new code…');
+    try {
+      const r = await fetch('/api/auth/send', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin', body: JSON.stringify({ email: pendingEmail }),
+      });
+      const d = await r.json();
+      if (r.ok && !d.adminSso) { codeEl.value = ''; codeEl.focus(); setMsg('New code sent! Check your email.', 'ok'); }
+      else setMsg('Could not send code. Please try again.', 'error');
+    } catch(e) { setMsg('Something went wrong. Please try again.', 'error'); }
   });
   emailEl.focus();
 }
