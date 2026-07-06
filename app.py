@@ -1934,7 +1934,7 @@ def main() -> None:
         # Sign out
         st.markdown("---")
         st.markdown(
-            '<a href="/api/auth/signout" style="display:block;text-align:center;'
+            '<a href="/api/auth/signout" target="_top" style="display:block;text-align:center;'
             'padding:6px 14px;border:1px solid rgba(49,51,63,.2);border-radius:6px;'
             'color:#31333f;text-decoration:none;font-size:14px;">Sign out</a>',
             unsafe_allow_html=True,
