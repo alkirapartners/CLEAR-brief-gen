@@ -89,8 +89,10 @@ async function boot() {
     }
   } catch(e) { /* no session */ }
 
-  // Explicit sign-out: show SSO button, don't auto-redirect
-  if (params.get('signed_out') === '1') {
+  // Explicit sign-out (URL param or persisted cookie): show SSO button, don't auto-redirect
+  const noSso = params.get('signed_out') === '1' ||
+    document.cookie.split(';').some(c => c.trim() === 'briefgen_no_sso=1');
+  if (noSso) {
     showSsoForm();
     return;
   }

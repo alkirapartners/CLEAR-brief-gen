@@ -164,7 +164,11 @@ http.createServer(async (req, res) => {
         const all = readSessions();
         all[sid] = { email: ssoPayload.email, role: 'admin', expires: Date.now() + 7 * 86400 * 1000 };
         writeSessions(all);
-        setCookie(res, sid);
+        const exp = new Date(Date.now() + 7 * 86400 * 1000).toUTCString();
+        res.setHeader('Set-Cookie', [
+          `briefgen_session=${sid}; Path=/; HttpOnly; Secure; SameSite=Strict; Expires=${exp}`,
+          'briefgen_no_sso=; Path=/; Secure; SameSite=Lax; Max-Age=0',
+        ]);
       }
       res.writeHead(302, { Location: '/' });
       return res.end();
@@ -230,7 +234,10 @@ http.createServer(async (req, res) => {
     if (req.method === 'GET' && p === '/api/auth/signout') {
       const sid = parseCookies(req)['briefgen_session'];
       if (sid) { const all = readSessions(); delete all[sid]; writeSessions(all); }
-      clearCookie(res);
+      res.setHeader('Set-Cookie', [
+        'briefgen_session=; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=0',
+        'briefgen_no_sso=1; Path=/; Secure; SameSite=Lax',
+      ]);
       res.writeHead(302, { Location: '/auth.html?signed_out=1' });
       return res.end();
     }
