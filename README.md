@@ -155,7 +155,7 @@ ssh -i ~/.ssh/alkira-channel.pem ubuntu@32.184.242.60
 
 Access is controlled by `briefgen-proxy.js`:
 
-- **Users** sign in via magic link if their email domain is on the trusted domains list
+- **Users** sign in via magic link on `auth.html` if their email domain is on the trusted domains list. A "Generate new code" button on step 2 lets users resend the link without starting over.
 - **Admins** can view the admin panel at `/admin.html` (read-only — manage via [Admin Portal](https://admin.partners.alkira.cc))
 - Sessions are cookie-based (7-day TTL, HttpOnly, Secure, SameSite=Strict), persisted to `data/sessions.json` on EFS — shared between instances
 - Magic-link tokens are persisted to `data/tokens.json` on EFS (15-min TTL) so either instance can verify a link regardless of which generated it
