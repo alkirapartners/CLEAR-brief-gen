@@ -18,6 +18,12 @@ function readJson(file, def) {
   try { return JSON.parse(fs.readFileSync(path.join(DATA_DIR, file), 'utf8')); }
   catch(e) { return def; }
 }
+
+const DASHBOARD_ADMINS_FILE = '/var/www/dashboard/data/admins.json';
+function readAdmins() {
+  try { return JSON.parse(fs.readFileSync(DASHBOARD_ADMINS_FILE, 'utf8')); }
+  catch(e) { return []; }
+}
 function writeJson(file, data) {
   fs.writeFileSync(path.join(DATA_DIR, file), JSON.stringify(data, null, 2));
 }
@@ -180,7 +186,7 @@ http.createServer(async (req, res) => {
       if (!email || !email.includes('@')) return json(res, 400, { error: 'Invalid email' });
       const norm   = email.toLowerCase().trim();
       const domain = norm.split('@')[1];
-      const admins  = expandAlkiraEmails(readJson('admins.json', []));
+      const admins  = expandAlkiraEmails(readAdmins());
       const firstRun = admins.length === 0;
       const domains = readJson('domains.json', []);
       if (!firstRun && !admins.includes(norm) && !domains.includes(domain)) {
@@ -220,7 +226,7 @@ http.createServer(async (req, res) => {
         return json(res, 401, { error: `Incorrect code. ${left} attempt${left !== 1 ? 's' : ''} remaining.` });
       }
       delete all[norm]; writeOtps(all);
-      const admins = expandAlkiraEmails(readJson('admins.json', []));
+      const admins = expandAlkiraEmails(readAdmins());
       const role = admins.includes(norm) ? 'admin' : 'user';
       const sid = mkRandom();
       const sessions = readSessions();
@@ -246,7 +252,7 @@ http.createServer(async (req, res) => {
     if (req.method === 'GET' && p === '/api/auth/session') {
       const s = getSession(req);
       if (!s) return json(res, 200, { ok: false });
-      if (s.role === 'admin' && !expandAlkiraEmails(readJson('admins.json', [])).includes(s.email))
+      if (s.role === 'admin' && !expandAlkiraEmails(readAdmins()).includes(s.email))
         return json(res, 200, { ok: false });
       return json(res, 200, { ok: true, email: s.email, role: s.role });
     }
@@ -261,7 +267,7 @@ http.createServer(async (req, res) => {
 
     // ── GET /api/admins ─────────────────────────────────────────────────
     if (req.method === 'GET' && p === '/api/admins') {
-      const admins = readJson('admins.json', []);
+      const admins = readAdmins();
       if (admins.length === 0) return json(res, 200, { firstRun: true, admins: [] });
       const s = getSession(req);
       if (!s || s.role !== 'admin') return json(res, 401, { error: 'Unauthorized' });
