@@ -231,7 +231,7 @@ http.createServer(async (req, res) => {
       const sid = parseCookies(req)['briefgen_session'];
       if (sid) { const all = readSessions(); delete all[sid]; writeSessions(all); }
       clearCookie(res);
-      res.writeHead(302, { Location: '/auth.html' });
+      res.writeHead(302, { Location: '/auth.html?signed_out=1' });
       return res.end();
     }
 

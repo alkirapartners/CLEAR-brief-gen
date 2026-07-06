@@ -80,7 +80,6 @@ async function boot() {
     if (r.ok) {
       const d = await r.json();
       if (d.ok && d.email) {
-        // Valid session — send to app with email pre-filled
         const dest = d.role === 'admin' && params.get('next') === 'admin'
           ? '/admin.html'
           : '/?auth_email=' + encodeURIComponent(d.email);
@@ -90,13 +89,33 @@ async function boot() {
     }
   } catch(e) { /* no session */ }
 
+  // Explicit sign-out: show SSO button, don't auto-redirect
+  if (params.get('signed_out') === '1') {
+    showSsoForm();
+    return;
+  }
+
+  // Admin hint cookie present — silently redirect to dashboard SSO
   if (document.cookie.split(';').some(c => c.trim() === 'ak_admin=1')) {
     location.href = 'https://dashboard.partners.alkira.cc/?return_to=briefgen';
     return;
   }
 
-  // Show auth form
+  // Non-admin — show OTP form
   showForm();
+}
+
+function showSsoForm() {
+  document.getElementById('card').innerHTML = `
+    <img src="/Alkira-Logo-Registered-Color.png" class="logo" alt="Alkira">
+    <div class="title">Sign In</div>
+    <div class="sub">Sign in with your Alkira account.</div>
+    <a href="https://dashboard.partners.alkira.cc/?return_to=briefgen"
+       style="display:block;width:100%;padding:12px;background:#0D2F5E;color:#fff;border-radius:8px;font-size:15px;font-weight:700;text-decoration:none;text-align:center;box-sizing:border-box">
+      Sign in via Okta SSO →
+    </a>
+    <div class="warning">⚠️ This system is for authorized users only. Unauthorized access is strictly prohibited and may be subject to legal action.</div>
+  `;
 }
 
 function showForm() {
