@@ -223,6 +223,42 @@ today's research from last Tuesday's.
 
 ---
 
+## Deployment (verified 2026-08-31 via SSH)
+
+Two EC2 instances behind the ALB, both `ubuntu@`, both on `main` at `1122607`
+(= `origin/main`), no drift.
+
+| Fact | Value |
+|---|---|
+| App path | `/var/www/briefgen` (git checkout, deploy = `git pull`) |
+| Python | `/var/www/briefgen/venv/bin/python3` — **3.14.4** |
+| Process manager | pm2, user `ubuntu`; app `briefgen`, auth backend `briefgen-proxy` |
+| Binding | Streamlit 127.0.0.1:8501, proxy 127.0.0.1:3461, nginx fronts both |
+| Env | `/var/www/briefgen/.env` |
+| Instances | 35.166.223.217 (`ip-10-10-1-222`), 32.184.242.60 (`ip-10-10-2-81`) |
+
+**These are shared boxes.** Each runs 12 Alkira apps under pm2 (dashboard, quoting,
+rfp, ela-proxy, proservices, networkassessment, intranet proxy + webhook, resources).
+Restart `briefgen` by name only. `pm2 restart all` would bounce seven unrelated
+production tools.
+
+Per-instance procedure:
+
+1. `git -C /var/www/briefgen pull`
+2. `/var/www/briefgen/venv/bin/pip install -r requirements.txt`  (adds `tavily-python`)
+3. Edit `/var/www/briefgen/.env`: add `TAVILY_API_KEY`, remove `ALKIRA_AGENT_ID` and
+   `ALKIRA_ENV_ID`
+4. `pm2 restart briefgen`   **(by name — never `all`)**
+5. Verify one brief end to end, then repeat on the second instance
+
+Sticky sessions are enabled on the target group, so instances can be done one at a
+time without cutting active sessions on the other.
+
+**Pre-cutover check:** confirm `tavily-python` installs and imports on Python 3.14.4.
+Verified locally on 3.11 only. Resolve before deploy day, not during it.
+
+---
+
 ## Non-Goals
 
 - Deleting the regex parsing layer in `app.py` / `pdf.py`.
