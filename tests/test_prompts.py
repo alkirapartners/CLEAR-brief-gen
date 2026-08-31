@@ -100,6 +100,40 @@ def test_system_prefix_states_the_output_contract():
     assert "# ALKIRA OPPORTUNITY BRIEF" in prompts.build_system_prefix()
 
 
+def test_system_prefix_mandates_heading_format_the_parsers_require():
+    """app.py:extract_section matches ONLY '##'/'###' headings by exact text.
+
+    Live generation (Mary Kay, Chevron) emitted these as **bold** instead,
+    which app.py's regex-based extractors silently treat as a missing
+    section — Infrastructure Snapshot, Signals & Timing, Three Alkira Entry
+    Points, and Conversation Starters all rendered as 0 characters. The
+    parsers and their fixtures are a frozen regression gate (test_parsers.py)
+    and skills/ must never be edited, so the fix has to make _INSTRUCTIONS
+    state the required literal heading text unambiguously. This test pins
+    that down so a future edit to _INSTRUCTIONS can't silently drop the
+    format rules and reintroduce empty sections.
+    """
+    prefix = prompts.build_system_prefix()
+    required_headings = (
+        "## Infrastructure Snapshot",
+        "## Signals & Timing",
+        "## Three Alkira Entry Points",
+        "## Conversation Starters",
+        "## References",
+    )
+    for heading in required_headings:
+        assert heading in prefix, f"missing required heading directive: {heading}"
+
+    # The ampersand form is mandated explicitly, not just used in the heading
+    # list above — "and" must never be presented as an acceptable substitute.
+    assert 'Do not write "and"' in prefix
+
+    # Entry-point subheadings must be required to carry a leading number.
+    assert "**1. Title**" in prefix
+    assert "**2. Title**" in prefix
+    assert "**3. Title**" in prefix
+
+
 def test_user_message_carries_company_payload_and_date():
     msg = prompts.build_user_message(
         "Acme Corp", "[1] Source\nURL: https://a.com", date(2026, 8, 31)

@@ -68,6 +68,54 @@ scored opportunity brief.
   Never write a URL that does not appear in the provided sources.
 - No files, no code. Markdown text only.
 
+## Output Format — Machine-Parsed Contract, Not a Style Suggestion
+
+A downstream parser reads your headings literally with exact-string matching.
+It does NOT understand meaning, bold text, or synonyms. It looks for one
+specific character sequence per section. If a heading is off by even the
+choice of `**bold**` instead of `##`, or "and" instead of "&", the parser
+finds nothing, treats the section as missing, and that section renders as a
+**blank space in the partner-facing brief** — not a formatting quirk, a
+content dropout a Channel Account Manager will present to a partner.
+
+Render EVERY one of the following as its own line, starting with `##`
+(never bold, never `###`, never any other marker), using this EXACT text,
+in this exact order:
+
+```
+# ALKIRA OPPORTUNITY BRIEF
+## [Company Name]
+## Infrastructure Snapshot
+## Signals & Timing
+## Three Alkira Entry Points
+## Conversation Starters
+## References
+```
+
+- `## [Company Name]` — replace `[Company Name]` with the actual company name.
+  Every other heading above is copied character-for-character, including
+  capitalization and punctuation.
+- `## Signals & Timing` uses the ampersand character `&`. Do not write "and".
+- The brief template below numbers these sections (e.g. "4. Infrastructure
+  Snapshot") to describe their order and purpose to you. That numbering
+  describes the outline; it is never part of the literal output. Never write
+  `### 4. Infrastructure Snapshot` or `**Infrastructure Snapshot**`. Always
+  write `## Infrastructure Snapshot`, with no number and no bold.
+
+Inside "Three Alkira Entry Points", each of the 3 entry-point subheadings
+MUST be numbered, bolded, and formatted exactly like this, with nothing else
+on the line:
+
+```
+**1. Title**
+**2. Title**
+**3. Title**
+```
+
+Never omit the number (`**Title**` alone is unparseable). Never use `##` for
+these subheadings; they must be `**N. Title**`, bold with a leading digit and
+period.
+
 ---
 
 # Reference Material
