@@ -1507,6 +1507,9 @@ def _render_dashboard_cards(history: list[dict]) -> None:
                     use_container_width=True,
                 ):
                     st.session_state["viewing_brief"] = real_idx
+                    # Moving to a different brief: don't carry a reused
+                    # badge over from whatever was last generated.
+                    st.session_state.pop("reused_from", None)
                     st.rerun()
 
 
@@ -1539,8 +1542,14 @@ def render_brief_bento(
     meta_right: str = "",
     show_update: bool = False,
     brief_idx: int | None = None,
+    reused_from: str = "",
 ) -> None:
-    """Render a brief as a bento tile layout."""
+    """Render a brief as a bento tile layout.
+
+    ``reused_from`` is the ``created_at`` of the ORIGINAL research this brief
+    was reused from (cache hit). When set, a persistent badge tells the
+    viewer this is not freshly researched and points them at Update Brief.
+    """
     score, reasoning = extract_score(brief_md)
     company, stats_line = extract_company_header(brief_md)
 
@@ -1550,6 +1559,18 @@ def render_brief_bento(
     # Stars
     filled = "★" * max(0, min(5, score))
     empty = "☆" * max(0, 5 - max(0, min(5, score)))
+
+    reused_badge_html = ""
+    if reused_from:
+        reused_badge_html = (
+            f'<div style="margin-top:10px;display:inline-flex;align-items:center;'
+            f'gap:6px;background:rgba(251,146,60,0.12);color:var(--alkira-orange);'
+            f'font-size:11px;font-weight:700;padding:4px 12px;border-radius:9999px;'
+            f'letter-spacing:0.02em">'
+            f'Reused research from {html.escape(reused_from[:10])} '
+            f'&mdash; use Update Brief for fresh research'
+            f'</div>'
+        )
 
     # Hero tile (full width)
     hero_html = (
@@ -1561,6 +1582,7 @@ def render_brief_bento(
         f'</div>'
         f'<div style="text-align:right;color:var(--alkira-muted);font-size:12px;white-space:nowrap">{html.escape(meta_right)}</div>'
         f'</div>'
+        f'{reused_badge_html}'
         f'</div>'
     )
     st.markdown(hero_html, unsafe_allow_html=True)
@@ -1846,6 +1868,9 @@ def main() -> None:
                     use_container_width=True,
                 ):
                     st.session_state["viewing_brief"] = i
+                    # Moving to a different brief: don't carry a reused
+                    # badge over from whatever was last generated.
+                    st.session_state.pop("reused_from", None)
                     st.rerun()
 
         # Sign out
@@ -1959,6 +1984,9 @@ def main() -> None:
                 "time": display_time,
             })
             st.session_state["viewing_brief"] = 0
+            # Fresh research: never let a stale reused-badge flag leak
+            # forward onto this brief on a later rerun.
+            st.session_state.pop("reused_from", None)
 
             render_brief_display(brief_md, meta_right=f"Updated in {elapsed:.0f}s")
 
@@ -2002,6 +2030,7 @@ def main() -> None:
 
         try:
             cached = db.find_recent_brief_by_company(company_name.strip())
+            reused_from = cached.get("created_at", "") if cached else ""
 
             if cached:
                 raw = cached["brief_md"]
@@ -2025,7 +2054,11 @@ def main() -> None:
             if not company:
                 company = company_name.strip()
 
-            render_brief_display(brief_md, meta_right=f"Generated in {elapsed:.0f}s")
+            render_brief_display(
+                brief_md,
+                meta_right=f"Generated in {elapsed:.0f}s",
+                reused_from=reused_from,
+            )
 
             # ── Save to DB + session state ───────────────
             saved = db.save_brief(user_email, company, score, brief_md)
@@ -2051,6 +2084,15 @@ def main() -> None:
                     "Brief saved locally but could not sync to your account.",
                     icon="&#9888;",
                 )
+
+            # Track reuse across the rerun so the history view can render a
+            # persistent "reused research" badge instead of losing it to the
+            # rerun's discarded render above. Cleared on fresh generation so
+            # a genuinely new brief is never mislabeled as reused.
+            if reused_from:
+                st.session_state["reused_from"] = reused_from
+            else:
+                st.session_state.pop("reused_from", None)
 
             # Rerun so the sidebar refreshes and shows the new brief
             st.session_state["viewing_brief"] = 0
@@ -2083,6 +2125,7 @@ def main() -> None:
                     meta_right=entry.get("time", ""),
                     show_update=True,
                     brief_idx=idx,
+                    reused_from=st.session_state.get("reused_from", ""),
                 )
 
     # ── Home: dashboard cards or empty state ─────────────────
