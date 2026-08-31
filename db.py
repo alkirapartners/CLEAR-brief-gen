@@ -7,6 +7,7 @@ Every public function catches exceptions and returns a safe default
 
 import logging
 import os
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 import streamlit as st
@@ -60,6 +61,15 @@ def _normalize_email(email: str) -> str:
     return email.strip().lower()
 
 
+def _escape_like(value: str) -> str:
+    """Escape LIKE/ILIKE metacharacters so user input can't act as a wildcard.
+
+    Backslash must be escaped first so it doesn't double-escape the
+    characters escaped after it.
+    """
+    return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
 def get_user_briefs(email: str) -> list[dict]:
     """Fetch all briefs for the given email, newest first."""
     client = _get_client()
@@ -85,21 +95,33 @@ def save_brief(
     company: str,
     score: int,
     brief_md: str,
+    created_at: Optional[str] = None,
 ) -> Optional[dict]:
-    """Insert a new brief. Returns the inserted record or None on failure."""
+    """Insert a new brief. Returns the inserted record or None on failure.
+
+    ``created_at`` is normally left to the column default. Pass it only when
+    copying an existing brief (the repeat-company cache), so the copy keeps the
+    ORIGINAL research timestamp. Without that, each cache hit would write a row
+    dated today, the next lookup would match the copy, and both the 7-day
+    window and the "reused research" date would drift indefinitely.
+    """
     client = _get_client()
     if client is None:
         return None
 
+    payload = {
+        "email": _normalize_email(email),
+        "company": company,
+        "score": score,
+        "brief_md": brief_md,
+    }
+    if created_at:
+        payload["created_at"] = created_at
+
     try:
         result = (
             client.table("briefs")
-            .insert({
-                "email": _normalize_email(email),
-                "company": company,
-                "score": score,
-                "brief_md": brief_md,
-            })
+            .insert(payload)
             .execute()
         )
         rows = result.data or []
@@ -150,3 +172,37 @@ def replace_brief(
 def is_available() -> bool:
     """Check if the database is configured and reachable."""
     return _get_client() is not None
+
+
+def find_recent_brief_by_company(
+    company: str,
+    max_age_days: int = 7,
+) -> Optional[dict]:
+    """Most recent brief for this company across all users, or None.
+
+    Unlike get_user_briefs this deliberately ignores email: if any partner
+    briefed the company this week, reuse that research.
+    """
+    client = _get_client()
+    if client is None:
+        return None
+
+    cutoff = (
+        datetime.now(timezone.utc) - timedelta(days=max_age_days)
+    ).isoformat()
+
+    try:
+        result = (
+            client.table("briefs")
+            .select("id, email, company, score, brief_md, created_at")
+            .ilike("company", _escape_like(company.strip()))
+            .gte("created_at", cutoff)
+            .order("created_at", desc=True)
+            .limit(1)
+            .execute()
+        )
+        rows = result.data or []
+        return rows[0] if rows else None
+    except Exception as exc:
+        logger.error("Failed company-cache lookup for %s: %s", company, exc)
+        return None

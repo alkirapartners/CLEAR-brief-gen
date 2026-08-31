@@ -1,82 +1,95 @@
-# Alkira Brief Generator — Web App
+# Alkira Brief Generator — Setup
 
-A web app where partners type a company name and get a downloadable one-page Alkira opportunity brief (.docx). Powered by Claude Managed Agents.
+A web app where partners type a company name and get a scored Alkira opportunity brief on the page, downloadable as PDF.
 
-The agent researches the company via web search, maps findings to Alkira's entry points, and generates a formatted Word document. Partners see a progress bar and download button.
+## How a brief is produced
+
+1. `research.py` runs the brief template's research checklist as 8 parallel Tavily searches, ranks the hits, and extracts the top 5 pages.
+2. `generate.py` makes one streamed `claude-sonnet-5` call that composes the whole brief from those sources.
+3. `prompts.py` builds the system prefix (brief template, Alkira knowledge base, writing rules). It is byte-stable and prompt-cached with a 1-hour TTL; everything per-brief lives in the user message.
+4. `app.py` parses, renders, and saves the brief.
+
+There is no agent session and no model-driven tool loop. A brief takes roughly 45 seconds.
 
 ## Prerequisites
 
 - Python 3.10+
-- An Anthropic API key with Managed Agents beta access
+- An Anthropic API key
+- A Tavily API key
+- A Supabase project (optional — the app runs without it, briefs just won't persist)
 
 ## Setup
 
 ```bash
-cd alkira-brief-agent
-
-# 1. Install dependencies
 pip install -r requirements.txt
 
-# 2. Set your API key
-cp .env.example .env
-# Edit .env and paste your ANTHROPIC_API_KEY
-
-# 3. Create the agent definition (one time)
-python setup_agent.py
-
-# 4. Launch the web app
+# Create .env in the repo root
 streamlit run app.py
 ```
 
-The app opens at http://localhost:8501. Partners type a company name, hit "Generate Brief," and get a .docx download when the agent finishes.
+**.env:**
+
+```
+ANTHROPIC_API_KEY=sk-ant-...
+TAVILY_API_KEY=tvly-...
+SUPABASE_URL=https://xxxx.supabase.co      # optional
+SUPABASE_KEY=sb_secret_...                 # optional
+SLACK_WEBHOOK_URL=https://hooks.slack.com/services/...  # optional
+```
+
+`ANTHROPIC_API_KEY` and `TAVILY_API_KEY` are both required. The app fails at the config guard without them.
+
+The app opens at http://localhost:8501.
 
 ## File Overview
 
 | File | Purpose |
 |------|---------|
-| `app.py` | Streamlit web app (the frontend partners use) |
-| `setup_agent.py` | One-time setup: creates agent + environment on Anthropic's platform |
-| `generate_brief.py` | CLI alternative (if you prefer terminal usage) |
-| `system_prompt.py` | Alkira knowledge base embedded as the agent's system prompt |
-| `.env` | API key + agent/environment IDs (git-ignored) |
+| `app.py` | Streamlit web app — UI, brief parsing, rendering, history |
+| `research.py` | Tavily search + extract, ranking, source payload |
+| `generate.py` | The single streamed Sonnet 5 call |
+| `prompts.py` | Cached system prefix + per-brief user message |
+| `db.py` | Supabase persistence and the 7-day repeat-company cache |
+| `pdf.py` | PDF generation (fpdf2) |
+| `notifications.py` | Slack webhook on successful generation |
+| `generate_brief.py` | CLI alternative |
+| `skills/` | Brief template, Alkira knowledge base, writing rules — inlined into the system prefix |
 
 ## Model Choice
 
-The agent uses **claude-sonnet-4-6** by default. This is the right call for this task. The agent is doing structured web research and templated document generation, not deep multi-step reasoning. Sonnet handles this at the same quality as Opus, 5x faster, and at 1/5 the token cost. At ~$0.15-0.40 per brief with Sonnet vs. ~$0.75-2.00 with Opus, the math is clear.
+`claude-sonnet-5` with `thinking={"type": "adaptive"}` and `output_config={"effort": "medium"}`, streamed. The task is source-grounded synthesis against a fixed template, not open-ended reasoning. To change it, edit `MODEL` in `generate.py`.
 
-To change the model, edit `system_prompt.py` isn't where the model is set. Edit `setup_agent.py` and change the `model` parameter, then re-run it.
+## Docker
 
-## Deployment Options
-
-**Local (dev/demo):** `streamlit run app.py`
-
-**Streamlit Community Cloud (free, fast):**
-1. Push this folder to a GitHub repo
-2. Go to share.streamlit.io, connect the repo
-3. Set your secrets (ANTHROPIC_API_KEY, ALKIRA_AGENT_ID, ALKIRA_ENV_ID) in the Streamlit secrets panel
-4. Deploy
-
-**Cloud VM (production):**
 ```bash
-# On any Linux VM with Python 3.10+
+docker compose up --build
+```
+
+Reads `ANTHROPIC_API_KEY` and `TAVILY_API_KEY` (plus the optional Supabase and Slack vars) from your shell or a `.env` file next to `docker-compose.yml`.
+
+## Deployment
+
+**Local:** `streamlit run app.py`
+
+**Cloud VM:**
+
+```bash
 pip install -r requirements.txt
 streamlit run app.py --server.port 8080 --server.address 0.0.0.0
 ```
-Put it behind nginx or Cloudflare Tunnel for HTTPS.
 
-## Cost Per Brief
-
-- Standard Claude Sonnet 4.6 token rates (~$3/M input, $15/M output)
-- $0.08/session hour (Managed Agents infrastructure)
-- $0.01/web search query (agent runs ~5-10 searches per brief)
-- Estimate: **~$0.15-0.40 per brief**
+Put it behind nginx or Cloudflare Tunnel for HTTPS. See `README.md` for the production two-instance layout.
 
 ## Updating the Knowledge Base
 
-Edit `system_prompt.py` to add case studies, update proof points, or change the brief template. Then re-run `python setup_agent.py` to create a new agent version with the updated prompt.
+Edit the files under `skills/` (brief template and scoring rubric, Alkira proof points, writing rules) and restart the app. They are read at startup and inlined into the cached system prefix. No agent to re-provision.
 
-## Notes
+## Cost Per Brief
 
-- Managed Agents is in public beta (April 2026). The streaming and file download APIs may shift as the beta matures.
-- The `sessions.files.read` call for downloading the generated docx is the most likely API surface to change. If auto-download breaks, the app shows the session ID so you can retrieve the file from the Anthropic Console.
-- The agent installs `python-docx` inside its sandbox at runtime to generate the Word file. This adds a few seconds to the first run.
+| Item | Estimate |
+|------|----------|
+| Tavily searches (8) + extract | ~$0.05 |
+| Sonnet 5 tokens (cached prefix, ~3K output) | ~$0.05–0.15 |
+| **Total** | **~$0.10–0.20 per brief** |
+
+The system prefix is prompt-cached for 1 hour. Repeat briefs within that window read the cache instead of paying full input rate. Separately, a brief for a company already researched in the last 7 days is served from Supabase without any model call at all.

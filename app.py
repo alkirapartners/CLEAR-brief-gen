@@ -1,8 +1,9 @@
 """
 Alkira Opportunity Brief Generator — Web App
 
-Streamlit frontend for the Managed Agent. Partners type a company name,
-the agent researches it and returns a formatted brief on the page.
+Streamlit frontend. Partners type a company name; research.py gathers sources
+via Tavily and generate.py composes the brief in one streamed Sonnet 5 call,
+which renders on the page. Needs ANTHROPIC_API_KEY and TAVILY_API_KEY.
 
 Usage:
     streamlit run app.py
@@ -17,11 +18,11 @@ from datetime import datetime
 from typing import TypedDict
 
 import streamlit as st
-from anthropic import Anthropic
 from dotenv import load_dotenv
 from PIL import Image
 
 import db
+import generate
 
 load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
 
@@ -30,9 +31,8 @@ load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
 
 @dataclass(frozen=True)
 class AgentConfig:
-    agent_id: str
-    env_id: str
     api_key: str
+    tavily_key: str
 
 
 def _secret(key: str) -> str:
@@ -47,91 +47,9 @@ def _secret(key: str) -> str:
 
 def load_config() -> AgentConfig:
     return AgentConfig(
-        agent_id=_secret("ALKIRA_AGENT_ID"),
-        env_id=_secret("ALKIRA_ENV_ID"),
         api_key=_secret("ANTHROPIC_API_KEY"),
+        tavily_key=_secret("TAVILY_API_KEY"),
     )
-
-
-# ── Agent Session ────────────────────────────────────────────────
-
-def run_agent_session(
-    config: AgentConfig,
-    company_name: str,
-    status_callback,
-    timeout_seconds: float = 300,
-) -> str:
-    client = Anthropic(api_key=config.api_key)
-
-    prompt = (
-        f'Research the company "{company_name}" and generate an Alkira '
-        f"opportunity brief. Follow the brief structure and writing style in your "
-        f"instructions exactly. Include the Alkira Fit Score, strategic sales "
-        f"questions, and references. Focus on information from the past 12 months. "
-        f"Return the brief as markdown text. Do not narrate your process."
-    )
-
-    status_callback("init")
-    session = client.beta.sessions.create(
-        agent=config.agent_id,
-        environment_id=config.env_id,
-        title=f"Alkira Brief: {company_name}",
-    )
-
-    brief_parts: list[str] = []
-
-    try:
-        status_callback("research")
-        session_start = time.monotonic()
-
-        with client.beta.sessions.events.stream(session.id) as stream:
-            client.beta.sessions.events.send(
-                session.id,
-                events=[
-                    {
-                        "type": "user.message",
-                        "content": [{"type": "text", "text": prompt}],
-                    },
-                ],
-            )
-
-            for event in stream:
-                if time.monotonic() - session_start > timeout_seconds:
-                    raise TimeoutError("Agent did not finish in time")
-
-                if not hasattr(event, "type"):
-                    continue
-
-                if event.type == "agent.message":
-                    for block in getattr(event, "content", []):
-                        if getattr(block, "type", None) == "text":
-                            brief_parts.append(block.text)
-
-                if event.type == "agent.tool_use":
-                    tool_name = getattr(event, "name", "")
-                    if "search" in tool_name:
-                        status_callback("search")
-                    elif "skill" in tool_name or "read" in tool_name:
-                        status_callback("analyze")
-
-                if event.type == "session.status_idle":
-                    status_callback("done")
-                    break
-
-                if event.type == "session.error":
-                    msg = getattr(
-                        getattr(event, "error", None), "message", "unknown"
-                    )
-                    brief_parts.append(f"\n\n[Error: {msg}]")
-                    break
-
-        return "".join(brief_parts)
-
-    finally:
-        try:
-            client.beta.sessions.delete(session.id)
-        except Exception:
-            pass
 
 
 # ── Brief Parsing ────────────────────────────────────────────────
@@ -514,8 +432,12 @@ def inline(text: str) -> str:
         r'<a href="\3" target="_blank">[\1] \2</a>',
         text,
     )
+    # Only http(s) links become anchors. URLs now come from arbitrary
+    # third-party pages and this HTML is rendered unescaped, so javascript:,
+    # data:, and friends must never reach an href. Anything else stays as
+    # literal markdown text.
     text = re.sub(
-        r"\[(.+?)\]\((.+?)\)",
+        r"\[(.+?)\]\((https?://[^)\s]+)\)",
         r'<a href="\2" target="_blank">\1</a>',
         text,
     )
@@ -1590,6 +1512,9 @@ def _render_dashboard_cards(history: list[dict]) -> None:
                     use_container_width=True,
                 ):
                     st.session_state["viewing_brief"] = real_idx
+                    # Moving to a different brief: don't carry a reused
+                    # badge over from whatever was last generated.
+                    st.session_state.pop("reused_from", None)
                     st.rerun()
 
 
@@ -1622,8 +1547,14 @@ def render_brief_bento(
     meta_right: str = "",
     show_update: bool = False,
     brief_idx: int | None = None,
+    reused_from: str = "",
 ) -> None:
-    """Render a brief as a bento tile layout."""
+    """Render a brief as a bento tile layout.
+
+    ``reused_from`` is the ``created_at`` of the ORIGINAL research this brief
+    was reused from (cache hit). When set, a persistent badge tells the
+    viewer this is not freshly researched and points them at Update Brief.
+    """
     score, reasoning = extract_score(brief_md)
     company, stats_line = extract_company_header(brief_md)
 
@@ -1633,6 +1564,18 @@ def render_brief_bento(
     # Stars
     filled = "★" * max(0, min(5, score))
     empty = "☆" * max(0, 5 - max(0, min(5, score)))
+
+    reused_badge_html = ""
+    if reused_from:
+        reused_badge_html = (
+            f'<div style="margin-top:10px;display:inline-flex;align-items:center;'
+            f'gap:6px;background:rgba(251,146,60,0.12);color:var(--alkira-orange);'
+            f'font-size:11px;font-weight:700;padding:4px 12px;border-radius:9999px;'
+            f'letter-spacing:0.02em">'
+            f'Reused research from {html.escape(reused_from[:10])} '
+            f'&mdash; use Update Brief for fresh research'
+            f'</div>'
+        )
 
     # Hero tile (full width)
     hero_html = (
@@ -1644,6 +1587,7 @@ def render_brief_bento(
         f'</div>'
         f'<div style="text-align:right;color:var(--alkira-muted);font-size:12px;white-space:nowrap">{html.escape(meta_right)}</div>'
         f'</div>'
+        f'{reused_badge_html}'
         f'</div>'
     )
     st.markdown(hero_html, unsafe_allow_html=True)
@@ -1929,6 +1873,9 @@ def main() -> None:
                     use_container_width=True,
                 ):
                     st.session_state["viewing_brief"] = i
+                    # Moving to a different brief: don't carry a reused
+                    # badge over from whatever was last generated.
+                    st.session_state.pop("reused_from", None)
                     st.rerun()
 
         # Sign out
@@ -1976,10 +1923,10 @@ def main() -> None:
 
     # ── Config ───────────────────────────────────────────────
     config = load_config()
-    if not config.agent_id or not config.env_id or not config.api_key:
+    if not config.api_key or not config.tavily_key:
         st.error(
-            "Missing config. Set ANTHROPIC_API_KEY, ALKIRA_AGENT_ID, "
-            "and ALKIRA_ENV_ID in .env or Streamlit secrets."
+            "Missing config. Set ANTHROPIC_API_KEY and TAVILY_API_KEY "
+            "in .env or Streamlit secrets."
         )
         return
 
@@ -2008,8 +1955,8 @@ def main() -> None:
         start = time.time()
         try:
             with st.spinner(""):
-                raw = run_agent_session(
-                    config, update_company, update_status,
+                raw = generate.generate_brief(
+                    config.api_key, config.tavily_key, update_company, update_status,
                 )
 
             elapsed = time.time() - start
@@ -2042,12 +1989,12 @@ def main() -> None:
                 "time": display_time,
             })
             st.session_state["viewing_brief"] = 0
+            # Fresh research: never let a stale reused-badge flag leak
+            # forward onto this brief on a later rerun.
+            st.session_state.pop("reused_from", None)
 
             render_brief_display(brief_md, meta_right=f"Updated in {elapsed:.0f}s")
 
-        except TimeoutError:
-            tracker_ph.empty()
-            st.error("Timed out after 5 minutes. Try again.")
         except Exception as exc:
             tracker_ph.empty()
             st.error(f"Something went wrong: {exc}")
@@ -2065,10 +2012,10 @@ def main() -> None:
                     label_visibility="collapsed",
                 )
             with col2:
-                generate = st.form_submit_button("Generate", use_container_width=True)
+                generate_clicked = st.form_submit_button("Generate", use_container_width=True)
 
     # ── Generation ───────────────────────────────────────────
-    if generate and company_name.strip():
+    if generate_clicked and company_name.strip():
         st.session_state.pop("viewing_brief", None)  # Clear any viewed brief
         form_area.empty()  # Hide form while generating
         tracker_ph = st.empty()
@@ -2084,10 +2031,21 @@ def main() -> None:
         start = time.time()
 
         try:
-            with st.spinner(""):
-                raw = run_agent_session(
-                    config, company_name.strip(), update_status,
+            cached = db.find_recent_brief_by_company(company_name.strip())
+            reused_from = cached.get("created_at", "") if cached else ""
+
+            if cached:
+                raw = cached["brief_md"]
+                st.info(
+                    f"Reusing research from {cached.get('created_at', '')[:10]}. "
+                    "Use Update Brief to re-research."
                 )
+                tracker_ph.empty()
+            else:
+                with st.spinner(""):
+                    raw = generate.generate_brief(
+                        config.api_key, config.tavily_key, company_name.strip(), update_status,
+                    )
 
             elapsed = time.time() - start
             tracker_ph.empty()
@@ -2098,10 +2056,22 @@ def main() -> None:
             if not company:
                 company = company_name.strip()
 
-            render_brief_display(brief_md, meta_right=f"Generated in {elapsed:.0f}s")
+            render_brief_display(
+                brief_md,
+                meta_right=f"Generated in {elapsed:.0f}s",
+                reused_from=reused_from,
+            )
 
             # ── Save to DB + session state ───────────────
-            saved = db.save_brief(user_email, company, score, brief_md)
+            # On a cache hit, stamp the copy with the ORIGINAL research
+            # timestamp. Letting the column default fire would date the copy
+            # today, the next lookup would match the copy instead of the
+            # original, and the 7-day window plus the reused-research badge
+            # would both drift with every repeat. Fresh generation passes
+            # None and keeps the default.
+            saved = db.save_brief(
+                user_email, company, score, brief_md, created_at=reused_from or None
+            )
             brief_id = saved.get("id", "") if saved else ""
             created_at = saved.get("created_at", "") if saved else ""
 
@@ -2125,24 +2095,29 @@ def main() -> None:
                     icon="&#9888;",
                 )
 
+            # Track reuse across the rerun so the history view can render a
+            # persistent "reused research" badge instead of losing it to the
+            # rerun's discarded render above. Cleared on fresh generation so
+            # a genuinely new brief is never mislabeled as reused.
+            if reused_from:
+                st.session_state["reused_from"] = reused_from
+            else:
+                st.session_state.pop("reused_from", None)
+
             # Rerun so the sidebar refreshes and shows the new brief
             st.session_state["viewing_brief"] = 0
             st.rerun()
-
-        except TimeoutError:
-            tracker_ph.empty()
-            st.error("Timed out after 5 minutes. Try again.")
 
         except Exception as exc:
             tracker_ph.empty()
             st.error(f"Something went wrong: {exc}")
 
-    elif generate:
+    elif generate_clicked:
         st.warning("Enter a company name first.")
 
     # ── View history brief ───────────────────────────────────
     elif (
-        not generate
+        not generate_clicked
         and "viewing_brief" in st.session_state
         and st.session_state.brief_history
     ):
@@ -2156,6 +2131,7 @@ def main() -> None:
                     meta_right=entry.get("time", ""),
                     show_update=True,
                     brief_idx=idx,
+                    reused_from=st.session_state.get("reused_from", ""),
                 )
 
     # ── Home: dashboard cards or empty state ─────────────────
