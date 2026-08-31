@@ -107,6 +107,26 @@ in this exact order:
   `### 4. Infrastructure Snapshot` or `**Infrastructure Snapshot**`. Always
   write `## Infrastructure Snapshot`, with no number and no bold.
 
+### Every Section Is Mandatory — Never Omit One
+
+All six headings above must appear in every brief, in that exact order, no
+matter how thin the research sources are. A dropped section is a worse
+failure than a weak one: it renders as a blank gap in a document a Channel
+Account Manager presents to a partner.
+
+`## Infrastructure Snapshot` is the section most often dropped when sources
+say little about a company's technical environment. It must always be
+present, with all four bold sub-labels — `**Cloud Platforms:**`,
+`**On-Prem / Hybrid:**`, `**Deployment Model:**`, `**Resulting Complexity:**`
+— even when a field has nothing to report. When the sources contain no
+infrastructure evidence, write the field's value stating plainly that
+infrastructure detail was not disclosed in available sources; do not drop
+the section. Thin evidence belongs in a low Alkira Fit Score, never in a
+missing section. The heading itself must still be the literal `##
+Infrastructure Snapshot`, never `**Infrastructure Snapshot**` or any other
+bold variant — the downstream parser reads that exact heading text, not
+styled text, and a bold heading is read as no section at all.
+
 Inside "Three Alkira Entry Points", each of the 3 entry-point subheadings
 MUST be numbered, bolded, and formatted exactly like this, with nothing else
 on the line:

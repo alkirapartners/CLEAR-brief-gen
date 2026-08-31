@@ -111,12 +111,28 @@ def extract_company_header(brief: str) -> tuple[str, str]:
 
 
 def extract_section(brief: str, heading: str) -> str:
-    pattern = rf"###?\s*{re.escape(heading)}\s*\n"
-    match = re.search(pattern, brief, re.IGNORECASE)
+    """Find a section by heading and return its body.
+
+    The heading may be written as ``## Heading`` / ``### Heading`` (the
+    contract we mandate in prompts.py) or, tolerating a known production
+    failure mode, as a **bold** line containing only that heading text. A
+    bold *sub-label* inside a section body (e.g. ``**Cloud Platforms:**
+    text``) is never mistaken for a heading, because it has content after
+    the closing ``**`` on the same line — only a bold span that is the
+    ENTIRE line counts.
+    """
+    esc = re.escape(heading)
+    start_pattern = rf"###?\s*{esc}\s*\n|\*\*\s*{esc}\s*\*\*[ \t]*\n"
+    match = re.search(start_pattern, brief, re.IGNORECASE)
     if not match:
         return ""
     start = match.end()
-    next_heading = re.search(r"\n###?\s", brief[start:])
+    # A bold line only counts as the START of the next section if it is not
+    # a numbered entry-point subheading (``**1. Title**``) — those live
+    # INSIDE "Three Alkira Entry Points" and must not truncate that section.
+    next_heading = re.search(
+        r"\n(?:###?\s|\*\*(?!\d+\.\s)[^\n*]+\*\*[ \t]*\n)", brief[start:]
+    )
     end = start + next_heading.start() if next_heading else len(brief)
     return brief[start:end].strip()
 
