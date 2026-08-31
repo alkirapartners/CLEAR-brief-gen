@@ -271,3 +271,47 @@ a proven dependency for code we would have to own and test.
 - Structured JSON output.
 - Any change to brief content, template, scoring rubric, or the three skill files.
 - Feature-flagged dual path. Downtime during cutover is acceptable; simplicity wins.
+
+---
+
+## Measured Results (2026-08-31, verified on EC2 instance A)
+
+Verified in an isolated scratch checkout on `35.166.223.217` using the production
+`ANTHROPIC_API_KEY` (which never left the box). `/var/www/briefgen` and pm2 were not
+touched; the box stayed on `main @ 1122607` with all 11 apps online throughout.
+
+| Measure | Before | After |
+|---|---|---|
+| Wall clock per brief | 120-200s | **42-52s** (5 briefs) |
+| Model turns per brief | ~25-40 | **1** |
+| Research stage | model-driven, sequential | 0.5-5s, 8 parallel Tavily queries |
+| Output tokens | — | 3,190-4,233 (ceiling 16,000) |
+
+**Prompt caching confirmed working.** Cold run after a prompt change:
+`cache_read=0 cache_write=16351`. Very next run: `cache_read=16351 cache_write=0`.
+The cached prefix is ~16.3K tokens, read at 10% of input price on every subsequent brief.
+This only works because the cache breakpoint sits on the system block; the top-level
+`cache_control` form originally planned would have marked the volatile user message and
+never hit. TTL is set to `1h` — the 5m default would have missed on this app's bursty
+traffic, making caching a net cost *increase*.
+
+**Contract verified live**, not just against fixtures: all five parsed sections populate,
+3/3 entry points parse, every reference URL traces to a real Tavily source, and
+`pdf.generate_brief_pdf` produces a valid PDF (7.1-7.5KB) from live output.
+
+**One contract break was caught here that 82 unit tests could not.** The model emitted
+section titles as `**Bold**` while `extract_section` requires `##`, so Infrastructure
+Snapshot, Signals & Timing, Entry Points and Conversation Starters all parsed as EMPTY on
+both test briefs. Root cause: `skills/alkira-brief-template/SKILL.md` writes its own
+structure as `### 5. Signals & Timing` — a description of the sections, never a literal
+output format. The old agent happened to emit `##` anyway and the parsers plus their
+fixtures were written to that accident. Fixed in `prompts.py` (skill files untouched) and
+re-verified live: 7/7 headings correct.
+
+### Known limitation, not yet fixed
+
+The repeat-company cache looks up the **typed** input ("mary kay") but stores the model's
+extracted name ("Mary Kay Inc."), so it will mostly miss. It fails safe — extra cost, never
+wrong data — but the feature is largely inert until a lookup key is decided. Every clean fix
+needs a call the owner should make: a normalized lookup column (a schema change this spec
+rules out) or storing the typed string and losing the polished display name.
