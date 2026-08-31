@@ -254,8 +254,13 @@ Per-instance procedure:
 Sticky sessions are enabled on the target group, so instances can be done one at a
 time without cutting active sessions on the other.
 
-**Pre-cutover check:** confirm `tavily-python` installs and imports on Python 3.14.4.
-Verified locally on 3.11 only. Resolve before deploy day, not during it.
+**Python 3.14 compatibility: RESOLVED (2026-08-31).** `tavily-python` 0.8.0 declares
+`requires_python >=3.8` and depends on `requests`, `httpx`, and `tiktoken>=0.5.1`.
+`tiktoken` is a compiled Rust extension and was the real risk; latest (0.14.0) ships
+`cp314` wheels, so installation on 3.14.4 needs no build toolchain. Noted for
+awareness: the SDK pulls in a tokenizer this project does not use. Accepted — the
+probe already validated the SDK path, and hand-rolling the two REST calls would trade
+a proven dependency for code we would have to own and test.
 
 ---
 
