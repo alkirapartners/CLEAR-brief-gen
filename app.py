@@ -17,11 +17,11 @@ from datetime import datetime
 from typing import TypedDict
 
 import streamlit as st
-from anthropic import Anthropic
 from dotenv import load_dotenv
 from PIL import Image
 
 import db
+import generate
 
 load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
 
@@ -30,9 +30,8 @@ load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
 
 @dataclass(frozen=True)
 class AgentConfig:
-    agent_id: str
-    env_id: str
     api_key: str
+    tavily_key: str
 
 
 def _secret(key: str) -> str:
@@ -47,91 +46,9 @@ def _secret(key: str) -> str:
 
 def load_config() -> AgentConfig:
     return AgentConfig(
-        agent_id=_secret("ALKIRA_AGENT_ID"),
-        env_id=_secret("ALKIRA_ENV_ID"),
         api_key=_secret("ANTHROPIC_API_KEY"),
+        tavily_key=_secret("TAVILY_API_KEY"),
     )
-
-
-# ── Agent Session ────────────────────────────────────────────────
-
-def run_agent_session(
-    config: AgentConfig,
-    company_name: str,
-    status_callback,
-    timeout_seconds: float = 300,
-) -> str:
-    client = Anthropic(api_key=config.api_key)
-
-    prompt = (
-        f'Research the company "{company_name}" and generate an Alkira '
-        f"opportunity brief. Follow the brief structure and writing style in your "
-        f"instructions exactly. Include the Alkira Fit Score, strategic sales "
-        f"questions, and references. Focus on information from the past 12 months. "
-        f"Return the brief as markdown text. Do not narrate your process."
-    )
-
-    status_callback("init")
-    session = client.beta.sessions.create(
-        agent=config.agent_id,
-        environment_id=config.env_id,
-        title=f"Alkira Brief: {company_name}",
-    )
-
-    brief_parts: list[str] = []
-
-    try:
-        status_callback("research")
-        session_start = time.monotonic()
-
-        with client.beta.sessions.events.stream(session.id) as stream:
-            client.beta.sessions.events.send(
-                session.id,
-                events=[
-                    {
-                        "type": "user.message",
-                        "content": [{"type": "text", "text": prompt}],
-                    },
-                ],
-            )
-
-            for event in stream:
-                if time.monotonic() - session_start > timeout_seconds:
-                    raise TimeoutError("Agent did not finish in time")
-
-                if not hasattr(event, "type"):
-                    continue
-
-                if event.type == "agent.message":
-                    for block in getattr(event, "content", []):
-                        if getattr(block, "type", None) == "text":
-                            brief_parts.append(block.text)
-
-                if event.type == "agent.tool_use":
-                    tool_name = getattr(event, "name", "")
-                    if "search" in tool_name:
-                        status_callback("search")
-                    elif "skill" in tool_name or "read" in tool_name:
-                        status_callback("analyze")
-
-                if event.type == "session.status_idle":
-                    status_callback("done")
-                    break
-
-                if event.type == "session.error":
-                    msg = getattr(
-                        getattr(event, "error", None), "message", "unknown"
-                    )
-                    brief_parts.append(f"\n\n[Error: {msg}]")
-                    break
-
-        return "".join(brief_parts)
-
-    finally:
-        try:
-            client.beta.sessions.delete(session.id)
-        except Exception:
-            pass
 
 
 # ── Brief Parsing ────────────────────────────────────────────────
@@ -1976,10 +1893,10 @@ def main() -> None:
 
     # ── Config ───────────────────────────────────────────────
     config = load_config()
-    if not config.agent_id or not config.env_id or not config.api_key:
+    if not config.api_key or not config.tavily_key:
         st.error(
-            "Missing config. Set ANTHROPIC_API_KEY, ALKIRA_AGENT_ID, "
-            "and ALKIRA_ENV_ID in .env or Streamlit secrets."
+            "Missing config. Set ANTHROPIC_API_KEY and TAVILY_API_KEY "
+            "in .env or Streamlit secrets."
         )
         return
 
@@ -2008,8 +1925,8 @@ def main() -> None:
         start = time.time()
         try:
             with st.spinner(""):
-                raw = run_agent_session(
-                    config, update_company, update_status,
+                raw = generate.generate_brief(
+                    config.api_key, config.tavily_key, update_company, update_status,
                 )
 
             elapsed = time.time() - start
@@ -2065,10 +1982,10 @@ def main() -> None:
                     label_visibility="collapsed",
                 )
             with col2:
-                generate = st.form_submit_button("Generate", use_container_width=True)
+                generate_clicked = st.form_submit_button("Generate", use_container_width=True)
 
     # ── Generation ───────────────────────────────────────────
-    if generate and company_name.strip():
+    if generate_clicked and company_name.strip():
         st.session_state.pop("viewing_brief", None)  # Clear any viewed brief
         form_area.empty()  # Hide form while generating
         tracker_ph = st.empty()
@@ -2084,10 +2001,20 @@ def main() -> None:
         start = time.time()
 
         try:
-            with st.spinner(""):
-                raw = run_agent_session(
-                    config, company_name.strip(), update_status,
+            cached = db.find_recent_brief_by_company(company_name.strip())
+
+            if cached:
+                raw = cached["brief_md"]
+                st.info(
+                    f"Reusing research from {cached.get('created_at', '')[:10]}. "
+                    "Use Update Brief to re-research."
                 )
+                tracker_ph.empty()
+            else:
+                with st.spinner(""):
+                    raw = generate.generate_brief(
+                        config.api_key, config.tavily_key, company_name.strip(), update_status,
+                    )
 
             elapsed = time.time() - start
             tracker_ph.empty()
@@ -2137,12 +2064,12 @@ def main() -> None:
             tracker_ph.empty()
             st.error(f"Something went wrong: {exc}")
 
-    elif generate:
+    elif generate_clicked:
         st.warning("Enter a company name first.")
 
     # ── View history brief ───────────────────────────────────
     elif (
-        not generate
+        not generate_clicked
         and "viewing_brief" in st.session_state
         and st.session_state.brief_history
     ):
