@@ -41,8 +41,13 @@ def generate_brief(
         max_tokens=MAX_TOKENS,
         thinking={"type": "adaptive"},
         output_config={"effort": EFFORT},
-        cache_control={"type": "ephemeral"},
-        system=prompts.build_system_prefix(),
+        system=[
+            {
+                "type": "text",
+                "text": prompts.build_system_prefix(),
+                "cache_control": {"type": "ephemeral"},
+            }
+        ],
         messages=[
             {
                 "role": "user",
@@ -64,5 +69,18 @@ def generate_brief(
         usage.output_tokens,
     )
 
+    brief = "".join(b.text for b in message.content if b.type == "text")
+
+    if message.stop_reason == "max_tokens":
+        raise RuntimeError(
+            f"Brief generation for '{company}' was truncated "
+            f"(stop_reason=max_tokens, output_tokens={usage.output_tokens})."
+        )
+    if not brief.strip():
+        raise RuntimeError(
+            f"Brief generation for '{company}' returned empty output "
+            f"(stop_reason={message.stop_reason}, output_tokens={usage.output_tokens})."
+        )
+
     status_callback("done")
-    return "".join(b.text for b in message.content if b.type == "text")
+    return brief
