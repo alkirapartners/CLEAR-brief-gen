@@ -217,7 +217,8 @@ today's research from last Tuesday's.
 |---|---|
 | Thin-research companies score lower than the agent's | Accepted, and arguably more honest. The rubric's 1-2 star rungs exist for exactly this. Regenerate control available. |
 | Tavily becomes a hard dependency | Wrap and surface a real error. Never generate an uncited brief on a research failure. |
-| Tavily key is `tvly-dev-` (development tier) | Lower rate limits and credit caps than production. Obtain a production key before cutover. Deploy risk, not a code risk. |
+| Tavily key is `tvly-dev-` (development tier) | Lower rate limits and credit caps than production. Obtain a production key before cutover. Deploy risk, not a code risk. Current key lives at `~/Downloads/tavily.rtf` on Blake's machine; it is not in the repo and must not be committed. |
+| Production key lacks Sonnet 5 access | **RESOLVED (2026-08-31).** Verified against the production `ANTHROPIC_API_KEY` on instance A: `claude-sonnet-5` returns 200 (1M context, 128K max output). `claude-haiku-4-5` also available if the synthesis step is ever A/B'd for cost. |
 | Env vars change on both EC2 instances | Deploy-time change, not just a merge. Instances A and B both need `TAVILY_API_KEY` added and the two agent IDs removed. |
 | Cache prefix invalidated by a stray timestamp | Covered by the byte-stability test and by keeping month/year in the user message. |
 
