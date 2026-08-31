@@ -112,8 +112,8 @@ research(company: str, status_callback) -> ResearchResult
   `linkedin.com` and `facebook.com`, which rank well and extract to boilerplate.
   Take the top 5 for extraction.
 - **Cap.** Truncate each extracted page to `MAX_PAGE_CHARS = 8000`. Measured
-  uncapped volume was ~50K tokens for 5 pages; the cap brings that to ~8K tokens
-  (~$0.016/brief) with no meaningful signal loss.
+  uncapped volume was ~50K tokens for 5 pages; the cap brings that to ~10K tokens
+  (~$0.02/brief) with no meaningful signal loss.
 - **Client.** Sync `TavilyClient` in threads. Streamlit is sync; asyncio would add
   complication for no gain.
 
