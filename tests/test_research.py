@@ -1,6 +1,14 @@
 """Tests for the Tavily research layer. No live network calls."""
 
+from unittest.mock import MagicMock, patch
+
+import pytest
+
 import research
+
+
+def _search_response(url, title="Title", score=0.9, content="snippet"):
+    return {"results": [{"url": url, "title": title, "score": score, "content": content}]}
 
 
 def test_build_queries_covers_all_checklist_categories():
@@ -73,3 +81,66 @@ def test_format_payload_numbers_sources_and_includes_urls():
     assert "https://acme.com/ir" in payload
     assert "https://news.com/a" in payload
     assert "revenue" in payload
+
+
+@patch("research.TavilyClient")
+def test_research_happy_path_numbers_sources_and_includes_urls(mock_tavily_client):
+    client = MagicMock()
+    client.search.return_value = _search_response("https://acme.com/page")
+    client.extract.return_value = {
+        "results": [{"url": "https://acme.com/page", "raw_content": "full page content"}]
+    }
+    mock_tavily_client.return_value = client
+
+    result = research.research("Acme Corp", lambda status: None, "fake-key")
+
+    assert isinstance(result, research.ResearchResult)
+    assert [s["n"] for s in result.sources] == list(range(1, len(result.sources) + 1))
+    assert "https://acme.com/page" in result.payload
+
+
+@patch("research.TavilyClient")
+def test_research_extract_failure_falls_back_to_search_snippets(mock_tavily_client):
+    client = MagicMock()
+    client.search.return_value = _search_response(
+        "https://acme.com/page", content="search snippet"
+    )
+    client.extract.side_effect = RuntimeError("extract down")
+    mock_tavily_client.return_value = client
+
+    result = research.research("Acme Corp", lambda status: None, "fake-key")
+
+    assert isinstance(result, research.ResearchResult)
+    assert result.sources
+    assert result.sources[0]["content"] == "search snippet"
+
+
+@patch("research.TavilyClient")
+def test_research_raises_when_all_searches_fail(mock_tavily_client):
+    client = MagicMock()
+    client.search.side_effect = RuntimeError("rate limited")
+    mock_tavily_client.return_value = client
+
+    with pytest.raises(research.ResearchError):
+        research.research("Acme Corp", lambda status: None, "fake-key")
+
+
+@patch("research.TavilyClient")
+def test_research_survives_one_failing_query_among_seven(mock_tavily_client):
+    """A single throttled/timed-out query must not abort the whole batch."""
+    client = MagicMock()
+    failing_query = research.build_queries("Acme Corp")[2]["query"]
+
+    def fake_search(**kwargs):
+        if kwargs.get("query") == failing_query:
+            raise RuntimeError("timeout")
+        return _search_response(f"https://acme.com/{abs(hash(kwargs['query']))}")
+
+    client.search.side_effect = fake_search
+    client.extract.return_value = {"results": []}
+    mock_tavily_client.return_value = client
+
+    result = research.research("Acme Corp", lambda status: None, "fake-key")
+
+    assert result.sources
+    assert all(failing_query not in url for url in (s["url"] for s in result.sources))

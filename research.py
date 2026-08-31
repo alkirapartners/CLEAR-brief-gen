@@ -100,24 +100,28 @@ def research(
     queries = build_queries(company)
 
     status_callback("research")
-    try:
-        with futures.ThreadPoolExecutor(max_workers=len(queries)) as pool:
-            responses = list(
-                pool.map(
-                    lambda q: client.search(
-                        max_results=SEARCH_RESULTS_PER_QUERY,
-                        search_depth="advanced",
-                        **q,
-                    ),
-                    queries,
-                )
-            )
-    except Exception as exc:
-        raise ResearchError(f"Tavily search failed: {exc}") from exc
-
     hits: list[dict] = []
-    for response in responses:
-        hits.extend(response.get("results", []))
+    with futures.ThreadPoolExecutor(max_workers=len(queries)) as pool:
+        future_to_query = {
+            pool.submit(
+                lambda q=q: client.search(
+                    max_results=SEARCH_RESULTS_PER_QUERY,
+                    search_depth="advanced",
+                    **q,
+                )
+            ): q
+            for q in queries
+        }
+        for future in futures.as_completed(future_to_query):
+            query = future_to_query[future]
+            try:
+                response = future.result()
+            except Exception as exc:
+                logger.warning(
+                    "Tavily search failed for query %r: %s", query.get("query"), exc
+                )
+                continue
+            hits.extend(response.get("results", []))
 
     if not hits:
         raise ResearchError(f"No search results found for '{company}'.")
