@@ -61,6 +61,15 @@ def _normalize_email(email: str) -> str:
     return email.strip().lower()
 
 
+def _escape_like(value: str) -> str:
+    """Escape LIKE/ILIKE metacharacters so user input can't act as a wildcard.
+
+    Backslash must be escaped first so it doesn't double-escape the
+    characters escaped after it.
+    """
+    return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
 def get_user_briefs(email: str) -> list[dict]:
     """Fetch all briefs for the given email, newest first."""
     client = _get_client()
@@ -174,7 +183,7 @@ def find_recent_brief_by_company(
         result = (
             client.table("briefs")
             .select("id, email, company, score, brief_md, created_at")
-            .ilike("company", company.strip())
+            .ilike("company", _escape_like(company.strip()))
             .gte("created_at", cutoff)
             .order("created_at", desc=True)
             .limit(1)
