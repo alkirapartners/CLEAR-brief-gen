@@ -60,3 +60,43 @@ def test_save_brief_does_not_notify_when_insert_returns_no_rows():
 
     assert result is None
     mock_notify.assert_not_called()
+
+
+def test_find_recent_brief_by_company_returns_match():
+    """A brief for the same company within the window is reused across users."""
+    fake_row = {"id": "x-1", "company": "Acme", "score": 4, "brief_md": "# b",
+                "created_at": "2026-08-30T10:00:00Z", "email": "other@example.com"}
+    fake_client = MagicMock()
+    (fake_client.table.return_value.select.return_value.ilike.return_value
+     .gte.return_value.order.return_value.limit.return_value
+     .execute.return_value.data) = [fake_row]
+
+    with patch("db._get_client", return_value=fake_client):
+        import db
+        assert db.find_recent_brief_by_company("acme") == fake_row
+
+
+def test_find_recent_brief_by_company_returns_none_when_empty():
+    fake_client = MagicMock()
+    (fake_client.table.return_value.select.return_value.ilike.return_value
+     .gte.return_value.order.return_value.limit.return_value
+     .execute.return_value.data) = []
+
+    with patch("db._get_client", return_value=fake_client):
+        import db
+        assert db.find_recent_brief_by_company("nobody") is None
+
+
+def test_find_recent_brief_by_company_returns_none_without_client():
+    with patch("db._get_client", return_value=None):
+        import db
+        assert db.find_recent_brief_by_company("Acme") is None
+
+
+def test_find_recent_brief_by_company_swallows_errors():
+    """db.py's contract: never crash the app on a DB problem."""
+    fake_client = MagicMock()
+    fake_client.table.side_effect = RuntimeError("boom")
+    with patch("db._get_client", return_value=fake_client):
+        import db
+        assert db.find_recent_brief_by_company("Acme") is None

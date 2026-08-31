@@ -7,6 +7,7 @@ Every public function catches exceptions and returns a safe default
 
 import logging
 import os
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 import streamlit as st
@@ -150,3 +151,37 @@ def replace_brief(
 def is_available() -> bool:
     """Check if the database is configured and reachable."""
     return _get_client() is not None
+
+
+def find_recent_brief_by_company(
+    company: str,
+    max_age_days: int = 7,
+) -> Optional[dict]:
+    """Most recent brief for this company across all users, or None.
+
+    Unlike get_user_briefs this deliberately ignores email: if any partner
+    briefed the company this week, reuse that research.
+    """
+    client = _get_client()
+    if client is None:
+        return None
+
+    cutoff = (
+        datetime.now(timezone.utc) - timedelta(days=max_age_days)
+    ).isoformat()
+
+    try:
+        result = (
+            client.table("briefs")
+            .select("id, email, company, score, brief_md, created_at")
+            .ilike("company", company.strip())
+            .gte("created_at", cutoff)
+            .order("created_at", desc=True)
+            .limit(1)
+            .execute()
+        )
+        rows = result.data or []
+        return rows[0] if rows else None
+    except Exception as exc:
+        logger.error("Failed company-cache lookup for %s: %s", company, exc)
+        return None
