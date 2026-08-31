@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from pdf import build_filename, ALKIRA_BLUE
+from pdf import build_filename, ALKIRA_BLUE, _iter_sections, generate_brief_pdf
 
 
 def test_filename_basic():
@@ -181,4 +181,29 @@ def test_full_brief_renders():
     )
     assert isinstance(out, bytes)
     assert out.startswith(b"%PDF")
-    assert len(out) > 3000  # Real brief renders to substantive bytes (compressed)
+    assert len(out) > 2000  # Substantive content (not a stub). Lowered from >3000: the
+    # document layout is more byte-efficient than the old bento tiles' vector fills.
+
+
+
+
+def test_iter_sections_splits_in_order():
+    assert _iter_sections("### One\nalpha\n\n### Two\nbeta\n") == [("One", "alpha"), ("Two", "beta")]
+
+def test_iter_sections_handles_h2():
+    assert _iter_sections("## A\nx\n## B\ny\n") == [("A", "x"), ("B", "y")]
+
+def test_iter_sections_empty():
+    assert _iter_sections("") == []
+
+def test_generate_pdf_long_brief_no_crash():
+    long_brief = SAMPLE_FULL_BRIEF + "\n".join(
+        f"## Section {i}\n" + ("Long paragraph of content. " * 40) for i in range(15)
+    )
+    out = generate_brief_pdf(long_brief, "Big Co", 5, datetime(2026, 6, 8))
+    assert bytes(out[:5]) == b"%PDF-"
+
+def test_generate_pdf_sparse_brief_no_crash():
+    sparse = "# ALKIRA OPPORTUNITY BRIEF\n\n## Tiny Co\n\n**Alkira Fit Score: 1 / 5**\nThin.\n\n*CONFIDENTIAL*\n"
+    out = generate_brief_pdf(sparse, "Tiny Co", 1, datetime(2026, 6, 8))
+    assert bytes(out[:5]) == b"%PDF-"

@@ -14,7 +14,6 @@ import re
 import time
 from dataclasses import dataclass
 from datetime import datetime
-from typing import TypedDict
 
 import streamlit as st
 from anthropic import Anthropic
@@ -145,8 +144,11 @@ def clean_brief(raw: str) -> str:
     return raw
 
 
+_SCORE_LINE_RE = re.compile(r"\*?\*?Alkira Fit Score:\s*(\d)\s*/\s*5\*?\*?")
+
+
 def extract_score(brief: str) -> tuple[int, str]:
-    match = re.search(r"\*?\*?Alkira Fit Score:\s*(\d)\s*/\s*5\*?\*?", brief)
+    match = _SCORE_LINE_RE.search(brief)
     score = int(match.group(1)) if match else 0
     reasoning = ""
     if match:
@@ -203,131 +205,6 @@ def extract_section(brief: str, heading: str) -> str:
     return brief[start:end].strip()
 
 
-class EntryPoint(TypedDict):
-    heading: str
-    signal: str
-    solution: str
-    proof: str
-    body: str  # raw cleaned body text — always populated for fallback rendering
-
-
-def _label_pattern(label: str) -> re.Pattern[str]:
-    """Build a regex matching a Signal/Solution/Proof label across formatting variations.
-
-    Handles: bare ``Signal: foo``, bullet ``- Signal: foo``, numbered ``1. Signal: foo``,
-    bold ``**Signal**: foo`` / ``**Signal:** foo``, and combinations thereof.
-    """
-    return re.compile(
-        rf"(?im)^\s*[-*\d.\s]*\**\s*\b{label}\b\s*[:\-]?\s*\**\s*[:\-]?\s*(.+?)"
-        rf"(?=\n\s*[-*\d.\s]*\**\s*\b(?:Signal|Solution|Proof)\b\s*[:\-]?\s*\**\s*[:\-]?|\Z)",
-        re.DOTALL,
-    )
-
-
-def _grab(body: str, label: str) -> str:
-    m = _label_pattern(label).search(body)
-    return m.group(1).strip() if m else ""
-
-
-def extract_entry_points(brief: str) -> list[EntryPoint]:
-    """Parse the 'Three Alkira Entry Points' section into 3 dicts.
-
-    Each dict has: heading, signal, solution, proof.
-    Returns empty list if section is missing.
-    """
-    section = extract_section(brief, "Three Alkira Entry Points")
-    if not section:
-        section = extract_section(brief, "Alkira Entry Points")
-    if not section:
-        return []
-
-    # Split on bold-numbered headings: **1. Title**, **2. Title**, **3. Title**.
-    # Allow markdown emphasis (e.g. *italic*) inside the heading by closing on
-    # the trailing ``**`` followed by a newline.
-    parts = re.split(r"\*\*\s*\d+\.\s+(.+?)\*\*\s*\n", section, flags=re.DOTALL)
-    # parts = ["", "heading1", "body1", "heading2", "body2", ...]
-
-    points: list[EntryPoint] = []
-    for i in range(1, len(parts), 2):
-        heading = parts[i].strip()
-        body = parts[i + 1] if i + 1 < len(parts) else ""
-
-        signal = _grab(body, "signal")
-        solution = _grab(body, "solution")
-        proof = _grab(body, "proof")
-
-        # Always preserve a cleaned raw body as a fallback for the renderer.
-        # Strip leading numbered-sentence markers (``1. ``) so prose reads
-        # cleanly as a single paragraph if the renderer has to fall back.
-        cleaned_body = body.strip()
-        cleaned_body = re.sub(r"^(\d+\.\s+)", "", cleaned_body, flags=re.MULTILINE)
-
-        # Fallback: agent sometimes emits a 3-sentence paragraph WITHOUT
-        # Signal/Solution/Proof labels. Stash the whole body in `signal` so
-        # legacy callers still see content there.
-        if not (signal or solution or proof):
-            points.append(EntryPoint(
-                heading=heading,
-                signal=cleaned_body,
-                solution="",
-                proof="",
-                body=cleaned_body,
-            ))
-        else:
-            points.append(EntryPoint(
-                heading=heading,
-                signal=signal,
-                solution=solution,
-                proof=proof,
-                body=cleaned_body,
-            ))
-
-    return points[:3]
-
-
-class InfraCells(TypedDict):
-    cloud_platforms: str
-    on_prem: str
-    deployment: str
-    complexity: str
-
-
-def extract_infra_cells(brief: str) -> InfraCells:
-    """Parse the 4 bold sub-labels from Infrastructure Snapshot.
-
-    Returns dict with keys: cloud_platforms, on_prem, deployment, complexity.
-    Missing values are empty strings.
-    """
-    empty: InfraCells = {
-        "cloud_platforms": "",
-        "on_prem": "",
-        "deployment": "",
-        "complexity": "",
-    }
-    section = extract_section(brief, "Infrastructure Snapshot")
-    if not section:
-        return empty
-
-    label_map = {
-        "cloud_platforms": [r"Cloud Platforms?"],
-        "on_prem": [r"On-?Prem(?:\s*/\s*Hybrid)?", r"Hybrid"],
-        "deployment": [r"Deployment Model", r"Deployment"],
-        "complexity": [r"Resulting Complexity", r"Complexity"],
-    }
-
-    out: InfraCells = dict(empty)  # type: ignore[assignment]
-    for key, patterns in label_map.items():
-        for pat in patterns:
-            m = re.search(
-                rf"\*\*\s*{pat}\s*:?\s*\*\*\s*:?\s*(.+?)(?=\n\s*\*\*|\Z)",
-                section,
-                re.DOTALL | re.IGNORECASE,
-            )
-            if m:
-                out[key] = m.group(1).strip()  # type: ignore[literal-required]
-                break
-
-    return out
 
 
 def extract_exec_snippet(brief_md: str, max_chars: int = 120) -> str:
@@ -357,28 +234,25 @@ def extract_exec_snippet(brief_md: str, max_chars: int = 120) -> str:
 
 
 def get_brief_body(brief: str) -> str:
-    """Get the brief content starting from the first content section,
-    excluding the title, company header, and score (rendered separately)."""
-    markers = [
-        "### Infrastructure Snapshot",
-        "### Executive Summary",
-        "## Executive Summary",
-        "### Company Snapshot",
-        "### Cloud & Infrastructure",
-        "### Signals & Timing",
-    ]
-    for marker in markers:
-        idx = brief.find(marker)
-        if idx != -1:
-            # Find the CONFIDENTIAL marker or end
-            end_markers = ["*CONFIDENTIAL*", "*\"CONFIDENTIAL\"*", "CONFIDENTIAL"]
-            end_idx = len(brief)
-            for em in end_markers:
-                ei = brief.find(em, idx)
-                if ei != -1:
-                    end_idx = min(end_idx, ei + len(em))
-            return brief[idx:end_idx].strip()
-    return brief
+    """Return the brief body: the first ## / ### section after the Fit Score line,
+    through (but excluding) the CONFIDENTIAL footer.
+
+    Excludes the title, company header, and the score line/rationale, which are
+    rendered separately. Robust to both ## and ### section heading levels.
+    """
+    score = _SCORE_LINE_RE.search(brief)
+    if score:
+        base = score.end()
+        m = re.search(r"(?m)^\s*#{2,3}\s+\S.*$", brief[base:])
+        start = base + m.start() if m else None
+    else:
+        heads = list(re.finditer(r"(?m)^\s*#{2,3}\s+\S.*$", brief))
+        start = heads[1].start() if len(heads) > 1 else None
+    if start is None:
+        return ""
+    m_end = re.search(r'\*?"?CONFIDENTIAL"?\*?', brief[start:])
+    end = start + m_end.start() if m_end else len(brief)
+    return brief[start:end].strip()
 
 
 # ── HTML Rendering ───────────────────────────────────────────────
@@ -844,147 +718,6 @@ CUSTOM_CSS = """
     }
 
 
-    /* ── Bento brief tiles ─────────────────────────── */
-    .bento-grid {
-        display: grid;
-        grid-template-columns: 1fr 2fr;
-        gap: 12px;
-        margin-top: 1rem;
-    }
-    .full {
-        grid-column: 1 / -1;
-    }
-    .row3 {
-        display: grid;
-        grid-template-columns: 1fr 1fr 1fr;
-        gap: 12px;
-        margin-top: 12px;
-    }
-    .infra-grid {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 12px;
-    }
-
-    .tile {
-        background: var(--alkira-surface);
-        border: 1px solid var(--alkira-border);
-        border-radius: var(--tile-radius);
-        padding: var(--tile-pad);
-        box-shadow: var(--tile-shadow);
-    }
-    .tile.gradient {
-        background: linear-gradient(135deg, var(--alkira-navy) 0%, var(--alkira-blue) 100%);
-        color: #fff;
-        border: none;
-    }
-    .tile.dark {
-        background: var(--alkira-navy);
-        color: #fff;
-        border: none;
-    }
-    .tile.entry {
-        position: relative;
-        padding-top: 18px;
-    }
-    .tile.entry::before {
-        content: '';
-        position: absolute;
-        top: 0; left: 0; right: 0;
-        height: 3px;
-        background: var(--alkira-orange);
-        border-radius: var(--tile-radius) var(--tile-radius) 0 0;
-    }
-    .tile-label {
-        font-size: 10px;
-        font-weight: 700;
-        letter-spacing: 0.12em;
-        text-transform: uppercase;
-        color: var(--alkira-blue);
-        margin: 0 0 6px;
-    }
-    .tile.dark .tile-label {
-        color: var(--alkira-orange);
-    }
-    .tile.gradient .tile-label {
-        color: rgba(255,255,255,0.8);
-    }
-    .tile-value {
-        font-size: 14px;
-        line-height: 1.5;
-        color: var(--alkira-ink);
-    }
-    .tile.dark .tile-value,
-    .tile.gradient .tile-value {
-        color: #fff;
-    }
-
-    /* When .brief-doc is used inline within a tile, drop its card chrome */
-    .tile .brief-doc {
-        background: transparent;
-        border: 0;
-        border-radius: 0;
-        padding: 0;
-        box-shadow: none;
-        color: inherit;
-    }
-
-    /* Override .brief-doc styles for dark conversation-starters tile */
-    .tile.dark .brief-doc a {
-        color: #93c5fd;
-    }
-    .tile.dark .brief-doc .label {
-        color: var(--alkira-orange);
-    }
-    .tile.dark .brief-doc strong {
-        color: #fff;
-    }
-    .tile.dark .brief-doc em {
-        color: rgba(255,255,255,0.75);
-    }
-    .tile.dark .brief-doc .brief-list,
-    .tile.dark .brief-doc ol,
-    .tile.dark .brief-doc ul {
-        color: #fff;
-    }
-    .score-big {
-        font-size: 56px;
-        font-weight: 800;
-        line-height: 1;
-        color: #fff;
-    }
-    .score-stars-bento {
-        font-size: 16px;
-        color: var(--alkira-amber);
-        letter-spacing: 0.1em;
-        margin: 6px 0 8px;
-    }
-    .score-rationale {
-        font-size: 13px;
-        line-height: 1.5;
-        color: rgba(255,255,255,0.9);
-    }
-    .entry-heading {
-        font-size: 14px;
-        font-weight: 700;
-        margin: 4px 0 8px;
-        color: var(--alkira-ink);
-    }
-    .entry-row {
-        margin: 6px 0;
-        font-size: 12px;
-        line-height: 1.4;
-    }
-    .entry-row b {
-        color: var(--alkira-blue);
-        font-size: 10px;
-        text-transform: uppercase;
-        letter-spacing: 0.1em;
-        display: block;
-        margin-bottom: 2px;
-    }
-
-
     /* ── Brief document ──────────────────────────── */
     .brief-doc {
         background: #fff;
@@ -1092,6 +825,56 @@ CUSTOM_CSS = """
         margin-top: 1.5rem;
         padding-top: 1rem;
         border-top: 1px solid #edf0f4;
+    }
+
+    /* ── Style C: document header band + score badge ── */
+    .brief-header-band {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 18px;
+        padding-bottom: 14px;
+        margin-bottom: 18px;
+        border-bottom: 2px solid var(--alkira-border);
+    }
+    .brief-band-main { min-width: 0; }
+    .brief-company {
+        margin: 0 0 4px;
+        font-size: 26px;
+        font-weight: 800;
+        color: var(--alkira-ink);
+        letter-spacing: -0.01em;
+    }
+    .brief-stats { margin: 0; font-size: 12.5px; color: var(--alkira-muted); }
+    .brief-band-meta { margin-left: 8px; font-style: italic; color: var(--alkira-muted); }
+    .brief-score-badge {
+        flex: none;
+        display: flex; flex-direction: column;
+        align-items: center; justify-content: center;
+        width: 74px; height: 74px;
+        border-radius: 14px;
+        background: var(--alkira-navy);
+        color: #fff;
+    }
+    .bsb-label { font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: #9fb0d6; }
+    .bsb-num { font-size: 24px; font-weight: 800; line-height: 1; margin-top: 2px; }
+    .bsb-den { font-size: 13px; font-weight: 600; color: #9fb0d6; }
+    .brief-doc .brief-lead { font-size: 14.5px; color: #3a465e; margin: 0 0 1rem; }
+
+    /* Unify ## (h2) and ### (.sec) section headers as document headers, since the
+       agent's heading level is not strictly pinned. */
+    .brief-doc h2,
+    .brief-doc .sec {
+        margin: 1.5rem 0 0.55rem;
+        padding-bottom: 0.3rem;
+        border-bottom: 1px solid var(--alkira-border);
+    }
+    .brief-doc h2 {
+        font-size: 0.82rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: #152a4e;
+        font-weight: 700;
     }
 
     /* ── Sidebar ──────────────────────────────────── */
@@ -1595,165 +1378,77 @@ def _render_dashboard_cards(history: list[dict]) -> None:
 
 # ── Brief Display ────────────────────────────────────────────────
 
-def _format_starters_text(starters_md: str) -> str:
-    """Transform numbered questions to non-list paragraphs.
+def build_brief_document_html(brief_md: str, meta_right: str = "") -> str:
+    """Build the full document HTML for a brief: header band + lead rationale + body.
 
-    The default ``md_to_html`` opens a fresh ``<ol>`` whenever a non-list line
-    interrupts numbered items, so numbering restarts at 1 between questions.
-    Convert ``N. text`` lines into a plain paragraph that uses inline HTML
-    bold for the number prefix. Emitting raw ``<strong>`` (instead of
-    ``**N.**``) avoids tripping the bold-label paragraph branch in
-    ``md_to_html`` so the number renders as a prefix rather than a label.
+    Pure (no Streamlit side effects) so it is unit-testable. Reuses md_to_html for the
+    body; the score badge and company header are the only special-cased pieces. Missing
+    sections simply don't appear, and the company/score are never duplicated in the body
+    (get_brief_body strips everything up to the first section after the score line).
     """
-    out: list[str] = []
-    for line in starters_md.splitlines():
-        stripped = line.strip()
-        match = re.match(r"^(\d+)\.\s+(.+)$", stripped)
-        if match:
-            number, rest = match.group(1), match.group(2)
-            out.append(f"<strong>{number}.</strong> {rest}")
-        else:
-            out.append(line)
-    return "\n".join(out)
+    score, reasoning = extract_score(brief_md)
+    company, stats_line = extract_company_header(brief_md)
+    cleaned_stats = (stats_line or "").strip()
+
+    badge = (
+        f'<div class="brief-score-badge">'
+        f'<span class="bsb-label">Fit</span>'
+        f'<span class="bsb-num">{score}<span class="bsb-den">/5</span></span>'
+        f'</div>'
+    ) if score else ""
+
+    meta = (
+        f'<span class="brief-band-meta">{html.escape(meta_right)}</span>'
+        if meta_right else ""
+    )
+
+    header = (
+        f'<div class="brief-header-band">'
+        f'<div class="brief-band-main">'
+        f'<h1 class="brief-company">{html.escape(company or "Brief")}</h1>'
+        f'<p class="brief-stats">{html.escape(cleaned_stats)}{meta}</p>'
+        f'</div>'
+        f'{badge}'
+        f'</div>'
+    )
+
+    lead = f'<p class="brief-lead">{inline(html.escape(reasoning))}</p>' if reasoning else ""
+    body_html = md_to_html(get_brief_body(brief_md))
+
+    return f'<div class="brief-doc">{header}{lead}{body_html}</div>'
 
 
-def render_brief_bento(
+def render_brief_document(
     brief_md: str,
     meta_right: str = "",
     show_update: bool = False,
     brief_idx: int | None = None,
 ) -> None:
-    """Render a brief as a bento tile layout."""
-    score, reasoning = extract_score(brief_md)
-    company, stats_line = extract_company_header(brief_md)
+    """Render a brief as a clean single-column document (Style C).
 
-    # Stats pills line (cleaned)
-    cleaned_stats = (stats_line or "").replace("**", "").strip()
+    A slim 3-column action toolbar (Download / Update / Delete) sits above the
+    document instead of the old stacked full-width buttons that pushed content
+    below the fold.
+    """
+    score, _ = extract_score(brief_md)
+    company, _ = extract_company_header(brief_md)
 
-    # Stars
-    filled = "★" * max(0, min(5, score))
-    empty = "☆" * max(0, 5 - max(0, min(5, score)))
-
-    # Hero tile (full width)
-    hero_html = (
-        f'<div class="tile full" style="margin-bottom:12px">'
-        f'<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">'
-        f'<div>'
-        f'<h2 style="margin:0;font-size:24px;font-weight:700;color:var(--alkira-ink)">{html.escape(company or "Brief")}</h2>'
-        f'<p style="margin:4px 0 0;color:var(--alkira-muted);font-size:13px">{html.escape(cleaned_stats)}</p>'
-        f'</div>'
-        f'<div style="text-align:right;color:var(--alkira-muted);font-size:12px;white-space:nowrap">{html.escape(meta_right)}</div>'
-        f'</div>'
-        f'</div>'
-    )
-    st.markdown(hero_html, unsafe_allow_html=True)
-
-    # Download PDF button
-    _render_download_pdf_button(brief_md, company or "Brief", score)
-
-    # Update button
-    if show_update and company:
-        if st.button("Update Brief", key="update_brief", use_container_width=True):
-            st.session_state["_update_company"] = company
-            st.rerun()
-
-    # Delete button — red HTML link; click sets ?_del=N which main() detects
-    if brief_idx is not None:
-        st.markdown(
-            f'<a class="delete-brief-link" href="?_del={brief_idx}">Delete Brief</a>',
-            unsafe_allow_html=True,
-        )
-
-    # Score tile + infra grid (1/3 + 2/3)
-    cells = extract_infra_cells(brief_md)
-    score_html = (
-        f'<div class="tile gradient">'
-        f'<p class="tile-label">Alkira Fit</p>'
-        f'<div class="score-big">{score}</div>'
-        f'<div class="score-stars-bento">{filled}{empty}</div>'
-        f'<p class="score-rationale">{html.escape(reasoning)}</p>'
-        f'</div>'
-    )
-    infra_html = (
-        f'<div>'
-        f'<div class="infra-grid">'
-        f'<div class="tile"><p class="tile-label">Cloud Platforms</p>'
-        f'<p class="tile-value">{html.escape(cells["cloud_platforms"]) or "—"}</p></div>'
-        f'<div class="tile"><p class="tile-label">On-Prem / Hybrid</p>'
-        f'<p class="tile-value">{html.escape(cells["on_prem"]) or "—"}</p></div>'
-        f'<div class="tile"><p class="tile-label">Deployment Model</p>'
-        f'<p class="tile-value">{html.escape(cells["deployment"]) or "—"}</p></div>'
-        f'<div class="tile"><p class="tile-label">Resulting Complexity</p>'
-        f'<p class="tile-value">{html.escape(cells["complexity"]) or "—"}</p></div>'
-        f'</div>'
-        f'</div>'
-    )
-    st.markdown(
-        f'<div class="bento-grid">{score_html}{infra_html}</div>',
-        unsafe_allow_html=True,
-    )
-
-    # Signals tile (full width)
-    signals_md = extract_section(brief_md, "Signals & Timing") or extract_section(brief_md, "Signals and Timing")
-    if signals_md.strip():
-        _bullet_prefix = re.compile(r"^[-*]\s+")
-        bullets = "".join(
-            f"<li>{inline(_bullet_prefix.sub('', ln.strip()))}</li>"
-            for ln in signals_md.splitlines() if ln.strip()
-        )
-        st.markdown(
-            f'<div class="tile full" style="margin-top:12px">'
-            f'<p class="tile-label">Signals &amp; Timing</p>'
-            f'<ul style="margin:6px 0 0;padding-left:18px;font-size:13px;line-height:1.5;color:var(--alkira-ink)">{bullets}</ul>'
-            f'</div>',
-            unsafe_allow_html=True,
-        )
-
-    # Three entry-point tiles
-    points = extract_entry_points(brief_md)
-    if points:
-        cards = []
-        for i, p in enumerate(points[:3]):
-            heading = html.escape(p.get("heading", ""))
-            sig = html.escape(p.get("signal", "") or "—")
-            sol = html.escape(p.get("solution", "") or "—")
-            prf = html.escape(p.get("proof", "") or "—")
-            cards.append(
-                f'<div class="tile entry">'
-                f'<p class="tile-label">Entry 0{i+1}</p>'
-                f'<h3 class="entry-heading">{heading}</h3>'
-                f'<div class="entry-row"><b>Signal</b>{sig}</div>'
-                f'<div class="entry-row"><b>Solution</b>{sol}</div>'
-                f'<div class="entry-row"><b>Proof</b>{prf}</div>'
-                f'</div>'
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        _render_download_pdf_button(brief_md, company or "Brief", score)
+    with c2:
+        if show_update and company:
+            if st.button("Update Brief", key="update_brief", use_container_width=True):
+                st.session_state["_update_company"] = company
+                st.rerun()
+    with c3:
+        if brief_idx is not None:
+            st.markdown(
+                f'<a class="delete-brief-link" href="?_del={brief_idx}">Delete Brief</a>',
+                unsafe_allow_html=True,
             )
-        st.markdown(
-            f'<div class="row3">{"".join(cards)}</div>',
-            unsafe_allow_html=True,
-        )
 
-    # Conversation Starters tile (dark navy)
-    starters = extract_section(brief_md, "Conversation Starters")
-    if starters.strip():
-        formatted_starters = _format_starters_text(starters)
-        st.markdown(
-            f'<div class="tile dark full" style="margin-top:12px">'
-            f'<p class="tile-label">Conversation Starters</p>'
-            f'<div class="tile-value brief-doc" style="margin-top:6px">{md_to_html(formatted_starters)}</div>'
-            f'</div>',
-            unsafe_allow_html=True,
-        )
-
-    # References tile (full width, footer-style)
-    refs = extract_section(brief_md, "References")
-    if refs.strip():
-        st.markdown(
-            f'<div class="tile full" style="margin-top:12px">'
-            f'<p class="tile-label">References</p>'
-            f'<div class="tile-value brief-doc" style="font-size:12px">{md_to_html(refs)}</div>'
-            f'</div>',
-            unsafe_allow_html=True,
-        )
+    st.markdown(build_brief_document_html(brief_md, meta_right), unsafe_allow_html=True)
 
 
 def _render_download_pdf_button(brief_md: str, company: str, score: int) -> None:
@@ -1790,8 +1485,8 @@ def _render_download_pdf_button(brief_md: str, company: str, score: int) -> None
     )
 
 
-# Keep render_brief_display as an alias for backwards compatibility
-render_brief_display = render_brief_bento
+# Public entry point for rendering a brief (keeps call sites stable)
+render_brief_display = render_brief_document
 
 
 @st.dialog("Delete Brief")
