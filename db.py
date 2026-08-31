@@ -95,21 +95,33 @@ def save_brief(
     company: str,
     score: int,
     brief_md: str,
+    created_at: Optional[str] = None,
 ) -> Optional[dict]:
-    """Insert a new brief. Returns the inserted record or None on failure."""
+    """Insert a new brief. Returns the inserted record or None on failure.
+
+    ``created_at`` is normally left to the column default. Pass it only when
+    copying an existing brief (the repeat-company cache), so the copy keeps the
+    ORIGINAL research timestamp. Without that, each cache hit would write a row
+    dated today, the next lookup would match the copy, and both the 7-day
+    window and the "reused research" date would drift indefinitely.
+    """
     client = _get_client()
     if client is None:
         return None
 
+    payload = {
+        "email": _normalize_email(email),
+        "company": company,
+        "score": score,
+        "brief_md": brief_md,
+    }
+    if created_at:
+        payload["created_at"] = created_at
+
     try:
         result = (
             client.table("briefs")
-            .insert({
-                "email": _normalize_email(email),
-                "company": company,
-                "score": score,
-                "brief_md": brief_md,
-            })
+            .insert(payload)
             .execute()
         )
         rows = result.data or []

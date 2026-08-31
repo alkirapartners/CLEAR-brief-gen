@@ -5,5 +5,8 @@ services:
       - "8501:8501"
     environment:
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
-      - ALKIRA_AGENT_ID=${ALKIRA_AGENT_ID}
-      - ALKIRA_ENV_ID=${ALKIRA_ENV_ID}
+      - TAVILY_API_KEY=${TAVILY_API_KEY}
+      # Optional. Without Supabase the app runs but briefs do not persist.
+      - SUPABASE_URL=${SUPABASE_URL:-}
+      - SUPABASE_KEY=${SUPABASE_KEY:-}
+      - SLACK_WEBHOOK_URL=${SLACK_WEBHOOK_URL:-}

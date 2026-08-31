@@ -2,7 +2,7 @@
 
 A web app for Alkira partners to generate scored opportunity briefs for any company. Enter a company name, get a structured brief with an Alkira Fit Score (1–5), strategic entry points, proof points, and sales questions — plus a downloadable PDF.
 
-Powered by Claude Managed Agents (Anthropic) for research and generation, with magic-link authentication so only authorized partner domains can sign in.
+Research runs on Tavily, generation on a single streamed `claude-sonnet-5` call. Magic-link authentication limits sign-in to authorized partner domains.
 
 ---
 
@@ -10,9 +10,12 @@ Powered by Claude Managed Agents (Anthropic) for research and generation, with m
 
 1. Partner visits the app and signs in via magic link (email-based, no password)
 2. Types a company name and clicks **Generate Brief**
-3. Claude researches the company via web search and generates a structured brief
-4. Brief is scored (Alkira Fit 1–5), displayed as a bento card layout, and saved to the sidebar
-5. Partner can download as PDF, update (re-research), or delete the brief
+3. `research.py` runs the brief template's research checklist as 8 parallel Tavily searches, ranks the hits, and extracts the top 5 pages
+4. `generate.py` composes the whole brief in one streamed `claude-sonnet-5` call against those sources (~45s)
+5. Brief is scored (Alkira Fit 1–5), displayed as a bento card layout, and saved to the sidebar
+6. Partner can download as PDF, update (re-research), or delete the brief
+
+A brief for a company already researched in the last 7 days is served from Supabase without a model call. **Update Brief** always re-researches and never consults that cache.
 
 ---
 
@@ -43,16 +46,18 @@ Browser (HTTPS)
 
 | File | Purpose |
 |------|---------|
-| `app.py` | Streamlit web app — UI, auth gate, brief rendering |
+| `app.py` | Streamlit web app — UI, auth gate, brief parsing and rendering |
+| `research.py` | Tavily search + extract, result ranking, source payload |
+| `generate.py` | The single streamed Sonnet 5 call |
+| `prompts.py` | Prompt-cached system prefix + per-brief user message |
 | `generate_brief.py` | CLI tool for generating briefs from the terminal |
 | `briefgen-proxy.js` | Node.js auth backend — magic links, sessions, admin read API |
-| `db.py` | Supabase persistence layer for brief history |
+| `db.py` | Supabase persistence and the 7-day repeat-company cache |
 | `pdf.py` | PDF generation (fpdf2) |
-| `system_prompt.py` | Alkira knowledge base embedded in the agent's system prompt |
+| `notifications.py` | Slack webhook on successful brief generation |
+| `skills/` | Brief template, Alkira knowledge base, writing rules — inlined into the cached system prefix |
 | `auth.html` | Magic link sign-in page (static) |
 | `admin.html` | Admin panel — read-only view of trusted domains and admins |
-| `setup_agent.py` | One-time setup: creates the Claude agent + environment |
-| `setup_skills.py` | Registers web-search and other skills on the agent |
 
 ---
 
@@ -68,7 +73,8 @@ Trusted domains and admin accounts are managed centrally via the **[Admin Portal
 
 - Python 3.10+
 - Node.js 18+ (for `briefgen-proxy.js` if running auth locally)
-- An Anthropic API key with Managed Agents beta access
+- An Anthropic API key
+- A Tavily API key
 - A Supabase project (optional — app runs without it, briefs won't persist)
 
 ### Setup
@@ -82,25 +88,21 @@ python -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
 
-# Environment variables
-cp .env.example .env   # or create .env manually
+# Environment variables — create .env in the repo root
 ```
 
 **.env file:**
 ```
 ANTHROPIC_API_KEY=sk-ant-...
-ALKIRA_AGENT_ID=...
-ALKIRA_ENV_ID=...
+TAVILY_API_KEY=tvly-...
 SUPABASE_URL=https://xxxx.supabase.co      # optional
 SUPABASE_KEY=sb_secret_...                  # optional
 SLACK_WEBHOOK_URL=https://hooks.slack.com/services/...  # optional — posts a notification to Slack on successful brief generation
 ```
 
-```bash
-# First time only: create the agent and register skills
-python setup_agent.py
-python setup_skills.py
+`ANTHROPIC_API_KEY` and `TAVILY_API_KEY` are both required; the app fails at the config guard without them. There is no agent or environment to provision.
 
+```bash
 # Run the app
 streamlit run app.py
 ```
@@ -209,13 +211,7 @@ Access is controlled by `briefgen-proxy.js`:
 
 ## Updating the Knowledge Base
 
-Edit `system_prompt.py` (Alkira proof points, brief template, scoring rubric), then re-run:
-
-```bash
-python setup_agent.py
-```
-
-This creates a new agent version. Update `ALKIRA_AGENT_ID` in `.env` with the new ID.
+Edit the files under `skills/` (brief template and scoring rubric, Alkira proof points, writing rules) and restart the app. They are read at startup and inlined into the prompt-cached system prefix. Nothing to re-provision.
 
 ---
 
@@ -223,7 +219,8 @@ This creates a new agent version. Update `ALKIRA_AGENT_ID` in `.env` with the ne
 
 | Item | Estimate |
 |------|----------|
-| Claude Sonnet tokens | ~$0.10–0.30 |
-| Managed Agents session | ~$0.08/hr |
-| Web search queries (~5–10) | ~$0.05–0.10 |
-| **Total** | **~$0.15–0.40 per brief** |
+| Tavily searches (8) + extract | ~$0.05 |
+| Sonnet 5 tokens (cached prefix, ~3K output) | ~$0.05–0.15 |
+| **Total** | **~$0.10–0.20 per brief** |
+
+The system prefix is prompt-cached with a 1-hour TTL, so briefs generated within an hour of each other read the cache instead of paying full input rate.

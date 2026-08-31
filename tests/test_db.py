@@ -213,3 +213,55 @@ def test_find_recent_brief_by_company_honors_custom_max_age_days():
     assert before - timedelta(days=1) - tolerance <= cutoff <= after - timedelta(days=1) + tolerance
     # Clearly the 1-day window, not the 7-day default.
     assert cutoff > before - timedelta(days=2)
+
+
+def test_save_brief_omits_created_at_when_not_supplied():
+    """Default behaviour must be unchanged: let the column default fire.
+
+    A created_at key in the insert payload here would stamp every fresh brief
+    with an app-supplied timestamp instead of the database's.
+    """
+    fake_client = MagicMock()
+    fake_client.table.return_value.insert.return_value.execute.return_value.data = [
+        {"id": "abc-123"}
+    ]
+
+    with patch("db._get_client", return_value=fake_client), patch(
+        "notifications.notify_brief_generated"
+    ):
+        import db
+        db.save_brief("user@example.com", "Acme", 5, "# brief")
+
+    payload = fake_client.table.return_value.insert.call_args.args[0]
+    assert "created_at" not in payload
+    assert payload == {
+        "email": "user@example.com",
+        "company": "Acme",
+        "score": 5,
+        "brief_md": "# brief",
+    }
+
+
+def test_save_brief_inserts_supplied_created_at_verbatim():
+    """A cache-hit copy must carry the ORIGINAL research timestamp.
+
+    Without this the copy is dated today, the next company-cache lookup
+    matches the copy rather than the original, and both the 7-day window and
+    the reused-research badge drift further with every repeat.
+    """
+    original = "2026-08-24T10:00:00+00:00"
+    fake_client = MagicMock()
+    fake_client.table.return_value.insert.return_value.execute.return_value.data = [
+        {"id": "abc-123"}
+    ]
+
+    with patch("db._get_client", return_value=fake_client), patch(
+        "notifications.notify_brief_generated"
+    ):
+        import db
+        db.save_brief(
+            "user@example.com", "Acme", 5, "# brief", created_at=original
+        )
+
+    payload = fake_client.table.return_value.insert.call_args.args[0]
+    assert payload["created_at"] == original

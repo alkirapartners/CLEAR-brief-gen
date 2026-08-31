@@ -1,8 +1,9 @@
 """
 Alkira Opportunity Brief Generator — Web App
 
-Streamlit frontend for the Managed Agent. Partners type a company name,
-the agent researches it and returns a formatted brief on the page.
+Streamlit frontend. Partners type a company name; research.py gathers sources
+via Tavily and generate.py composes the brief in one streamed Sonnet 5 call,
+which renders on the page. Needs ANTHROPIC_API_KEY and TAVILY_API_KEY.
 
 Usage:
     streamlit run app.py
@@ -431,8 +432,12 @@ def inline(text: str) -> str:
         r'<a href="\3" target="_blank">[\1] \2</a>',
         text,
     )
+    # Only http(s) links become anchors. URLs now come from arbitrary
+    # third-party pages and this HTML is rendered unescaped, so javascript:,
+    # data:, and friends must never reach an href. Anything else stays as
+    # literal markdown text.
     text = re.sub(
-        r"\[(.+?)\]\((.+?)\)",
+        r"\[(.+?)\]\((https?://[^)\s]+)\)",
         r'<a href="\2" target="_blank">\1</a>',
         text,
     )
@@ -1990,9 +1995,6 @@ def main() -> None:
 
             render_brief_display(brief_md, meta_right=f"Updated in {elapsed:.0f}s")
 
-        except TimeoutError:
-            tracker_ph.empty()
-            st.error("Timed out after 5 minutes. Try again.")
         except Exception as exc:
             tracker_ph.empty()
             st.error(f"Something went wrong: {exc}")
@@ -2061,7 +2063,15 @@ def main() -> None:
             )
 
             # ── Save to DB + session state ───────────────
-            saved = db.save_brief(user_email, company, score, brief_md)
+            # On a cache hit, stamp the copy with the ORIGINAL research
+            # timestamp. Letting the column default fire would date the copy
+            # today, the next lookup would match the copy instead of the
+            # original, and the 7-day window plus the reused-research badge
+            # would both drift with every repeat. Fresh generation passes
+            # None and keeps the default.
+            saved = db.save_brief(
+                user_email, company, score, brief_md, created_at=reused_from or None
+            )
             brief_id = saved.get("id", "") if saved else ""
             created_at = saved.get("created_at", "") if saved else ""
 
@@ -2097,10 +2107,6 @@ def main() -> None:
             # Rerun so the sidebar refreshes and shows the new brief
             st.session_state["viewing_brief"] = 0
             st.rerun()
-
-        except TimeoutError:
-            tracker_ph.empty()
-            st.error("Timed out after 5 minutes. Try again.")
 
         except Exception as exc:
             tracker_ph.empty()

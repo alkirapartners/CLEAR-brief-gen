@@ -17,8 +17,11 @@ import research
 logger = logging.getLogger(__name__)
 
 MODEL = "claude-sonnet-5"
-MAX_TOKENS = 8000
+MAX_TOKENS = 16000
 EFFORT = "medium"
+# The parser in app.py keys off this exact first line; anything else is garbage.
+BRIEF_MARKER = "# ALKIRA OPPORTUNITY BRIEF"
+ERROR_PREFIX_CHARS = 200
 
 
 def generate_brief(
@@ -45,7 +48,7 @@ def generate_brief(
             {
                 "type": "text",
                 "text": prompts.build_system_prefix(),
-                "cache_control": {"type": "ephemeral"},
+                "cache_control": {"type": "ephemeral", "ttl": "1h"},
             }
         ],
         messages=[
@@ -63,8 +66,8 @@ def generate_brief(
     logger.info(
         "brief=%s cache_read=%s cache_write=%s input=%s output=%s",
         company,
-        getattr(usage, "cache_read_input_tokens", 0),
-        getattr(usage, "cache_creation_input_tokens", 0),
+        getattr(usage, "cache_read_input_tokens", 0) or 0,
+        getattr(usage, "cache_creation_input_tokens", 0) or 0,
         usage.input_tokens,
         usage.output_tokens,
     )
@@ -80,6 +83,13 @@ def generate_brief(
         raise RuntimeError(
             f"Brief generation for '{company}' returned empty output "
             f"(stop_reason={message.stop_reason}, output_tokens={usage.output_tokens})."
+        )
+    if not brief.lstrip().startswith(BRIEF_MARKER):
+        raise RuntimeError(
+            f"Brief generation for '{company}' did not follow the output "
+            f"contract: expected the response to start with {BRIEF_MARKER!r} "
+            f"(stop_reason={message.stop_reason}, "
+            f"output starts with: {brief.lstrip()[:ERROR_PREFIX_CHARS]!r})."
         )
 
     status_callback("done")
