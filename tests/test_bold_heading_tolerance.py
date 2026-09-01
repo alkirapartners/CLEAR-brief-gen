@@ -15,7 +15,7 @@ for existing behavior and are intentionally left untouched.
 """
 
 import prompts
-from app import extract_entry_points, extract_section
+from app import extract_entry_points, extract_infra_cells, extract_section
 
 BOLD_INFRA_BRIEF = """
 **Infrastructure Snapshot**
@@ -107,6 +107,58 @@ def test_extract_entry_points_returns_three_when_heading_is_bold():
     assert "single click" in points[0]["solution"]
     assert "96%" in points[0]["proof"]
     assert points[2]["heading"] == "Zero trust segmentation"
+
+
+NO_INFRA_HEADING_BRIEF = """
+# ALKIRA OPPORTUNITY BRIEF
+## Occidental Petroleum
+
+Some prose about the company with no heading at all before the infra content.
+
+**Cloud Platforms:** AWS is the preferred cloud provider (confirmed).
+**On-Prem / Hybrid:** Legacy data centers being consolidated.
+**Deployment Model:** Multi-year cloud migration underway.
+**Resulting Complexity:** Hybrid AWS plus legacy footprint.
+
+## Signals & Timing
+- Some signal.
+"""
+
+
+def test_extract_infra_cells_falls_back_when_heading_is_missing_entirely():
+    """Measured production failure: the model wrote all four bold sub-labels
+    with real content but emitted NO heading at all for Infrastructure
+    Snapshot — not '##', not bold. extract_section returns "" in that case,
+    so extract_infra_cells must fall back to scanning the whole brief for
+    the four bold sub-labels instead of returning them all empty."""
+    cells = extract_infra_cells(NO_INFRA_HEADING_BRIEF)
+    assert "AWS" in cells["cloud_platforms"]
+    assert "consolidated" in cells["on_prem"]
+    assert "migration" in cells["deployment"]
+    assert "Hybrid AWS" in cells["complexity"]
+
+
+def test_build_system_prefix_contains_literal_output_skeleton():
+    """Prose directives alone were not holding; the prefix must contain an
+    explicit literal skeleton showing the exact document structure in order,
+    including the '## Infrastructure Snapshot' heading."""
+    prefix = prompts.build_system_prefix()
+    assert "Full Literal Skeleton" in prefix
+    skeleton_start = prefix.index("# ALKIRA OPPORTUNITY BRIEF\n## [Company Name]")
+    skeleton = prefix[skeleton_start : skeleton_start + 2000]
+    assert "## Infrastructure Snapshot" in skeleton
+    assert "**Cloud Platforms:**" in skeleton
+    assert "**On-Prem / Hybrid:**" in skeleton
+    assert "**Deployment Model:**" in skeleton
+    assert "**Resulting Complexity:**" in skeleton
+    assert "## Signals & Timing" in skeleton
+    assert "## Three Alkira Entry Points" in skeleton
+    assert "## Conversation Starters" in skeleton
+    assert "## References" in skeleton
+    # Order matters: Infrastructure Snapshot must precede Signals & Timing.
+    assert skeleton.index("## Infrastructure Snapshot") < skeleton.index(
+        "## Signals & Timing"
+    )
 
 
 def test_build_system_prefix_mandates_infrastructure_snapshot_never_omitted():
