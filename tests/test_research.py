@@ -12,10 +12,29 @@ def _search_response(url, title="Title", score=0.9, content="snippet"):
 
 
 def test_build_queries_covers_all_checklist_categories():
-    """SKILL.md lists 8 categories; the last is pain signals."""
+    """9 queries: 5 non-infra (basics, footprint, IT leadership, signals,
+    pain signals) plus 4 infra queries (cloud, data_center, filings_it,
+    it_strategy) that replaced the two vendor-stuffed queries."""
     qs = research.build_queries("Acme Corp")
-    assert len(qs) == 8
+    assert len(qs) == 9
     assert all("Acme Corp" in q["query"] for q in qs)
+
+
+def test_build_queries_have_unique_categories():
+    qs = research.build_queries("Acme Corp")
+    categories = [q["category"] for q in qs]
+    assert len(categories) == len(set(categories))
+
+
+def test_build_queries_infra_queries_do_not_name_vendors():
+    """Vendor-stuffed queries retrieve vendor marketing, not company facts."""
+    qs = research.build_queries("Acme Corp")
+    infra_categories = {"cloud", "data_center", "filings_it", "it_strategy"}
+    infra_text = " ".join(
+        q["query"].lower() for q in qs if q["category"] in infra_categories
+    )
+    for vendor in ("vmware", "nutanix", "mpls", "sd-wan", "zero trust"):
+        assert vendor not in infra_text
 
 
 def test_build_queries_includes_pain_signals():
@@ -89,6 +108,106 @@ def test_rank_results_respects_limit():
         for i in range(20)
     ]
     assert len(research.rank_results(raw, limit=5)) == 5
+
+
+def test_company_tokens_handles_ampersand_punctuation():
+    """'AT&T' must anchor on 'att', not fall apart into single letters."""
+    assert research.company_tokens("AT&T") == ["att"]
+
+
+def test_company_tokens_handles_hyphen_punctuation():
+    assert research.company_tokens("Frito-Lay") == ["fritolay"]
+
+
+def test_company_tokens_drops_generic_corporate_suffixes():
+    assert "co" not in research.company_tokens("ABC Co")
+
+
+def test_is_company_relevant_drops_off_topic_vendor_page():
+    """The Nutanix Acropolis page never mentions Occidental at all."""
+    tokens = research.company_tokens("Occidental Petroleum")
+    vendor_page = {
+        "title": "What is your primary use case for Nutanix Acropolis AOS?",
+        "url": "https://community.nutanix.com/t/acropolis-aos",
+        "content": "Nutanix Strategy and Business Model overview.",
+    }
+    assert research.is_company_relevant(vendor_page, tokens) is False
+
+
+def test_is_company_relevant_keeps_company_specific_page():
+    """Real-world measured case: title has 'Occidental', not 'Petroleum'."""
+    tokens = research.company_tokens("Occidental Petroleum")
+    press_release = {
+        "title": "Occidental Chooses Amazon Web Services As Cloud Provider",
+        "url": "https://example.com/press/oxy-aws",
+        "content": "Occidental announced today...",
+    }
+    assert research.is_company_relevant(press_release, tokens) is True
+
+
+def test_is_company_relevant_matches_punctuated_company_name():
+    tokens = research.company_tokens("AT&T")
+    page = {"title": "AT&T Announces 5G Expansion", "url": "https://x.com/a", "content": ""}
+    assert research.is_company_relevant(page, tokens) is True
+
+    tokens = research.company_tokens("Frito-Lay")
+    page = {"title": "Frito-Lay Opens New Plant", "url": "https://x.com/b", "content": ""}
+    assert research.is_company_relevant(page, tokens) is True
+
+
+def test_filter_relevant_drops_off_topic_results():
+    tokens = research.company_tokens("Occidental Petroleum")
+    results = [
+        {"title": "Occidental data center news", "url": "https://a.com", "content": ""},
+        {"title": "Nutanix Strategy and Business Model", "url": "https://b.com", "content": ""},
+    ]
+    filtered = research.filter_relevant(results, tokens)
+    assert len(filtered) == 1
+    assert filtered[0]["url"] == "https://a.com"
+
+
+def test_filter_relevant_does_not_empty_a_category():
+    """If everything in a query's results fails the check, keep them anyway
+    rather than losing that category's coverage outright."""
+    tokens = research.company_tokens("Occidental Petroleum")
+    results = [
+        {"title": "Nutanix Strategy and Business Model", "url": "https://b.com", "content": ""},
+        {"title": "Zero Trust SD-WAN platform", "url": "https://c.com", "content": ""},
+    ]
+    filtered = research.filter_relevant(results, tokens)
+    assert filtered == results
+
+
+def test_select_with_category_floor_gives_every_category_a_slot():
+    """One dominant-scoring category must not consume every extraction slot."""
+    results_by_category = {
+        "basics": [
+            {"url": f"https://basics.com/{i}", "title": "B", "score": 0.9, "content": ""}
+            for i in range(10)
+        ],
+        "cloud": [{"url": "https://cloud.com/1", "title": "C", "score": 0.3, "content": ""}],
+        "data_center": [
+            {"url": "https://dc.com/1", "title": "D", "score": 0.2, "content": ""}
+        ],
+        "filings_it": [],
+    }
+    selected = research.select_with_category_floor(results_by_category, limit=5)
+    selected_urls = {r["url"] for r in selected}
+    assert "https://cloud.com/1" in selected_urls
+    assert "https://dc.com/1" in selected_urls
+    assert len(selected) == 5
+
+
+def test_select_with_category_floor_respects_extract_limit():
+    results_by_category = {
+        f"cat{i}": [{"url": f"https://x.com/{i}", "title": str(i), "score": i, "content": ""}]
+        for i in range(20)
+    }
+    assert len(research.select_with_category_floor(results_by_category)) == research.EXTRACT_LIMIT
+
+
+def test_extract_limit_is_eight():
+    assert research.EXTRACT_LIMIT == 8
 
 
 def test_truncate_caps_long_content():
