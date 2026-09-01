@@ -231,6 +231,14 @@ def extract_infra_cells(brief: str) -> InfraCells:
 
     Returns dict with keys: cloud_platforms, on_prem, deployment, complexity.
     Missing values are empty strings.
+
+    Measured production failure: the model sometimes writes all four bold
+    sub-labels with real content but omits the '## Infrastructure Snapshot'
+    heading entirely (not even a bold-only heading line), so
+    ``extract_section`` finds no section to bound. Rather than blank the PDF
+    grid in that case, fall back to scanning the whole brief for the four
+    bold sub-labels directly. This only changes behavior when the heading is
+    missing; when the section is found, matching proceeds exactly as before.
     """
     empty: InfraCells = {
         "cloud_platforms": "",
@@ -239,8 +247,7 @@ def extract_infra_cells(brief: str) -> InfraCells:
         "complexity": "",
     }
     section = extract_section(brief, "Infrastructure Snapshot")
-    if not section:
-        return empty
+    haystack = section or brief
 
     label_map = {
         "cloud_platforms": [r"Cloud Platforms?"],
@@ -254,7 +261,7 @@ def extract_infra_cells(brief: str) -> InfraCells:
         for pat in patterns:
             m = re.search(
                 rf"\*\*\s*{pat}\s*:?\s*\*\*\s*:?\s*(.+?)(?=\n\s*\*\*|\Z)",
-                section,
+                haystack,
                 re.DOTALL | re.IGNORECASE,
             )
             if m:

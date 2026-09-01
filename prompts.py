@@ -141,6 +141,62 @@ Never omit the number (`**Title**` alone is unparseable). Never use `##` for
 these subheadings; they must be `**N. Title**`, bold with a leading digit and
 period.
 
+### Full Literal Skeleton — Copy This Structure Exactly
+
+Prose descriptions of the rules above are not enough on their own: measured
+production output has emitted the `## Infrastructure Snapshot` heading as
+`**bold**` text, or dropped it entirely while still writing its four
+sub-labels. The skeleton below is the ground truth. Every line that is not
+in `[brackets]` is copied character-for-character, in this exact order, with
+nothing inserted before `# ALKIRA OPPORTUNITY BRIEF` and nothing after the
+last reference line:
+
+```
+# ALKIRA OPPORTUNITY BRIEF
+## [Company Name]
+*[Month Year]*
+
+**Alkira Fit Score: [X] / 5**
+[one or two sentences of scoring reasoning]
+
+## Infrastructure Snapshot
+**Cloud Platforms:** [content]
+**On-Prem / Hybrid:** [content]
+**Deployment Model:** [content]
+**Resulting Complexity:** [content]
+
+## Signals & Timing
+- [bullet]
+- [bullet]
+
+## Three Alkira Entry Points
+**1. [Title]**
+Signal: [content]
+Solution: [content]
+Proof: [content]
+
+**2. [Title]**
+Signal: [content]
+Solution: [content]
+Proof: [content]
+
+**3. [Title]**
+Signal: [content]
+Solution: [content]
+Proof: [content]
+
+## Conversation Starters
+[content]
+
+## References
+[1] [Description] - [URL]
+```
+
+`## Infrastructure Snapshot` is a `##` heading on its own line, exactly as
+shown — never omitted, never rendered as `**Infrastructure Snapshot**`. Its
+four bold sub-labels follow immediately beneath it, exactly as shown, even
+when a field has nothing to report.
+
 ---
 
 # Reference Material

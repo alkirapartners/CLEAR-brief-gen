@@ -12,12 +12,48 @@ def _search_response(url, title="Title", score=0.9, content="snippet"):
 
 
 def test_build_queries_covers_all_checklist_categories():
-    """9 queries: 5 non-infra (basics, footprint, IT leadership, signals,
-    pain signals) plus 4 infra queries (cloud, data_center, filings_it,
-    it_strategy) that replaced the two vendor-stuffed queries."""
+    """12 queries: basics, footprint, it_leadership, cloud, data_center,
+    filings_it, it_strategy, sec_cybersecurity, erp, divestiture, signals,
+    pain_signals."""
     qs = research.build_queries("Acme Corp")
-    assert len(qs) == 9
+    assert len(qs) == 12
     assert all("Acme Corp" in q["query"] for q in qs)
+
+
+def test_build_queries_includes_measured_good_categories():
+    """SEC filings/cybersecurity, single-vendor ERP, and divestiture/M&A
+    integration queries measured against Occidental to return
+    company-specific, high-score results."""
+    qs = research.build_queries("Acme Corp")
+    categories = {q["category"] for q in qs}
+    assert {"sec_cybersecurity", "erp", "divestiture"} <= categories
+
+    by_category = {q["category"]: q["query"] for q in qs}
+    assert "10-K" in by_category["sec_cybersecurity"]
+    assert "cybersecurity" in by_category["sec_cybersecurity"]
+    assert "SAP" in by_category["erp"]
+    assert "ERP" in by_category["erp"]
+    assert "divestiture" in by_category["divestiture"]
+
+
+def test_build_queries_erp_query_names_only_one_vendor():
+    """Stacking vendor names (SAP Oracle Workday Salesforce) measured to
+    return only generic integration-vendor marketing, not company facts."""
+    qs = research.build_queries("Acme Corp")
+    erp_query = next(q["query"] for q in qs if q["category"] == "erp").lower()
+    for other_vendor in ("oracle", "workday", "salesforce"):
+        assert other_vendor not in erp_query
+
+
+def test_build_queries_it_leadership_surfaces_named_executive_phrasing():
+    """'CIO CTO chief information officer technology leadership' only found
+    a generic management-team page; 'VP Chief Information Officer' surfaced
+    the named executive."""
+    qs = research.build_queries("Acme Corp")
+    it_leadership_query = next(
+        q["query"] for q in qs if q["category"] == "it_leadership"
+    )
+    assert it_leadership_query == "Acme Corp VP Chief Information Officer"
 
 
 def test_build_queries_have_unique_categories():
@@ -206,8 +242,8 @@ def test_select_with_category_floor_respects_extract_limit():
     assert len(research.select_with_category_floor(results_by_category)) == research.EXTRACT_LIMIT
 
 
-def test_extract_limit_is_eight():
-    assert research.EXTRACT_LIMIT == 8
+def test_extract_limit_is_ten():
+    assert research.EXTRACT_LIMIT == 10
 
 
 def test_truncate_caps_long_content():

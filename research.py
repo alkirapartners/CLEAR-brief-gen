@@ -16,7 +16,7 @@ from tavily import TavilyClient
 logger = logging.getLogger(__name__)
 
 MAX_PAGE_CHARS = 8000
-EXTRACT_LIMIT = 8
+EXTRACT_LIMIT = 10
 SEARCH_RESULTS_PER_QUERY = 4
 # Bytes of randomness in the per-request source fence. Lives in the user
 # message only; the cached system prefix must stay byte-stable.
@@ -63,8 +63,11 @@ def build_queries(company: str) -> list[dict]:
             "query": f"{company} global offices facilities international markets",
         },
         {
+            # Measured: this phrasing surfaces the named executive (e.g. a
+            # bio page); "CIO CTO chief information officer technology
+            # leadership" only found a generic management-team page.
             "category": "it_leadership",
-            "query": f"{company} CIO CTO chief information officer technology leadership",
+            "query": f"{company} VP Chief Information Officer",
         },
         {
             "category": "cloud",
@@ -84,6 +87,21 @@ def build_queries(company: str) -> list[dict]:
         {
             "category": "it_strategy",
             "query": f"{company} CIO interview technology strategy digital",
+        },
+        {
+            "category": "sec_cybersecurity",
+            "query": f"{company} 10-K cybersecurity information technology risk management",
+        },
+        {
+            # Single vendor concept only. Stacking vendor names (SAP Oracle
+            # Workday Salesforce) measured to return only generic
+            # integration-vendor marketing instead of company-specific hits.
+            "category": "erp",
+            "query": f"{company} SAP ERP implementation",
+        },
+        {
+            "category": "divestiture",
+            "query": f"{company} divestiture acquisition transition services agreement",
         },
         {
             "category": "signals",
