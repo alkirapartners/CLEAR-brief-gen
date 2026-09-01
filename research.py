@@ -10,6 +10,7 @@ import logging
 import re
 import secrets
 from typing import Callable, NamedTuple, TypedDict
+from urllib.parse import urlparse
 
 from tavily import TavilyClient
 
@@ -199,6 +200,37 @@ def filter_relevant(results: list[dict], tokens: list[str]) -> list[dict]:
     return relevant if relevant else results
 
 
+def _has_valid_url(result: dict) -> bool:
+    """True if the result's URL is an absolute http(s) link, not an opaque
+    redirect token, a javascript:/data: scheme, or anything else a reader
+    can't actually click through."""
+    url = result.get("url") or ""
+    parsed = urlparse(url)
+    return parsed.scheme in ("http", "https") and bool(parsed.netloc)
+
+
+def filter_valid_urls(results: list[dict]) -> list[dict]:
+    """Unconditionally drop results with an unusable URL.
+
+    Unlike ``filter_relevant``, this has no "never empty a category"
+    fallback: a source a partner cannot click through is never worth
+    keeping, no matter what else that category returned. Applied before the
+    per-category floor so a rejected result never consumes an extraction
+    slot — the category falls through to its next-best valid result instead.
+    """
+    valid: list[dict] = []
+    for r in results:
+        if _has_valid_url(r):
+            valid.append(r)
+        else:
+            logger.warning(
+                "Dropping result with invalid URL, title=%r url=%r",
+                r.get("title", ""),
+                r.get("url", ""),
+            )
+    return valid
+
+
 def select_with_category_floor(
     results_by_category: dict[str, list[dict]], limit: int = EXTRACT_LIMIT
 ) -> list[dict]:
@@ -327,7 +359,7 @@ def research(
 
     tokens = company_tokens(company)
     filtered_by_category = {
-        category: filter_relevant(items, tokens)
+        category: filter_relevant(filter_valid_urls(items), tokens)
         for category, items in results_by_category.items()
     }
 

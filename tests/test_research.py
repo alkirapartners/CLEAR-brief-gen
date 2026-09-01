@@ -214,6 +214,69 @@ def test_filter_relevant_does_not_empty_a_category():
     assert filtered == results
 
 
+def test_filter_valid_urls_rejects_opaque_redirect_token():
+    """Measured production bug: the 10-K query returned a result whose 'url'
+    field was an opaque Tavily redirect token, not a real link. It rendered
+    in the brief References section as an unclickable, fabricated-looking
+    citation."""
+    results = [
+        {
+            "title": "OCCIDENTAL PETROLEUM CORP /DE/ 10-K Item 1C. Cybersecurity",
+            "url": "CAESqgEB6zswFRG3KUiD178TCd8uP92ZpB4raZx-Jib0_e6lvDhHZU0wF0R6",
+            "content": "",
+        },
+        {"title": "IR page", "url": "https://oxy.com/ir", "content": ""},
+    ]
+    filtered = research.filter_valid_urls(results)
+    assert len(filtered) == 1
+    assert filtered[0]["url"] == "https://oxy.com/ir"
+
+
+def test_filter_valid_urls_rejects_javascript_and_data_schemes():
+    results = [
+        {"title": "JS", "url": "javascript:alert(1)", "content": ""},
+        {"title": "Data", "url": "data:text/html,<script>alert(1)</script>", "content": ""},
+        {"title": "Real", "url": "https://example.com/a", "content": ""},
+    ]
+    filtered = research.filter_valid_urls(results)
+    assert len(filtered) == 1
+    assert filtered[0]["url"] == "https://example.com/a"
+
+
+def test_filter_valid_urls_keeps_normal_https_result():
+    results = [{"title": "Real", "url": "https://example.com/a", "content": ""}]
+    assert research.filter_valid_urls(results) == results
+
+
+def test_select_with_category_floor_falls_through_invalid_top_result():
+    """A category whose top-scoring result has an invalid URL must still
+    contribute its next-best VALID result to the extract set — the floor
+    slot is not wasted on a dud."""
+    results_by_category = {
+        "sec_cybersecurity": research.filter_valid_urls([
+            {
+                "url": "CAESqgEB6zswFRG3KUiD178TCd8uP92ZpB4raZx",
+                "title": "opaque token",
+                "score": 0.95,
+                "content": "",
+            },
+            {
+                "url": "https://sec.gov/oxy-10k",
+                "title": "10-K",
+                "score": 0.4,
+                "content": "",
+            },
+        ]),
+        "basics": [
+            {"url": "https://basics.com/1", "title": "B", "score": 0.9, "content": ""}
+        ],
+    }
+    selected = research.select_with_category_floor(results_by_category, limit=2)
+    selected_urls = {r["url"] for r in selected}
+    assert "https://sec.gov/oxy-10k" in selected_urls
+    assert "CAESqgEB6zswFRG3KUiD178TCd8uP92ZpB4raZx" not in selected_urls
+
+
 def test_select_with_category_floor_gives_every_category_a_slot():
     """One dominant-scoring category must not consume every extraction slot."""
     results_by_category = {
@@ -365,3 +428,41 @@ def test_research_survives_one_failing_query_among_the_batch(mock_tavily_client)
 
     assert result.sources
     assert all(failing_query not in url for url in (s["url"] for s in result.sources))
+
+
+@patch("research.TavilyClient")
+def test_research_never_puts_an_invalid_url_in_sources_or_payload(mock_tavily_client):
+    """End-to-end: an opaque redirect token must never survive into the
+    brief's References section, where it would render as an unclickable,
+    fabricated-looking citation."""
+    client = MagicMock()
+
+    def fake_search(**kwargs):
+        return {
+            "results": [
+                {
+                    "url": "CAESqgEB6zswFRG3KUiD178TCd8uP92ZpB4raZx-Jib0",
+                    "title": "Acme Corp 10-K Item 1C. Cybersecurity",
+                    "score": 0.95,
+                    "content": "Acme Corp discloses IT risk management.",
+                },
+                {
+                    "url": f"https://acme.com/{abs(hash(kwargs['query']))}",
+                    "title": "Acme Corp page",
+                    "score": 0.5,
+                    "content": "Acme Corp content.",
+                },
+            ]
+        }
+
+    client.search.side_effect = fake_search
+    client.extract.return_value = {"results": []}
+    mock_tavily_client.return_value = client
+
+    result = research.research("Acme Corp", lambda status: None, "fake-key")
+
+    assert result.sources
+    urls = [s["url"] for s in result.sources]
+    assert "CAESqgEB6zswFRG3KUiD178TCd8uP92ZpB4raZx-Jib0" not in urls
+    assert "CAESqgEB6zswFRG3KUiD178TCd8uP92ZpB4raZx-Jib0" not in result.payload
+    assert all(u.startswith("https://") for u in urls)
