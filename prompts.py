@@ -247,8 +247,22 @@ place. Translating one blanks that section of the partner-facing brief:
 
 `## [Company Name]` still carries the real company name, unchanged.
 
-The "(confirmed)" and "(directional)" labels become "(confirmado)" and
-"(direccional)" -- those are read by people, not by the parser.
+Everything else the reader sees is Spanish, including every OTHER bold
+sub-label the template defines. Measured output has left these in
+English while writing Spanish around them; do not:
+
+- `**Validate early:**` becomes `**Validar temprano:**`
+- `**Best First Question:**` becomes `**Mejor pregunta inicial:**`
+- `**5 Questions:**` becomes `**5 preguntas:**`
+- `**HQ:** / **Revenue:** / **Employees:** / **Industry:** / **Markets:** /
+  **Ownership:**` become `**Sede:** / **Ingresos:** / **Empleados:** /
+  **Industria:** / **Mercados:** / **Propiedad:**`
+
+Never write the English words "(confirmed)" or "(directional)" anywhere in
+the brief. Every one is "(confirmado)" or "(direccional)", with no
+exceptions, including inside the four infrastructure fields whose labels
+stay English. Mixing the two forms in one brief is the specific failure to
+avoid.
 """
 
 

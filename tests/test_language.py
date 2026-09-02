@@ -469,3 +469,17 @@ def test_english_brief_still_renders_english_tile_labels(monkeypatch):
     page = " ".join(block.value for block in at.markdown)
     for expected in ("Alkira Fit", "Cloud Platforms", "Conversation Starters"):
         assert expected in page, f"missing English tile label: {expected!r}"
+
+
+def test_spanish_directive_forbids_the_english_evidence_labels():
+    """Measured leak: briefs mixed (confirmado) with (directional)."""
+    spanish = prompts.build_user_message("Acme", "sources", TODAY, language="es")
+    assert "(confirmado)" in spanish
+    assert "(direccional)" in spanish
+    assert "Validar temprano" in spanish
+
+
+def test_english_message_carries_no_spanish_directive():
+    english = prompts.build_user_message("Acme", "sources", TODAY, language="en")
+    for token in ("confirmado", "direccional", "Validar temprano", "Spanish"):
+        assert token not in english
