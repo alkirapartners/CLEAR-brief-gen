@@ -2056,7 +2056,7 @@ def main() -> None:
                 language_choice = st.segmented_control(
                     "Language",
                     options=list(i18n.LANGUAGE_NAMES),
-                    format_func=lambda code: i18n.LANGUAGE_NAMES[code],
+                    format_func=lambda code: i18n.LANGUAGE_NAMES.get(code, str(code)),
                     default=i18n.DEFAULT_LANGUAGE,
                     label_visibility="collapsed",
                 )

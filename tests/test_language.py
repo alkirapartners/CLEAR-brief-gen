@@ -387,3 +387,85 @@ def test_detect_language_ignores_a_month_deep_in_the_body():
         + "[1] Informe de Agosto 2025 - https://example.com\n"
     )
     assert i18n.detect_language(brief) == "en"
+
+
+# ── UI wiring (headless Streamlit) ───────────────────────────────
+
+def _drive_form(monkeypatch, selection):
+    """Run the real app headlessly, pick a language, submit, return the app.
+
+    Every outbound call is stubbed: no API calls, no database writes.
+    """
+    from unittest.mock import patch
+
+    AppTest = pytest.importorskip("streamlit.testing.v1").AppTest
+
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "dummy")
+    monkeypatch.setenv("TAVILY_API_KEY", "dummy")
+
+    seen: dict[str, str] = {}
+
+    def fake_generate(
+        api_key, tavily_key, company, status_callback,
+        timeout_seconds=180, language="en",
+    ):
+        seen["company"] = company
+        seen["language"] = language
+        return FULL_BRIEF
+
+    at = AppTest.from_file("app.py", default_timeout=60)
+    at.query_params["auth_email"] = "tester@example.com"
+
+    saved = {"id": "x", "created_at": "2026-08-31T12:00:00Z"}
+    with patch("generate.generate_brief", fake_generate), patch(
+        "db.save_brief", return_value=saved
+    ), patch("db.find_recent_brief_by_company", return_value=None), patch(
+        "db.get_user_briefs", return_value=[]
+    ):
+        at.run()
+        at.text_input[0].set_value("Cemex")
+        # AppTest models segmented_control as a multi-select button group;
+        # the app itself receives the scalar option.
+        at.button_group[0].set_value([selection])
+        at.button(key="FormSubmitter:brief_form-Generate").click().run()
+
+    return at, seen
+
+
+def test_form_defaults_to_english(monkeypatch):
+    at, seen = _drive_form(monkeypatch, "en")
+    assert not at.exception
+    assert seen["language"] == "en"
+    assert seen["company"] == "Cemex"
+
+
+def test_choosing_spanish_reaches_the_generator(monkeypatch):
+    at, seen = _drive_form(monkeypatch, "es")
+    assert not at.exception
+    assert seen["language"] == "es"
+
+
+def test_spanish_brief_renders_spanish_tile_labels(monkeypatch):
+    at, _ = _drive_form(monkeypatch, "es")
+    page = " ".join(block.value for block in at.markdown)
+
+    for expected in (
+        "Ajuste Alkira",
+        "Plataformas Cloud",
+        "Señales y Oportunidad",
+        "Temas de Conversación",
+        "Referencias",
+        "Punto 01",
+        "Evidencia",
+    ):
+        assert expected in page, f"missing Spanish tile label: {expected!r}"
+
+    for leaked in ("Cloud Platforms", "Conversation Starters", "Resulting Complexity"):
+        assert leaked not in page, f"English tile label leaked: {leaked!r}"
+
+
+def test_english_brief_still_renders_english_tile_labels(monkeypatch):
+    at, _ = _drive_form(monkeypatch, "en")
+    page = " ".join(block.value for block in at.markdown)
+    for expected in ("Alkira Fit", "Cloud Platforms", "Conversation Starters"):
+        assert expected in page, f"missing English tile label: {expected!r}"
