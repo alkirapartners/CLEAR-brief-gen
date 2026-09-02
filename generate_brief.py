@@ -4,6 +4,7 @@ Generate an Alkira opportunity brief for any company.
 Usage:
     python generate_brief.py "Mary Kay"
     python generate_brief.py "Walmart" --output walmart_brief.md
+    python generate_brief.py "Cemex" --language es
 """
 
 import argparse
@@ -14,6 +15,7 @@ import time
 from dotenv import load_dotenv
 
 import generate
+import i18n
 
 load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
 
@@ -26,6 +28,13 @@ def main() -> None:
     parser.add_argument("--output", "-o", help="Output filename (e.g., brief.md)")
     parser.add_argument(
         "--verbose", "-v", action="store_true", help="Show phase progress"
+    )
+    parser.add_argument(
+        "--language",
+        "-l",
+        default=i18n.DEFAULT_LANGUAGE,
+        choices=sorted(i18n.LABELS),
+        help="Language of the brief prose (default: en)",
     )
     args = parser.parse_args()
 
@@ -40,7 +49,9 @@ def main() -> None:
             print(f"  [{phase}]")
 
     start = time.time()
-    brief = generate.generate_brief(api_key, tavily_key, args.company, status)
+    brief = generate.generate_brief(
+        api_key, tavily_key, args.company, status, language=args.language
+    )
     print(f"\nCompleted in {time.time() - start:.0f} seconds.\n")
     print(brief)
 
