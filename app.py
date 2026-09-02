@@ -23,6 +23,7 @@ from PIL import Image
 
 import db
 import generate
+import i18n
 
 load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
 
@@ -1571,13 +1572,19 @@ def render_brief_bento(
     show_update: bool = False,
     brief_idx: int | None = None,
     reused_from: str = "",
+    language: str = "en",
 ) -> None:
     """Render a brief as a bento tile layout.
 
     ``reused_from`` is the ``created_at`` of the ORIGINAL research this brief
     was reused from (cache hit). When set, a persistent badge tells the
     viewer this is not freshly researched and points them at Update Brief.
+
+    ``language`` selects the visible tile labels. The brief's own markdown
+    headings are English in every language, so the extractors below never
+    vary with it.
     """
+    lbl = i18n.labels(language)
     score, reasoning = extract_score(brief_md)
     company, stats_line = extract_company_header(brief_md)
 
@@ -1616,12 +1623,13 @@ def render_brief_bento(
     st.markdown(hero_html, unsafe_allow_html=True)
 
     # Download PDF button
-    _render_download_pdf_button(brief_md, company or "Brief", score)
+    _render_download_pdf_button(brief_md, company or "Brief", score, language)
 
     # Update button
     if show_update and company:
         if st.button("Update Brief", key="update_brief", use_container_width=True):
             st.session_state["_update_company"] = company
+            st.session_state["_update_language"] = language
             st.rerun()
 
     # Delete button — red HTML link; click sets ?_del=N which main() detects
@@ -1635,7 +1643,7 @@ def render_brief_bento(
     cells = extract_infra_cells(brief_md)
     score_html = (
         f'<div class="tile gradient">'
-        f'<p class="tile-label">Alkira Fit</p>'
+        f'<p class="tile-label">{html.escape(lbl["alkira_fit"])}</p>'
         f'<div class="score-big">{score}</div>'
         f'<div class="score-stars-bento">{filled}{empty}</div>'
         f'<p class="score-rationale">{html.escape(reasoning)}</p>'
@@ -1644,13 +1652,13 @@ def render_brief_bento(
     infra_html = (
         f'<div>'
         f'<div class="infra-grid">'
-        f'<div class="tile"><p class="tile-label">Cloud Platforms</p>'
+        f'<div class="tile"><p class="tile-label">{html.escape(lbl["cloud_platforms"])}</p>'
         f'<p class="tile-value">{html.escape(cells["cloud_platforms"]) or "—"}</p></div>'
-        f'<div class="tile"><p class="tile-label">On-Prem / Hybrid</p>'
+        f'<div class="tile"><p class="tile-label">{html.escape(lbl["on_prem"])}</p>'
         f'<p class="tile-value">{html.escape(cells["on_prem"]) or "—"}</p></div>'
-        f'<div class="tile"><p class="tile-label">Deployment Model</p>'
+        f'<div class="tile"><p class="tile-label">{html.escape(lbl["deployment"])}</p>'
         f'<p class="tile-value">{html.escape(cells["deployment"]) or "—"}</p></div>'
-        f'<div class="tile"><p class="tile-label">Resulting Complexity</p>'
+        f'<div class="tile"><p class="tile-label">{html.escape(lbl["complexity"])}</p>'
         f'<p class="tile-value">{html.escape(cells["complexity"]) or "—"}</p></div>'
         f'</div>'
         f'</div>'
@@ -1670,7 +1678,7 @@ def render_brief_bento(
         )
         st.markdown(
             f'<div class="tile full" style="margin-top:12px">'
-            f'<p class="tile-label">Signals &amp; Timing</p>'
+            f'<p class="tile-label">{html.escape(lbl["signals_timing"])}</p>'
             f'<ul style="margin:6px 0 0;padding-left:18px;font-size:13px;line-height:1.5;color:var(--alkira-ink)">{bullets}</ul>'
             f'</div>',
             unsafe_allow_html=True,
@@ -1687,11 +1695,11 @@ def render_brief_bento(
             prf = html.escape(p.get("proof", "") or "—")
             cards.append(
                 f'<div class="tile entry">'
-                f'<p class="tile-label">Entry 0{i+1}</p>'
+                f'<p class="tile-label">{html.escape(lbl["entry"])} 0{i+1}</p>'
                 f'<h3 class="entry-heading">{heading}</h3>'
-                f'<div class="entry-row"><b>Signal</b>{sig}</div>'
-                f'<div class="entry-row"><b>Solution</b>{sol}</div>'
-                f'<div class="entry-row"><b>Proof</b>{prf}</div>'
+                f'<div class="entry-row"><b>{html.escape(lbl["signal"])}</b>{sig}</div>'
+                f'<div class="entry-row"><b>{html.escape(lbl["solution"])}</b>{sol}</div>'
+                f'<div class="entry-row"><b>{html.escape(lbl["proof"])}</b>{prf}</div>'
                 f'</div>'
             )
         st.markdown(
@@ -1705,7 +1713,7 @@ def render_brief_bento(
         formatted_starters = _format_starters_text(starters)
         st.markdown(
             f'<div class="tile dark full" style="margin-top:12px">'
-            f'<p class="tile-label">Conversation Starters</p>'
+            f'<p class="tile-label">{html.escape(lbl["conversation_starters"])}</p>'
             f'<div class="tile-value brief-doc" style="margin-top:6px">{md_to_html(formatted_starters)}</div>'
             f'</div>',
             unsafe_allow_html=True,
@@ -1716,15 +1724,18 @@ def render_brief_bento(
     if refs.strip():
         st.markdown(
             f'<div class="tile full" style="margin-top:12px">'
-            f'<p class="tile-label">References</p>'
+            f'<p class="tile-label">{html.escape(lbl["references"])}</p>'
             f'<div class="tile-value brief-doc" style="font-size:12px">{md_to_html(refs)}</div>'
             f'</div>',
             unsafe_allow_html=True,
         )
 
 
-def _render_download_pdf_button(brief_md: str, company: str, score: int) -> None:
+def _render_download_pdf_button(
+    brief_md: str, company: str, score: int, language: str = "en"
+) -> None:
     """Render the Download PDF button. Generates the PDF on-demand."""
+    language = i18n.normalize(language)
     try:
         from pdf import generate_brief_pdf, build_filename
     except Exception as exc:
@@ -1733,15 +1744,15 @@ def _render_download_pdf_button(brief_md: str, company: str, score: int) -> None
 
     now = datetime.now()
     period = now.strftime("%Y-%m")
-    filename = build_filename(company or "Brief", period)
+    filename = build_filename(company or "Brief", period, language)
 
     # Cache PDF bytes per company in session state to avoid regenerating on every rerun
     # Include brief content hash so re-research generates a fresh PDF
     brief_hash = abs(hash(brief_md)) % (10 ** 8)
-    cache_key = f"_pdf_bytes_{company}_{brief_hash}"
+    cache_key = f"_pdf_bytes_{company}_{language}_{brief_hash}"
     if cache_key not in st.session_state:
         try:
-            pdf_bytes = generate_brief_pdf(brief_md, company, score, now)
+            pdf_bytes = generate_brief_pdf(brief_md, company, score, now, language)
             st.session_state[cache_key] = pdf_bytes
         except Exception as exc:
             st.warning(f"PDF generation failed: {exc}")
@@ -1753,7 +1764,7 @@ def _render_download_pdf_button(brief_md: str, company: str, score: int) -> None
         file_name=filename,
         mime="application/pdf",
         use_container_width=True,
-        key=f"download_pdf_{company}_{brief_hash}",
+        key=f"download_pdf_{company}_{language}_{brief_hash}",
     )
 
 
@@ -1955,6 +1966,7 @@ def main() -> None:
 
     # ── Update trigger (re-research) ────────────────────────
     update_company = st.session_state.pop("_update_company", None)
+    update_language = i18n.normalize(st.session_state.pop("_update_language", None))
     if update_company:
         st.session_state.pop("viewing_brief", None)
 
@@ -1979,7 +1991,8 @@ def main() -> None:
         try:
             with st.spinner(""):
                 raw = generate.generate_brief(
-                    config.api_key, config.tavily_key, update_company, update_status,
+                    config.api_key, config.tavily_key, update_company,
+                    update_status, language=update_language,
                 )
 
             elapsed = time.time() - start
@@ -2010,13 +2023,18 @@ def main() -> None:
                 "brief_md": brief_md,
                 "score": score,
                 "time": display_time,
+                "language": update_language,
             })
             st.session_state["viewing_brief"] = 0
             # Fresh research: never let a stale reused-badge flag leak
             # forward onto this brief on a later rerun.
             st.session_state.pop("reused_from", None)
 
-            render_brief_display(brief_md, meta_right=f"Updated in {elapsed:.0f}s")
+            render_brief_display(
+                brief_md,
+                meta_right=f"Updated in {elapsed:.0f}s",
+                language=update_language,
+            )
 
         except Exception as exc:
             tracker_ph.empty()
@@ -2027,7 +2045,7 @@ def main() -> None:
     form_area = st.empty()
     with form_area.container():
         with st.form("brief_form", clear_on_submit=False, border=False):
-            col1, col2 = st.columns([5, 1])
+            col1, col2, col3 = st.columns([4, 1.4, 1])
             with col1:
                 company_name = st.text_input(
                     "Company",
@@ -2035,7 +2053,18 @@ def main() -> None:
                     label_visibility="collapsed",
                 )
             with col2:
+                language_choice = st.segmented_control(
+                    "Language",
+                    options=list(i18n.LANGUAGE_NAMES),
+                    format_func=lambda code: i18n.LANGUAGE_NAMES.get(code, str(code)),
+                    default=i18n.DEFAULT_LANGUAGE,
+                    label_visibility="collapsed",
+                )
+            with col3:
                 generate_clicked = st.form_submit_button("Generate", use_container_width=True)
+
+    # segmented_control returns None when the user clears the selection.
+    language = i18n.normalize(language_choice)
 
     # ── Generation ───────────────────────────────────────────
     if generate_clicked and company_name.strip():
@@ -2055,6 +2084,12 @@ def main() -> None:
 
         try:
             cached = db.find_recent_brief_by_company(company_name.strip())
+            # Stored briefs carry no language column, so check the brief
+            # itself. Reusing an English brief for a Spanish request (or the
+            # reverse) would hand a partner a document in the wrong language;
+            # a miss only costs one regeneration.
+            if cached and i18n.detect_language(cached.get("brief_md", "")) != language:
+                cached = None
             reused_from = cached.get("created_at", "") if cached else ""
 
             if cached:
@@ -2067,7 +2102,8 @@ def main() -> None:
             else:
                 with st.spinner(""):
                     raw = generate.generate_brief(
-                        config.api_key, config.tavily_key, company_name.strip(), update_status,
+                        config.api_key, config.tavily_key, company_name.strip(),
+                        update_status, language=language,
                     )
 
             elapsed = time.time() - start
@@ -2083,6 +2119,7 @@ def main() -> None:
                 brief_md,
                 meta_right=f"Generated in {elapsed:.0f}s",
                 reused_from=reused_from,
+                language=language,
             )
 
             # ── Save to DB + session state ───────────────
@@ -2110,6 +2147,7 @@ def main() -> None:
                 "brief_md": brief_md,
                 "score": score,
                 "time": display_time,
+                "language": language,
             })
 
             if not saved:
@@ -2155,6 +2193,10 @@ def main() -> None:
                     show_update=True,
                     brief_idx=idx,
                     reused_from=st.session_state.get("reused_from", ""),
+                    # History entries from this session carry their own
+                    # language; briefs loaded from the database in a later
+                    # session do not, so fall back to reading the brief.
+                    language=entry.get("language") or i18n.detect_language(brief_md),
                 )
 
     # ── Home: dashboard cards or empty state ─────────────────

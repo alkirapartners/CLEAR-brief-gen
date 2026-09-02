@@ -11,6 +11,8 @@ from datetime import date
 from functools import lru_cache
 from pathlib import Path
 
+import i18n
+
 SKILLS_DIR = Path(__file__).parent / "skills"
 
 SKILL_FILES: tuple[str, ...] = (
@@ -216,12 +218,72 @@ def build_system_prefix() -> str:
     return "".join(parts)
 
 
-def build_user_message(company: str, payload: str, today: date) -> str:
-    """Per-brief content. Everything volatile lives here, never in the prefix."""
+_SPANISH_DIRECTIVE = """\
+## Output Language: Spanish
+
+Write this brief in neutral Latin American Spanish. Use vocabulary a
+business reader in Mexico, Colombia, Chile or Argentina reads as natural.
+Avoid Spain-specific forms: use "ustedes", never "vosotros".
+
+Translate all prose: the scoring rationale, every bullet, the entry-point
+titles, the conversation starters, and the reference descriptions.
+
+Leave these UNTRANSLATED, in English, character-for-character. They are
+markers a downstream parser matches literally, and none of them is shown
+to the reader -- the renderer prints its own Spanish labels in their
+place. Translating one blanks that section of the partner-facing brief:
+
+- The section headings, exactly as the output skeleton gives them:
+  `## Infrastructure Snapshot`, `## Signals & Timing`,
+  `## Three Alkira Entry Points`, `## Conversation Starters`,
+  `## References`, and the title `# ALKIRA OPPORTUNITY BRIEF`.
+- The four infrastructure sub-labels: `**Cloud Platforms:**`,
+  `**On-Prem / Hybrid:**`, `**Deployment Model:**`,
+  `**Resulting Complexity:**`. Their VALUES are Spanish; the labels are not.
+- The entry-point line labels `Signal:`, `Solution:`, `Proof:`. Their
+  values are Spanish; the labels are not.
+- The score line `**Alkira Fit Score: X / 5**`.
+- Company names, product names, vendor names, and every URL.
+
+`## [Company Name]` still carries the real company name, unchanged.
+
+Everything else the reader sees is Spanish, including every OTHER bold
+sub-label the template defines. Measured output has left these in
+English while writing Spanish around them; do not:
+
+- `**Validate early:**` becomes `**Validar temprano:**`
+- `**Best First Question:**` becomes `**Mejor pregunta inicial:**`
+- `**5 Questions:**` becomes `**5 preguntas:**`
+- `**HQ:** / **Revenue:** / **Employees:** / **Industry:** / **Markets:** /
+  **Ownership:**` become `**Sede:** / **Ingresos:** / **Empleados:** /
+  **Industria:** / **Mercados:** / **Propiedad:**`
+
+Never write the English words "(confirmed)" or "(directional)" anywhere in
+the brief. Every one is "(confirmado)" or "(direccional)", with no
+exceptions, including inside the four infrastructure fields whose labels
+stay English. Mixing the two forms in one brief is the specific failure to
+avoid.
+"""
+
+
+def build_user_message(
+    company: str, payload: str, today: date, language: str = "en"
+) -> str:
+    """Per-brief content. Everything volatile lives here, never in the prefix.
+
+    ``language`` selects the prose language. It belongs in the user message
+    and never in the cached system prefix: a language-dependent prefix would
+    fork the prompt cache and cost more than the feature saves.
+    """
+    code = i18n.normalize(language)
+    period = i18n.format_period(today, code)
+    directive = f"{_SPANISH_DIRECTIVE}\n" if code == "es" else ""
+
     return (
         f'Company: "{company}"\n'
-        f"Current date: {today.strftime('%B %Y')}\n\n"
-        f"Write the brief's date line as *[{today.strftime('%B %Y')}]*.\n\n"
+        f"Current date: {period}\n\n"
+        f"{directive}"
+        f"Write the brief's date line as *[{period}]*.\n\n"
         "Research sources follow. Cite them by their bracketed number, and use "
         "their exact URLs in the References section.\n\n"
         f"{payload}"

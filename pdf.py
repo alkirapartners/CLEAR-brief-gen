@@ -11,6 +11,8 @@ from datetime import datetime
 
 from fpdf import FPDF
 
+import i18n
+
 # ── Brand palette (RGB tuples for fpdf2) ─────────────────────────
 ALKIRA_BLUE   = (45, 88, 242)    # #2D58F2
 ALKIRA_NAVY   = (10, 31, 68)     # #0A1F44
@@ -106,12 +108,17 @@ def _strip_md(s: str) -> str:
 _FILENAME_MAX = 40
 
 
-def build_filename(company: str, period: str) -> str:
+def build_filename(company: str, period: str, language: str = "en") -> str:
     """Build the PDF filename: AlkiraBrief_<sanitized-company>_<YYYY-MM>.pdf.
 
     Strips non-ASCII chars and punctuation (incl. underscores, our delimiter),
     replaces spaces with hyphens, truncates company to 40 chars. Falls back to
     "Company" sentinel for empty/all-punctuation/whitespace-only input.
+
+    Non-English briefs get an uppercase language suffix
+    (``AlkiraBrief_Cemex_2026-08_ES.pdf``) so a partner can hold both the
+    English and Spanish brief for one company without the second download
+    silently colliding with the first.
     """
     cleaned = re.sub(r"[^A-Za-z0-9\s-]", "", company)   # ASCII-only, drop punctuation + underscores
     cleaned = re.sub(r"\s+", "-", cleaned.strip())      # spaces → hyphens
@@ -120,7 +127,9 @@ def build_filename(company: str, period: str) -> str:
         cleaned = "Company"
     if len(cleaned) > _FILENAME_MAX:
         cleaned = cleaned[:_FILENAME_MAX].rstrip("-")
-    return f"AlkiraBrief_{cleaned}_{period}.pdf"
+    code = i18n.normalize(language)
+    suffix = "" if code == i18n.DEFAULT_LANGUAGE else f"_{code.upper()}"
+    return f"AlkiraBrief_{cleaned}_{period}{suffix}.pdf"
 
 
 # ── PDF subclass with branded header + footer ──────────────────
@@ -129,11 +138,15 @@ def build_filename(company: str, period: str) -> str:
 class _BriefPDF(FPDF):
     """fpdf2 subclass with Alkira-branded header and footer on every page."""
 
-    def __init__(self, generated_at: datetime):
+    def __init__(self, generated_at: datetime, language: str = "en"):
         super().__init__(orientation="P", unit="mm", format="Letter")
         self.set_auto_page_break(auto=True, margin=18)
         self.set_margins(left=12.7, top=20, right=12.7)  # 0.5"
         self.generated_at = generated_at
+        self.language = i18n.normalize(language)
+        # Every draw helper reads its visible chrome from here. The markdown
+        # headings stay English in all languages; only these labels change.
+        self.labels = i18n.labels(self.language)
         self.alias_nb_pages()  # enables {nb} for total page count
 
     def header(self) -> None:  # noqa: D401  (fpdf hook)
@@ -147,8 +160,12 @@ class _BriefPDF(FPDF):
         self.set_xy(-80, 8)
         self.set_font("Helvetica", "", 8)
         self.set_text_color(*ALKIRA_MUTED)
-        period = self.generated_at.strftime("%B %Y").upper()
-        self.cell(0, 6, f"CONFIDENTIAL  |  {period}", align="R")
+        period = i18n.format_period(self.generated_at, self.language).upper()
+        self.cell(
+            0, 6,
+            _safe_text(f"{self.labels['confidential']}  |  {period}"),
+            align="R",
+        )
 
         # Hairline rule
         self.set_draw_color(*ALKIRA_BORDER)
@@ -168,11 +185,20 @@ class _BriefPDF(FPDF):
         self.set_y(-12)
         self.set_font("Helvetica", "", 8)
         self.set_text_color(*ALKIRA_MUTED)
-        self.cell(0, 4, f"Page {self.page_no()} of {{nb}}")
+        self.cell(
+            0, 4,
+            _safe_text(
+                f"{self.labels['page']} {self.page_no()} "
+                f"{self.labels['of']} {{nb}}"
+            ),
+        )
         self.set_y(-12)
         self.cell(
             0, 4,
-            f"Generated {self.generated_at.strftime('%Y-%m-%d')}",
+            _safe_text(
+                f"{self.labels['generated']} "
+                f"{self.generated_at.strftime('%Y-%m-%d')}"
+            ),
             align="R",
         )
 
@@ -229,7 +255,7 @@ def _draw_score_tile(
     pdf.set_xy(x + 4, y + 4)
     pdf.set_font("Helvetica", "B", 8)
     pdf.set_text_color(*ALKIRA_WHITE)
-    pdf.cell(w - 8, 4, "ALKIRA FIT")
+    pdf.cell(w - 8, 4, _safe_text(pdf.labels["alkira_fit"].upper()))
 
     # Big number
     pdf.set_xy(x + 4, y + 10)
@@ -282,10 +308,10 @@ def _draw_infra_grid(
     half_w = w / 2
     half_h = h / 2
     items = [
-        ("CLOUD PLATFORMS", cells.get("cloud_platforms", ""), x, y),
-        ("ON-PREM / HYBRID", cells.get("on_prem", ""), x + half_w, y),
-        ("DEPLOYMENT MODEL", cells.get("deployment", ""), x, y + half_h),
-        ("RESULTING COMPLEXITY", cells.get("complexity", ""), x + half_w, y + half_h),
+        (pdf.labels["cloud_platforms"].upper(), cells.get("cloud_platforms", ""), x, y),
+        (pdf.labels["on_prem"].upper(), cells.get("on_prem", ""), x + half_w, y),
+        (pdf.labels["deployment"].upper(), cells.get("deployment", ""), x, y + half_h),
+        (pdf.labels["complexity"].upper(), cells.get("complexity", ""), x + half_w, y + half_h),
     ]
     pad = 3.0
 
@@ -334,7 +360,7 @@ def _draw_signals(pdf: _BriefPDF, signals_md: str) -> None:
     # Section label
     pdf.set_font("Helvetica", "B", 8)
     pdf.set_text_color(*ALKIRA_BLUE)
-    pdf.cell(0, 5, "SIGNALS & TIMING", new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(0, 5, _safe_text(pdf.labels["signals_timing"].upper()), new_x="LMARGIN", new_y="NEXT")
     pdf.ln(1)
 
     # Bullets — strip "- " or "* " from each line
@@ -363,7 +389,7 @@ def _draw_references(pdf: _BriefPDF, refs_md: str) -> None:
     pdf.set_x(12.7)
     pdf.set_font("Helvetica", "B", 8)
     pdf.set_text_color(*ALKIRA_BLUE)
-    pdf.cell(0, 5, "REFERENCES", new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(0, 5, _safe_text(pdf.labels["references"].upper()), new_x="LMARGIN", new_y="NEXT")
     pdf.ln(1)
 
     pdf.set_font("Helvetica", "", 8)
@@ -397,7 +423,7 @@ def _draw_entry_points(pdf: _BriefPDF, points: list[dict]) -> None:
 
     pdf.set_font("Helvetica", "B", 8)
     pdf.set_text_color(*ALKIRA_BLUE)
-    pdf.cell(0, 5, "THREE ALKIRA ENTRY POINTS", new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(0, 5, _safe_text(pdf.labels["entry_points"].upper()), new_x="LMARGIN", new_y="NEXT")
     pdf.ln(2)
 
     x = 12.7
@@ -432,7 +458,7 @@ def _draw_entry_points(pdf: _BriefPDF, points: list[dict]) -> None:
         pdf.set_xy(cx + pad, y + 3)
         pdf.set_font("Helvetica", "B", 7)
         pdf.set_text_color(*ALKIRA_ORANGE)
-        pdf.cell(tile_w - 2 * pad, 3.5, f"ENTRY 0{i+1}")
+        pdf.cell(tile_w - 2 * pad, 3.5, _safe_text(f'{pdf.labels["entry"].upper()} 0{i+1}'))
 
         # Heading
         pdf.set_xy(cx + pad, y + 7.5)
@@ -525,7 +551,7 @@ def _draw_conversation_starters(pdf: _BriefPDF, starters_md: str) -> None:
     pdf.set_xy(x + pad, y + pad)
     pdf.set_font("Helvetica", "B", 8)
     pdf.set_text_color(*ALKIRA_ORANGE)
-    pdf.cell(0, 4, "CONVERSATION STARTERS", new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(0, 4, _safe_text(pdf.labels["conversation_starters"].upper()), new_x="LMARGIN", new_y="NEXT")
 
     # Body lines
     cy = y + pad + 6
@@ -556,10 +582,16 @@ def generate_brief_pdf(
     company: str,
     score: int,
     generated_at: datetime | None = None,
+    language: str = "en",
 ) -> bytes:
-    """Render brief markdown as a print-optimized PDF. Returns PDF bytes."""
+    """Render brief markdown as a print-optimized PDF. Returns PDF bytes.
+
+    ``language`` selects the visible labels only. The markdown headings this
+    function parses are English in every language by design, so the
+    extractors in ``app.py`` are language-independent.
+    """
     when = generated_at or datetime.now()
-    pdf = _BriefPDF(generated_at=when)
+    pdf = _BriefPDF(generated_at=when, language=language)
     pdf.add_page()
 
     # Parse header (uses app.py parsers — imported lazily to avoid circular deps)

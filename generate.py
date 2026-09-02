@@ -30,8 +30,15 @@ def generate_brief(
     company: str,
     status_callback,
     timeout_seconds: float = 180,
+    language: str = "en",
 ) -> str:
-    """Research the company, then compose the brief in one streamed call."""
+    """Research the company, then compose the brief in one streamed call.
+
+    ``language`` sets the prose language of the brief. Research always runs
+    in English: Tavily indexes non-English pages either way, and the query
+    set is tuned. Only the user message varies, so the cached system prefix
+    stays byte-identical and the prompt cache keeps hitting.
+    """
     status_callback("init")
 
     result = research.research(company, status_callback, tavily_key)
@@ -55,7 +62,7 @@ def generate_brief(
             {
                 "role": "user",
                 "content": prompts.build_user_message(
-                    company, result.payload, date.today()
+                    company, result.payload, date.today(), language
                 ),
             }
         ],
@@ -64,8 +71,9 @@ def generate_brief(
 
     usage = message.usage
     logger.info(
-        "brief=%s cache_read=%s cache_write=%s input=%s output=%s",
+        "brief=%s lang=%s cache_read=%s cache_write=%s input=%s output=%s",
         company,
+        language,
         getattr(usage, "cache_read_input_tokens", 0) or 0,
         getattr(usage, "cache_creation_input_tokens", 0) or 0,
         usage.input_tokens,
