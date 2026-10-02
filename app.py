@@ -53,6 +53,31 @@ def load_config() -> AgentConfig:
     )
 
 
+# ── Company prefill ──────────────────────────────────────────────
+
+# Account Radar's "Generate brief" link arrives as /?company=<name>&domain=<domain>.
+PREFILL_QUERY_PARAMS = ("company", "domain")
+COMPANY_INPUT_KEY = "company_input"
+# Matches Account Radar's own cap on an account name.
+MAX_COMPANY_PREFILL_CHARS = 100
+
+
+def clean_company_prefill(raw: str | None) -> str:
+    """Turn a ``?company=`` value into text safe to drop in the search box.
+
+    The value comes from a URL anyone can craft, so control characters and
+    line breaks are flattened and an over-long value is ignored outright.
+    Returns "" when there is nothing usable.
+    """
+    if not raw:
+        return ""
+    printable = "".join(ch if ch.isprintable() else " " for ch in raw)
+    name = " ".join(printable.split())
+    if len(name) > MAX_COMPANY_PREFILL_CHARS:
+        return ""
+    return name
+
+
 # ── Brief Parsing ────────────────────────────────────────────────
 
 def clean_brief(raw: str) -> str:
@@ -1856,6 +1881,16 @@ def main() -> None:
     if "_pending_delete" in st.session_state:
         _confirm_delete_dialog(st.session_state["_pending_delete"])
 
+    # ── Company prefill (from Account Radar's "Generate brief" link) ──
+    # Fills the search box only. A brief costs money, so the partner still
+    # clicks Generate. The params are consumed so a refresh does not refill.
+    if any(param in st.query_params for param in PREFILL_QUERY_PARAMS):
+        prefill = clean_company_prefill(st.query_params.get("company"))
+        if prefill:
+            st.session_state[COMPANY_INPUT_KEY] = prefill
+        for param in PREFILL_QUERY_PARAMS:
+            st.query_params.pop(param, None)
+
     user_email = st.session_state["user_email"]
     db_connected = db.is_available()
 
@@ -2051,6 +2086,7 @@ def main() -> None:
                     "Company",
                     placeholder="Enter a company name...",
                     label_visibility="collapsed",
+                    key=COMPANY_INPUT_KEY,
                 )
             with col2:
                 language_choice = st.segmented_control(
