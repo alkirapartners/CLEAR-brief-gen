@@ -1544,7 +1544,7 @@ def _render_dashboard_cards(history: list[dict]) -> None:
                 st.markdown(
                     f'<div class="dash-card" data-score="{s}">'
                     f'<div class="dash-card-top">'
-                    f'<p class="dash-company">{entry.get("company", "")}</p>'
+                    f'<p class="dash-company">{html.escape(entry.get("company", ""))}</p>'
                     f'<span class="dash-stars">{stars}</span>'
                     f'</div>'
                     f'<p class="dash-snippet">{snippet}</p>'

@@ -45,10 +45,16 @@ def test_clean_company_prefill_ignores_an_overlong_value():
 GENERATE_BUTTON = "FormSubmitter:brief_form-Generate"
 
 
-def _run_app(monkeypatch, query: dict[str, str], click_generate: bool = False):
+def _run_app(
+    monkeypatch,
+    query: dict[str, str],
+    click_generate: bool = False,
+    saved_briefs: list[dict] | None = None,
+):
     """Run the real app headlessly with the given query string.
 
     Every outbound call is stubbed: no API calls, no database writes.
+    ``saved_briefs`` stands in for the partner's stored brief history.
     """
     AppTest = pytest.importorskip("streamlit.testing.v1").AppTest
 
@@ -73,7 +79,7 @@ def _run_app(monkeypatch, query: dict[str, str], click_generate: bool = False):
     with patch("generate.generate_brief", fake_generate), patch(
         "db.save_brief", return_value=saved
     ), patch("db.find_recent_brief_by_company", return_value=None), patch(
-        "db.get_user_briefs", return_value=[]
+        "db.get_user_briefs", return_value=saved_briefs or []
     ):
         at.run()
         if click_generate:
@@ -93,8 +99,9 @@ def test_company_link_prefills_the_search_box(monkeypatch):
 
 
 def test_company_link_does_not_start_a_brief_by_itself(monkeypatch):
-    _, generated = _run_app(monkeypatch, {"company": "Sysco Corporation"})
+    at, generated = _run_app(monkeypatch, {"company": "Sysco Corporation"})
 
+    assert not at.exception
     assert generated == []
 
 
@@ -126,3 +133,25 @@ def test_overlong_company_link_leaves_the_search_box_empty(monkeypatch):
 
     assert not at.exception
     assert at.text_input[0].value == ""
+    assert "company" not in at.query_params
+
+
+# ── A linked name must not become markup later ───────────────────
+#
+# The search box is safe for any text, but a submitted name is stored and
+# shown again on the dashboard. A link can now supply that name, so the
+# dashboard card must treat it as text.
+
+def test_dashboard_card_shows_a_stored_company_name_as_text_not_markup(monkeypatch):
+    hostile = "<img src=//evil.example/p.gif>"
+    stored = [{
+        "id": "b1", "company": hostile, "score": 4,
+        "brief_md": "# ALKIRA OPPORTUNITY BRIEF\n", "created_at": "2026-08-31T12:00:00Z",
+    }]
+
+    at, _ = _run_app(monkeypatch, {}, saved_briefs=stored)
+
+    assert not at.exception
+    card = next(m.value for m in at.markdown if 'class="dash-company"' in m.value)
+    assert hostile not in card
+    assert "&lt;img src=//evil.example/p.gif&gt;" in card
