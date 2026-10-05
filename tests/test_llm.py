@@ -81,4 +81,5 @@ def test_token_cost_uses_the_published_prices():
 
 
 def test_web_cost_counts_searches_and_opened_pages():
+    assert llm.web_credits(25, 20) == pytest.approx(25 * 2 + 20 * 0.4)
     assert llm.web_cost(25, 20) == pytest.approx((25 * 2 + 20 * 0.4) * 0.008)

@@ -93,6 +93,8 @@ def test_it_prints_the_brief_and_one_line_of_metrics(cli, capsys):
     assert (record["searches"], record["pages_opened"], record["stopped_by"]) == (21, 17, "finished")
     assert record["requests"] == 14 and record["cache_read_tokens"] == 400000
     assert record["cost_usd"] == 0.874
+    assert record["tavily_credits"] == pytest.approx(21 * 2 + 17 * 0.4)
+    assert record["not_covered"] == []
 
 
 def test_verbose_shows_the_phases(cli, capsys):

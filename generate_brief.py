@@ -24,6 +24,7 @@ from dotenv import load_dotenv
 import brief_text
 import generate
 import i18n
+import llm
 import pdf
 
 METRICS_FILE = "metrics.jsonl"
@@ -47,7 +48,9 @@ def metrics(company: str, made: generate.Generation) -> dict:
         "pages_opened": made.research.pages_opened,
         "sources": len(made.research.sources),
         "stopped_by": made.research.stopped_by,
+        "not_covered": list(made.research.not_covered),
         **asdict(made.usage),
+        "tavily_credits": round(llm.web_credits(made.research.searches, made.research.pages_opened), 1),
         "cost_usd": round(made.cost, 3),
     }
 

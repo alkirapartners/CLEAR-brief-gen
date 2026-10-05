@@ -123,7 +123,11 @@ def token_cost(usage: Usage) -> float:
     return dollars / TOKENS_PER_MILLION
 
 
+def web_credits(searches: int, pages_opened: int) -> float:
+    """Estimated Tavily credits for the searches and page reads of one brief."""
+    return searches * TAVILY_CREDITS_PER_SEARCH + pages_opened * TAVILY_CREDITS_PER_PAGE
+
+
 def web_cost(searches: int, pages_opened: int) -> float:
     """Estimated US dollars for the Tavily calls of one brief."""
-    credits = searches * TAVILY_CREDITS_PER_SEARCH + pages_opened * TAVILY_CREDITS_PER_PAGE
-    return credits * TAVILY_PRICE_PER_CREDIT
+    return web_credits(searches, pages_opened) * TAVILY_PRICE_PER_CREDIT
