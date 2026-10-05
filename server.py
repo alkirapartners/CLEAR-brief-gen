@@ -4,24 +4,32 @@ Run: uvicorn server:app --host 127.0.0.1 --port 8501
 """
 
 import logging
+from typing import Literal
 from uuid import UUID
 
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel, field_validator
+from starlette.concurrency import run_in_threadpool
 from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.responses import StreamingResponse
 
 import db
 import generate
 from authdep import is_admin, require_email
+from brief_service import BriefService
 from brief_view import to_detail, to_summary
+from briefparse import clean_company_prefill
 from errors import GENERIC_ERROR, UserFacingError
 from settings import Settings, load_settings
+from streaming import Work, stream_job
 
 logger = logging.getLogger(__name__)
 
 VALIDATION_ERROR = "Check the company name and language, then try again."
 NOT_FOUND = "Brief not found"
+STREAM_HEADERS = {"Cache-Control": "no-cache", "X-Accel-Buffering": "no"}
 
 
 def ok(data) -> dict:
@@ -35,6 +43,25 @@ def _failure(status_code: int, message: str) -> JSONResponse:
     )
 
 
+class GenerateRequest(BaseModel):
+    company: str
+    language: Literal["en", "es"] = "en"
+
+    @field_validator("company")
+    @classmethod
+    def _clean_company(cls, value: str) -> str:
+        # Same rule as the ?company= prefill: flatten control characters and
+        # whitespace, refuse anything over the radar's account-name cap.
+        name = clean_company_prefill(value)
+        if not name:
+            raise ValueError("company is empty or too long")
+        return name
+
+
+class RefreshRequest(BaseModel):
+    language: Literal["en", "es"] | None = None
+
+
 def create_app(
     repo=db,
     generator=generate.generate_brief,
@@ -46,6 +73,16 @@ def create_app(
         logger.warning("ANTHROPIC_API_KEY or TAVILY_API_KEY missing: generation is disabled.")
 
     app = FastAPI(title="Alkira Brief API", docs_url=None, redoc_url=None, openapi_url=None)
+
+    service = BriefService(repo, generator, settings)
+    app.state.service = service
+
+    def _stream(work: Work) -> StreamingResponse:
+        return StreamingResponse(
+            stream_job(work, heartbeat_seconds),
+            media_type="text/event-stream",
+            headers=STREAM_HEADERS,
+        )
 
     @app.exception_handler(StarletteHTTPException)
     async def _http_error(_request, exc):
@@ -82,6 +119,22 @@ def create_app(
         if row is None:
             raise HTTPException(status_code=404, detail=NOT_FOUND)
         return ok(to_detail(row))
+
+    @app.post("/api/brief/briefs")
+    async def generate_route(body: GenerateRequest, email: str = Depends(require_email)):
+        work = await run_in_threadpool(
+            service.start_generate, email, body.company, body.language
+        )
+        return _stream(work)
+
+    @app.post("/api/brief/briefs/{brief_id}/refresh")
+    async def refresh_route(
+        brief_id: UUID, body: RefreshRequest, email: str = Depends(require_email)
+    ):
+        work = await run_in_threadpool(
+            service.start_refresh, email, str(brief_id), body.language
+        )
+        return _stream(work)
 
     return app
 
