@@ -1,11 +1,17 @@
 """The research tools: budgets, opened pages, recorded evidence, the fence."""
 
+import hashlib
 import json
+import os
+import subprocess
+import sys
+from pathlib import Path
 
 import research_tools as tools
 from evidence import Page, canonical_url
 from research_tools import Ledger, ToolCall
 
+REPO_ROOT = Path(__file__).resolve().parent.parent
 FENCE = "f00dfeedf00dfeed"
 PAGE_TEXT = "Senior Network Engineer. ExpressRoute, Virtual WAN hub-and-spoke, BGP. " * 6
 JOB = "https://careers.example.com/job/1"
@@ -86,8 +92,21 @@ def test_three_strict_tools_are_offered():
         assert schema["required"] == list(schema["properties"])
 
 
-def test_the_definitions_never_vary():
-    assert json.dumps(tools.TOOLS) == json.dumps(tools.TOOLS)
+def test_the_definitions_are_byte_identical_in_a_fresh_process():
+    """The tools are cached with the system prefix. One changed byte re-bills it on every brief."""
+    script = (
+        "import hashlib, json, research_tools; "
+        "print(hashlib.sha256(json.dumps(research_tools.TOOLS).encode('utf-8')).hexdigest())"
+    )
+    clean_env = {k: v for k, v in os.environ.items() if k != "PYTHONHASHSEED"}
+    fresh = subprocess.run(
+        [sys.executable, "-c", script], cwd=REPO_ROOT, capture_output=True, text=True, env=clean_env,
+    )
+    assert fresh.returncode == 0, fresh.stderr
+    assert fresh.stdout.strip() == hashlib.sha256(json.dumps(tools.TOOLS).encode("utf-8")).hexdigest()
+
+
+def test_a_fact_s_category_is_one_of_the_known_ones():
     item = tools.TOOLS[2]["input_schema"]["properties"]["items"]["items"]
     assert item["properties"]["category"]["enum"] == list(tools.CATEGORIES)
 
