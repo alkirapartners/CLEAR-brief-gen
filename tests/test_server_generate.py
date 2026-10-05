@@ -230,3 +230,12 @@ def test_refresh_can_switch_language():
         return SAMPLE_BRIEF
     _refresh(make_client(repo, generator=generator), old["id"], body={"language": "es"})
     assert seen == ["es"]
+
+
+def test_refresh_still_succeeds_when_the_old_copy_cannot_be_removed():
+    repo = FakeRepo()
+    old = repo.seed("partner@example.com")
+    repo.delete_brief = lambda brief_id, email: False
+    got = events(_refresh(make_client(repo), old["id"]))
+    assert got[-1]["type"] == "done"
+    assert len(repo.rows) == 2  # the new brief is saved; the old one is left in place

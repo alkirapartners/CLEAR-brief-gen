@@ -1,7 +1,10 @@
 import json
 from dataclasses import replace
 
-from tests.api_fakes import AUTH, TEST_SETTINGS, make_client
+from fastapi.testclient import TestClient
+
+from errors import GENERIC_ERROR
+from tests.api_fakes import AUTH, TEST_SETTINGS, FakeRepo, make_client
 
 
 def test_health_needs_no_auth():
@@ -52,3 +55,22 @@ def test_unknown_routes_use_the_envelope():
     resp = make_client().get("/api/brief/nope", headers=AUTH)
     assert resp.status_code == 404
     assert resp.json()["success"] is False
+
+
+def test_an_admins_file_that_is_not_a_list_means_not_admin(tmp_path):
+    admins = tmp_path / "admins.json"
+    admins.write_text(json.dumps({"partner@example.com": True}))
+    client = make_client(settings=replace(TEST_SETTINGS, admins_file=str(admins)))
+    assert client.get("/api/brief/me", headers=AUTH).json()["data"]["isAdmin"] is False
+
+
+def test_unexpected_errors_return_a_generic_500_in_the_envelope():
+    class BrokenRepo(FakeRepo):
+        def get_user_briefs(self, email):
+            raise RuntimeError("db password is hunter2")
+
+    app = make_client(BrokenRepo()).app
+    resp = TestClient(app, raise_server_exceptions=False).get("/api/brief/briefs", headers=AUTH)
+    assert resp.status_code == 500
+    assert resp.json() == {"success": False, "data": None, "error": GENERIC_ERROR}
+    assert "hunter2" not in resp.text
