@@ -115,15 +115,19 @@ def _story(story: Story, use_case: str, told: frozenset[str], language: str) -> 
     and no earlier angle in this brief has told it. The customer name always
     comes from the story table. So does the result for a brief in English.
     In another language the model's translation of the result is kept only
-    when it carries exactly the table's figures. Otherwise the table's
-    wording is used.
+    when the table's result has figures and the translation carries exactly
+    those. Otherwise the table's wording is used.
     """
     known = case_studies.story_by_id(story["id"])
     if known is None or use_case not in known.situations or known.id in told:
         return {**_NO_STORY}
     translated = story["result"].strip() if language != TABLE_LANGUAGE else ""
-    if _numbers(translated) != _numbers(known.result):
-        translated = ""  # a translation may change the words, never the figures
+    figures = _numbers(known.result)
+    if not figures or _numbers(translated) != figures:
+        # A translation may change the words, never the figures. A result with
+        # no figure gives nothing to check a translation by, so the table's
+        # own wording is used.
+        translated = ""
     return {"id": known.id, "customer": known.customer, "result": translated or known.result}
 
 

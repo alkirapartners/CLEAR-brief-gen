@@ -431,7 +431,8 @@ def test_a_translated_proof_whose_numbers_differ_from_the_knowledge_base_is_repl
         ("michaels", "Unas 1,400 tiendas en tres semanas, con 50% menos costo.", michaels),  # an added number
         ("michaels", "Unas 1.400 tiendas conectadas a Google Cloud en tres semanas.", None),  # same number, Spanish separator
         ("koch", "Reducción del 40% en la complejidad de la red.", koch),                 # a number the table never had
-        ("koch", "Reducción significativa de la complejidad de la red.", None),
+        ("koch", "Alkira eliminó todos los cortes y ahorró millones.", koch),             # no figure to check it by
+        ("koch", "Reducción significativa de la complejidad de la red.", koch),          # even a faithful one
     ]
     for story_id, translated, expected in cases:
         angle = _angle([1], story_id=story_id)
