@@ -5518,7 +5518,7 @@ How the loop ends:
 
 Requests are not streamed: each is one short turn. Every request sends the same tools and the same system prefix, and adds to the same message list without changing earlier messages, so the cache holds and the model keeps its own earlier notes.
 
-- [ ] **Step 1: Write the fakes and the failing test**
+- [x] **Step 1: Write the fakes and the failing test**
 
 Create `tests/llm_fakes.py`:
 
@@ -5826,12 +5826,12 @@ def test_only_abnormal_stops_are_worded_for_the_writer():
     assert "finished" not in research_loop.EARLY_STOPS and "budget" not in research_loop.EARLY_STOPS
 ```
 
-- [ ] **Step 2: Run it and confirm it fails**
+- [x] **Step 2: Run it and confirm it fails**
 
 Run: `.venv/bin/python -m pytest tests/test_research_loop.py -q`
 Expected: `1 error`, with `ModuleNotFoundError: No module named 'research_loop'`.
 
-- [ ] **Step 3: Write the loop**
+- [x] **Step 3: Write the loop**
 
 Create `research_loop.py`:
 
@@ -5997,7 +5997,7 @@ def research(
     return _result(company, ledger, usage, clock() - started, stopped_by)
 ```
 
-- [ ] **Step 4: Run the tests**
+- [x] **Step 4: Run the tests**
 
 Run: `.venv/bin/python -m pytest tests/test_research_loop.py -q`
 Expected: `17 passed`.
@@ -6005,7 +6005,7 @@ Expected: `17 passed`.
 Run: `.venv/bin/python -m pytest -q`
 Expected: `505 passed, 2 skipped`.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add research_loop.py tests/llm_fakes.py tests/test_research_loop.py
