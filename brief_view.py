@@ -11,6 +11,7 @@ from typing import Any
 import brief_compat
 import brief_doc
 import i18n
+import stat_pills
 import stored_brief
 from briefparse import (
     clean_brief,
@@ -111,7 +112,7 @@ def _doc_detail(row: dict, doc: brief_doc.BriefDoc) -> dict:
     return {
         "id": row["id"],
         "company": doc["company"]["name"].strip() or row.get("company") or "",
-        "statsLine": brief_compat.stats_line(doc, labels),
+        "statsLine": stat_pills.line(doc, labels),
         "score": doc["fit"]["score"],
         "scoreRationale": brief_compat.score_rationale(doc),
         "infra": brief_compat.infra_cells(doc, labels),

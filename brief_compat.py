@@ -51,7 +51,10 @@ def entity_text(doc: BriefDoc) -> str:
 
 
 def stat_pairs(doc: BriefDoc, labels: Labels) -> list[tuple[str, str]]:
-    """Label and value for each stat that was found, in display order."""
+    """Label and full value for each stat that was found, for the PDF and the text.
+
+    The current page shows short pills instead: see stat_pills.py.
+    """
     stats = doc["stats"]
     pairs = [
         (labels["stat_entity"], entity_text(doc)),

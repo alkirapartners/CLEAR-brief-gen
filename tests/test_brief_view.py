@@ -39,11 +39,24 @@ def test_every_field_the_current_page_reads_is_present_and_filled():
     assert data["language"] == "en" and data["labels"] is i18n.LABELS["en"]
 
 
-def test_the_stats_line_names_the_entity_and_the_network_headline():
+def test_the_stats_line_is_the_short_basics_the_page_shows_as_pills():
     line = _detail()["statsLine"]
-    assert line.startswith("Entity: Northwind Energy Corporation (NYSE: NWE) | HQ: Dallas, TX")
-    assert line.endswith("Cloud and network: Azure, ExpressRoute and Virtual WAN, SD-WAN")
-    assert "**" not in line
+    assert line == "HQ: Dallas, TX | Revenue: $28B | Employees: 5,200 | Industry: Refining | Ownership: Public (NYSE: NWE)"
+    assert "Entity" not in line and "Cloud and network" not in line and "**" not in line
+
+
+def test_long_basics_are_shortened_for_the_pills_and_kept_whole_in_the_document():
+    stats = {
+        **SAMPLE_DOC["stats"],
+        "hq": "2323 Victory Avenue, Dallas, Texas",
+        "revenue": "$26,869 million sales and other revenues, FY2025",
+        "industry": "Independent energy company: refining and marketing of gasoline, diesel and jet fuel",
+    }
+    data = _detail(stats=stats)
+    assert data["statsLine"].startswith(
+        "HQ: Dallas, Texas | Revenue: $26.9B (FY2025) | Employees: 5,200 | Industry: Independent energy company |"
+    )
+    assert data["doc"]["stats"]["revenue"] == "$26,869 million sales and other revenues, FY2025"
 
 
 def test_a_ticker_stored_the_old_way_is_still_printed_the_one_way():
@@ -159,7 +172,7 @@ def test_the_whole_document_is_returned_in_camel_case():
 def test_a_spanish_json_brief_gets_spanish_labels_inside_its_text():
     data = _detail(language="es")
     assert data["language"] == "es" and data["labels"] is i18n.LABELS["es"]
-    assert data["statsLine"].startswith("Entidad: ")
+    assert data["statsLine"].startswith("Sede: Dallas, TX | Ingresos: ")
     assert "Centros de datos: No encontrado" in data["infra"]["onPrem"]
     assert "**Interlocutores:**" in data["startersMd"]
 
