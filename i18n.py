@@ -80,6 +80,7 @@ LABELS: dict[str, dict[str, str]] = {
         ),
         "stakeholders": "Stakeholders",
         "best_first_question": "Best First Question",
+        "lead_with_first_question": "Lead with question 1.",
     },
     "es": {
         "alkira_fit": "Ajuste Alkira",
@@ -140,8 +141,16 @@ LABELS: dict[str, dict[str, str]] = {
         ),
         "stakeholders": "Interlocutores",
         "best_first_question": "Mejor pregunta inicial",
+        "lead_with_first_question": "Empiece con la pregunta 1.",
     },
 }
+
+# Month names as they are abbreviated inside a sentence.
+SHORT_MONTHS: dict[str, tuple[str, ...]] = {
+    "en": ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"),
+    "es": ("ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"),
+}
+_STORED_DATE = re.compile(r"^(\d{4})(?:-(\d{2}))?(?:-(\d{2}))?$")
 
 _SPANISH_MONTHS: tuple[str, ...] = (
     "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
@@ -161,6 +170,27 @@ def normalize(language: str | None) -> str:
 def labels(language: str | None) -> dict[str, str]:
     """Visible label table for a language. Unknown codes fall back to English."""
     return LABELS[normalize(language)]
+
+
+def readable_date(stored: str, language: str | None) -> str:
+    """A stored date as people write it: "Sep 23, 2026", "Sep 2026" or "2026".
+
+    Spanish puts the day first: "23 sep 2026". Text that is not a stored
+    date (YYYY, YYYY-MM or YYYY-MM-DD) gives "".
+    """
+    match = _STORED_DATE.match(stored.strip())
+    if match is None:
+        return ""
+    year, month, day = match.group(1), int(match.group(2) or 0), int(match.group(3) or 0)
+    if not 0 <= month <= 12:
+        return ""
+    if month == 0:
+        return year
+    code = normalize(language)
+    name = SHORT_MONTHS[code][month - 1]
+    if day == 0:
+        return f"{name} {year}"
+    return f"{day} {name} {year}" if code == "es" else f"{name} {day}, {year}"
 
 
 def format_period(when: date, language: str | None) -> str:

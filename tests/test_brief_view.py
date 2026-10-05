@@ -81,20 +81,59 @@ def test_the_six_snapshot_lines_all_reach_the_four_cells():
     assert infra["complexity"] == "WAN: SD-WAN at refineries and terminals. [1] Firewalls: Palo Alto or Fortinet. [1]"
 
 
-def test_entry_points_carry_evidence_alkira_and_the_named_story():
-    points = _detail()["entryPoints"]
-    assert [p["heading"] for p in points] == ["Hand-built Azure network", "Lubricants separation"]
-    assert points[0]["signal"] == (
-        "A network engineer posting lists ExpressRoute and a Virtual WAN hub-and-spoke. (2026-09-23) [1]"
+def _three_line_angle():
+    """An angle as research writes it: a dated trigger and what supports it."""
+    angle = make_doc()["angles"][0]
+    angle["evidence"] = [
+        {"text": "A posting lists a Virtual WAN hub-and-spoke", "date": "", "sources": [1]},
+        {"text": "The same posting asks for ExpressRoute and BGP.", "date": "2026-09-23", "sources": [1]},
+        {"text": "The annual report describes a cloud migration.", "date": "2026-02", "sources": [2, 1]},
+    ]
+    return angle
+
+
+def test_signals_and_timing_carries_one_dated_fact_per_angle_with_the_date_in_words():
+    data = _detail(angles=[_three_line_angle(), make_doc()["angles"][1]])
+    assert data["signals"] == [
+        "The same posting asks for ExpressRoute and BGP (Sep 23, 2026).",
+        "The annual report describes separating the lubricants business (Feb 20, 2026).",
+    ]
+
+
+def test_the_entry_point_signal_holds_the_rest_of_the_evidence_and_never_repeats_the_dated_fact():
+    point = _detail(angles=[_three_line_angle()])["entryPoints"][0]
+    assert point["heading"] == "Hand-built Azure network"
+    assert point["signal"] == (
+        "A posting lists a Virtual WAN hub-and-spoke. The annual report describes a cloud migration (Feb 2026)."
     )
-    assert points[0]["solution"].startswith("Alkira replaces hand-built hubs")
-    assert points[0]["proof"].startswith("Koch Industries: Significant reduction")
+    assert point["solution"].startswith("Alkira replaces hand-built hubs")
+    assert point["proof"].startswith("Koch Industries: Significant reduction")
 
 
-def test_signals_are_the_dated_evidence_lines():
-    signals = _detail()["signals"]
-    assert signals[1] == "The annual report describes separating the lubricants business. (2026-02-20) [2]"
-    assert len(signals) == 2
+def test_an_angle_with_a_single_fact_shows_it_once_under_signals_and_timing():
+    data = _detail()
+    assert data["signals"][0] == "A network engineer posting lists ExpressRoute and a Virtual WAN hub-and-spoke (Sep 23, 2026)."
+    assert [point["signal"] for point in data["entryPoints"]] == ["", ""]
+
+
+def test_no_citation_marker_or_undated_marker_reaches_the_page_text():
+    data = _detail(angles=[_three_line_angle()])
+    shown = " ".join([*data["signals"], *[p["signal"] for p in data["entryPoints"]]])
+    assert "[1]" not in shown and "[2]" not in shown and "undated" not in shown
+
+
+def test_a_date_the_sentence_already_gives_is_not_said_twice():
+    angle = _three_line_angle()
+    angle["evidence"][1]["text"] = "On September 23, 2026 the company posted a role asking for ExpressRoute."
+    assert _detail(angles=[angle])["signals"] == [
+        "On September 23, 2026 the company posted a role asking for ExpressRoute.",
+    ]
+
+
+def test_dates_are_written_the_spanish_way_in_a_spanish_brief():
+    data = _detail(angles=[_three_line_angle()], language="es")
+    assert data["signals"] == ["The same posting asks for ExpressRoute and BGP (23 sep 2026)."]
+    assert data["entryPoints"][0]["signal"].endswith("(feb 2026).")
 
 
 def test_starters_hold_people_the_lead_questions_and_what_is_unconfirmed():
@@ -102,7 +141,8 @@ def test_starters_hold_people_the_lead_questions_and_what_is_unconfirmed():
     assert text.startswith(
         "**Stakeholders:** Director of Network Engineering, Chief Information Officer (Dana Ruiz)"
     )
-    assert "**Best First Question:** Open with the Azure hub build" in text
+    assert "**Best First Question:** Lead with question 1." in text
+    assert "Open with the Azure hub build" not in text  # the lead is in the score rationale, once
     assert '1. "Who builds a new Virtual WAN hub today, and how long does one take?"' in text
     assert "*(Listen for: hand-built hubs, weeks of lead time Alkira angle: A new region" in text
     assert "**What we couldn't confirm:**\n- Who owns the WAN contract." in text
@@ -125,12 +165,10 @@ def test_a_reference_that_is_not_first_hand_says_so():
     assert "Annual report (second-hand) — https://" in lines[1]
 
 
-def test_an_evidence_line_with_no_date_says_it_is_undated():
-    angles = make_doc()["angles"]
-    angles[0]["evidence"][0]["date"] = ""
-    data = _detail(angles=angles)
-    assert data["signals"][0] == "A network engineer posting lists ExpressRoute and a Virtual WAN hub-and-spoke. (undated) [1]"
-    assert "(undated) [1]" in data["entryPoints"][0]["signal"]
+def test_an_evidence_line_with_no_date_still_says_so_in_the_text_and_pdf_renderings():
+    import brief_compat
+    line = {"text": "A posting lists ExpressRoute.", "date": "", "sources": [1]}
+    assert brief_compat.evidence_text(line, i18n.LABELS["en"]) == "A posting lists ExpressRoute. (undated) [1]"
 
 
 # ── Briefs with fewer angles are not padded ──────────────────────

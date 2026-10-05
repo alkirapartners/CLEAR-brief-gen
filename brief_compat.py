@@ -6,12 +6,16 @@ starters and references. These functions fill every one of those from a
 brief document, so the page keeps working until it learns the new layout.
 """
 
-import ticker
-from brief_doc import BriefDoc, EvidenceLine, Person, SnapshotLine, Story
+import re
 
-MAX_LEGACY_SIGNALS = 6
+import i18n
+import ticker
+from brief_doc import Angle, BriefDoc, EvidenceLine, Person, SnapshotLine, Story
+
 SNIPPET_CHARS = 120
 Labels = dict[str, str]
+_ENDS_A_SENTENCE = (".", "!", "?")
+_WORD_OR_NUMBER = re.compile(r"[^\W\d_]+|\d+")
 
 
 def cite(sources: list[int]) -> str:
@@ -98,22 +102,67 @@ def infra_cells(doc: BriefDoc, labels: Labels) -> dict[str, str]:
     }
 
 
-def signals(doc: BriefDoc, labels: Labels) -> list[str]:
-    lines = [evidence_text(line, labels) for angle in doc["angles"] for line in angle["evidence"]]
-    return lines[:MAX_LEGACY_SIGNALS]
+# ── The current page: plain sentences, no citation markers ──────────────────
+
+def _sentence(text: str) -> str:
+    """The text ending in a full stop, so sentences set side by side stay apart."""
+    clean = text.strip()
+    return clean if not clean or clean.endswith(_ENDS_A_SENTENCE) else f"{clean}."
 
 
-def entry_points(doc: BriefDoc, labels: Labels) -> list[dict[str, str]]:
-    """One entry point per angle: as many as the brief has, never padded."""
-    return [
-        {
+def _already_says(text: str, stored_date: str, language: str) -> bool:
+    """True when the sentence itself gives the date: its year, its month and its day."""
+    year, _, rest = stored_date.partition("-")
+    month, _, day = rest.partition("-")
+    words = {word.casefold() for word in _WORD_OR_NUMBER.findall(text)}
+    if year not in words:
+        return False
+    if month and not any(
+        word.startswith(names[int(month) - 1].casefold()) for names in i18n.SHORT_MONTHS.values() for word in words
+    ):
+        return False
+    return not day or str(int(day)) in words
+
+
+def _page_sentence(line: EvidenceLine, language: str) -> str:
+    """An evidence line as the page shows it: one sentence, its date in words at the end."""
+    when = i18n.readable_date(line["date"], language)
+    text = line["text"].strip()
+    if not when or _already_says(text, line["date"].strip(), language):
+        return _sentence(text)
+    return f"{text.rstrip('.')} ({when})."
+
+
+def _trigger(angle: Angle) -> EvidenceLine | None:
+    """The fact an angle shows under Signals & Timing: its first dated line, else its first."""
+    lines = angle["evidence"]
+    return next((line for line in lines if line["date"].strip()), lines[0] if lines else None)
+
+
+def signals(doc: BriefDoc) -> list[str]:
+    """One dated fact per angle, each said once on the page."""
+    triggers = [_trigger(angle) for angle in doc["angles"]]
+    return [_page_sentence(line, doc["language"]) for line in triggers if line is not None]
+
+
+def entry_points(doc: BriefDoc) -> list[dict[str, str]]:
+    """One entry point per angle: as many as the brief has, never padded.
+
+    The signal is the angle's evidence other than the fact already shown
+    under Signals & Timing, so nothing is printed twice. An angle with a
+    single fact has an empty signal and the page leaves that row out.
+    """
+    points: list[dict[str, str]] = []
+    for angle in doc["angles"]:
+        trigger = _trigger(angle)
+        rest = [line for line in angle["evidence"] if line is not trigger]
+        points.append({
             "heading": angle["title"],
-            "signal": " ".join(evidence_text(line, labels) for line in angle["evidence"]),
+            "signal": " ".join(_page_sentence(line, doc["language"]) for line in rest),
             "solution": angle["alkira"],
             "proof": proof_text(angle["story"]),
-        }
-        for angle in doc["angles"]
-    ]
+        })
+    return points
 
 
 def _bullets(title: str, items: list[str]) -> list[str]:
@@ -127,8 +176,9 @@ def starters_md(doc: BriefDoc, labels: Labels) -> str:
     people = [person_text(person) for person in doc["people"]]
     if people:
         lines.append(f"**{labels['stakeholders']}:** {', '.join(people)}")
-    if doc["fit"]["lead"].strip():
-        lines.append(f"**{labels['best_first_question']}:** {doc['fit']['lead'].strip()}")
+    if doc["questions"]:
+        # The lead itself is in the score rationale. Here the page is pointed at the question.
+        lines.append(f"**{labels['best_first_question']}:** {labels['lead_with_first_question']}")
     for number, item in enumerate(doc["questions"], start=1):
         note = f"{labels['listen_for']}: {item['listen_for']} {labels['alkira_angle']}: {item['alkira_angle']}"
         lines += ["", f'{number}. "{item["question"]}"', f"   *({note})*"]
