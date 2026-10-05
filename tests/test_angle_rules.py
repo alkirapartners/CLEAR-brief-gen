@@ -13,7 +13,7 @@ def _angle(*lines, use_case="m_and_a"):
     return {
         "title": "Angle", "use_case": use_case, "evidence": list(lines), "alkira": "What Alkira does.",
         "story": {"id": "none", "customer": "", "result": ""},
-        "deal_date": "", "deal_status": "none",
+        "deal_date": "", "deal_status": "none", "deal_pending_quote": "",
     }
 
 

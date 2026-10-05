@@ -135,11 +135,17 @@ def _story(story: Story, use_case: str, told: frozenset[str], language: str) -> 
 Placed = tuple[int, Angle]
 
 
-def _deal(angle: Angle) -> Angle:
-    """The angle with its deal fields tidied: a date and a status for M&A, nothing for the rest."""
+def _deal(angle: Angle, references: Sequence[Reference], wording: Mapping[int, str]) -> Angle:
+    """The angle with its deal fields settled: nothing for an angle that is not M&A.
+
+    For M&A the date is tidied, and "pending" is kept only when the page's
+    own words say the deal has yet to complete (deal_rules.status).
+    """
     if not deal_rules.is_deal(angle):
-        return {**angle, "deal_date": "", "deal_status": deal_rules.NO_DEAL}
-    return {**angle, "deal_date": clean_date(angle["deal_date"])}
+        return {**angle, "deal_date": "", "deal_status": deal_rules.NO_DEAL, "deal_pending_quote": ""}
+    settled = deal_rules.status(angle, references, wording)
+    quote = angle["deal_pending_quote"].strip() if settled == deal_rules.PENDING else ""
+    return {**angle, "deal_date": clean_date(angle["deal_date"]), "deal_status": settled, "deal_pending_quote": quote}
 
 
 def _standing(
@@ -157,7 +163,7 @@ def _standing(
     standing: list[Placed] = []
     for place, angle in enumerate(angles):
         lines = angle_rules.kept_lines(_evidence(angle["evidence"], dates, today))
-        checked = _deal({**angle, "evidence": lines})
+        checked = _deal({**angle, "evidence": lines}, references, wording)
         if not angle_rules.stands(checked):
             continue
         if deal_rules.is_deal(checked) and not deal_rules.qualifies(checked, references, today, wording):

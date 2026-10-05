@@ -14,9 +14,10 @@ NOTE = {"searches": 21, "pages": 17, "seconds": 203, "stopped_by": "finished"}
 
 
 # What the opened pages state about the sample company's basics.
+STILL_OPEN = "The separation is expected to be completed over the next 12-18 months."
 STATED = (
     "Northwind Energy Corporation is headquartered in Dallas, Texas. Revenue was $28B. It has 5,200 employees. "
-    "The separation of the lubricants business was announced on February 20, 2026."
+    f"The separation of the lubricants business was announced on February 20, 2026. {STILL_OPEN}"
 )
 
 
@@ -53,6 +54,7 @@ def _angle(sources, title="Angle", story_id="koch", use_case="multi_cloud", deal
         "alkira": "What Alkira does.",
         "story": {"id": story_id, "customer": "Whoever", "result": "A result."},
         "deal_date": deal_date, "deal_status": deal_status,
+        "deal_pending_quote": STILL_OPEN if deal_status == "pending" else "",
     }
 
 
@@ -497,6 +499,26 @@ def test_a_deal_completed_inside_the_window_qualifies_on_its_date():
     doc = _finalize(writer_output(angles=[_angle([1]), recent], fit=FIVE), sources=_sources(dates={2: "2026-08-20"}))
     assert doc["angles"][0]["title"] == "Acquisition closed"
     assert (doc["angles"][0]["deal_date"], doc["angles"][0]["deal_status"]) == ("2026-08-20", "completed")
+
+
+def test_a_deal_called_pending_without_the_page_saying_so_is_stored_as_completed():
+    """Announced six months ago, "pending" on the writer's word alone: completed, and outside the window."""
+    unproven = _deal([2], "Old announcement", ("2026-03-01", "pending"))
+    unproven["deal_pending_quote"] = "The deal is expected to close soon."  # not in what the page said
+    sources = _sources(dates={2: "2026-03-01"})
+    doc = _finalize(writer_output(angles=[_angle([1]), unproven], fit=FIVE), sources=sources)
+    assert [angle["title"] for angle in doc["angles"]] == ["Angle"]
+    recent = _deal([2], "Recent announcement", ("2026-09-01", "pending"))
+    recent["deal_pending_quote"] = ""
+    kept = _finalize(writer_output(angles=[_angle([1]), recent], fit=FIVE))["angles"][0]
+    assert (kept["title"], kept["deal_status"], kept["deal_pending_quote"]) == ("Recent announcement", "completed", "")
+
+
+def test_a_pending_deal_keeps_the_page_s_words_that_say_so():
+    doc = _finalize(writer_output(angles=[_deal([2], "Separation", ("2026-03-01", "pending"))], fit=FIVE),
+                    sources=_sources(dates={2: "2026-03-01"}))
+    (angle,) = doc["angles"]
+    assert (angle["deal_status"], angle["deal_pending_quote"]) == ("pending", STILL_OPEN)
 
 
 def test_a_deal_date_no_first_hand_page_gives_does_not_qualify():

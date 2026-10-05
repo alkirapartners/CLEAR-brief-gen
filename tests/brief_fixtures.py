@@ -50,6 +50,7 @@ SAMPLE_DOC: dict = {
             },
             "deal_date": "",
             "deal_status": "none",
+            "deal_pending_quote": "",
         },
         {
             "title": "Lubricants separation",
@@ -69,6 +70,7 @@ SAMPLE_DOC: dict = {
             },
             "deal_date": "2026-02-20",
             "deal_status": "pending",
+            "deal_pending_quote": "The separation is expected to be completed over the next 12-18 months.",
         },
     ],
     "snapshot": {

@@ -18,6 +18,7 @@ from datetime import date
 from typing import Mapping, Sequence
 
 import i18n
+import quotes
 from brief_doc import Angle, Reference
 from evidence import FIRST_HAND, clean_date, parse_date
 
@@ -37,6 +38,18 @@ MAX_PENDING_DEAL_DAYS = 730
 # A source dated only by its year does not date an event in that year.
 _MONTH_PRECISION_CHARS = len("2026-07")
 _WORD_OR_NUMBER = re.compile(r"[^\W\d_]+|\d+")
+# Wording that says a deal has yet to complete: an expected completion, a
+# condition still to be met, or a plain statement that it has not closed.
+_SAYS_PENDING = re.compile(
+    r"(?:expected|intended|anticipated|scheduled) to (?:be )?(?:close|complete|execute|finali[sz]e|occur)"
+    r"|expects? (?:to|the \w+ to) (?:close|complete)"
+    r"|subject to (?:\w+,? ){0,5}(?:approvals?|conditions?|ruling|clearance|registration|consents?)"
+    r"|(?:has|have) not (?:yet )?(?:closed|been completed)|not yet (?:closed|completed?)|remains? pending"
+    r"|will (?:close|be completed|be executed|be separated)|plans? to (?:pursue|separate|spin|divest|sell|acquire)"
+    r"|over the next \d|targeted? (?:for )?(?:completion|closing)"
+    r"|se espera que|sujet[ao] a |a[uú]n no se ha (?:completado|cerrado)|prev[eé] (?:completar|cerrar)",
+    re.IGNORECASE,
+)
 
 
 def is_deal(angle: Angle) -> bool:
@@ -75,9 +88,9 @@ def _dated_by_first_hand(
 ) -> bool:
     """True when a first-hand page the angle cites gives the event's date."""
     event = clean_date(angle["deal_date"])
-    cited = {number for line in angle["evidence"] for number in line["sources"]}
+    cited = set(_first_hand_cited(angle, references))
     for reference in references:
-        if reference["n"] not in cited or reference["source_type"] != FIRST_HAND:
+        if reference["n"] not in cited:
             continue
         if reference["date"] and _same_date(event, reference["date"]):
             return True
@@ -86,12 +99,35 @@ def _dated_by_first_hand(
     return False
 
 
+def _first_hand_cited(angle: Angle, references: Sequence[Reference]) -> list[int]:
+    cited = {number for line in angle["evidence"] for number in line["sources"]}
+    return [ref["n"] for ref in references if ref["n"] in cited and ref["source_type"] == FIRST_HAND]
+
+
+def status(angle: Angle, references: Sequence[Reference], wording: Mapping[int, str]) -> str:
+    """Whether a deal is pending or completed, on the page's word and not the writer's.
+
+    "Pending" stands only when the angle quotes a first-hand page it cites
+    saying the deal has yet to complete. The quote is checked against the
+    wording recorded from that page. Without it the deal is treated as
+    completed on the date it gives.
+    """
+    if angle["deal_status"] != PENDING:
+        return angle["deal_status"]
+    quote = angle["deal_pending_quote"]
+    stated = _SAYS_PENDING.search(quote) and any(
+        quotes.is_on_page(quote, wording.get(number, "")) for number in _first_hand_cited(angle, references)
+    )
+    return PENDING if stated else COMPLETED
+
+
 def qualifies(
     angle: Angle, references: Sequence[Reference], today: date, wording: Mapping[int, str],
 ) -> bool:
     """True when an M&A angle's event is recent enough, or still pending, to be a reason to engage.
 
     ``wording`` is the text quoted from each source's page, by source number.
+    The angle's status is taken as given: pass it through ``status`` first.
     """
     if not is_deal(angle) or angle["deal_status"] not in (PENDING, COMPLETED):
         return False

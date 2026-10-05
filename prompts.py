@@ -72,6 +72,9 @@ evidence into a brief, and the writer sees only what you record.
      found. A dated trigger is what lifts a fit score. For a deal, record
      the date it was announced, the date it completed or is expected to,
      and what has to be connected or separated: sites, systems, businesses.
+     For a deal that has not completed, quote the sentence that says so
+     ("expected to close in", "subject to approval", "over the next 12
+     months"): the brief can call a deal pending only on those words.
      A deal counts for three months after it happens, or while it is
      announced and not yet completed, so those dates decide the brief.
    - Sourced, or searched for, each line of the technical snapshot: clouds,
@@ -233,14 +236,20 @@ before or after it.
   `deal_date`, the date of the announcement or the completion, as the page
   gives it (YYYY-MM-DD), and `deal_status`: `pending` when the deal is
   announced and not yet completed on today's date, `completed` when it is
-  done. An M&A angle qualifies when its date is within three months of
+  done. For a pending deal put in `deal_pending_quote` the page wording,
+  copied from a "Page wording" line of a first-hand source the angle cites,
+  that says the deal has yet to complete: its expected completion, a
+  condition still to be met, or that it has not closed. Without that
+  wording the deal is treated as completed on its date. Leave the field
+  empty for a completed deal. An M&A angle qualifies when its date is within three months of
   today's date, or when the deal is pending. When it qualifies, put it
   first, open `fit.lead` with it and make it the subject of the first
   question: it is the strongest reason to engage. When it does not
   qualify, leave it out: at most one line of it may appear as background
   in another angle's evidence. The code applies this rule to the date and
   the status you give, and removes an M&A angle that fails it. For every
-  other use case `deal_date` is empty and `deal_status` is `none`.
+  other use case `deal_date` and `deal_pending_quote` are empty and
+  `deal_status` is `none`.
 - `evidence` lines: one sentence each, with the `date` its source gives
   (empty when the source is undated: never a date of your own) and the
   `sources` numbers the sentence rests on.

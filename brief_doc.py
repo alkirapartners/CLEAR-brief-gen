@@ -88,6 +88,8 @@ class Angle(TypedDict):
     # for every other use case. See deal_rules.py.
     deal_date: str
     deal_status: DealStatus
+    # For a pending deal: the page's own words saying it has yet to complete.
+    deal_pending_quote: str
 
 
 class SnapshotLine(TypedDict):

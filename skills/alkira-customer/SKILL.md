@@ -88,7 +88,7 @@ These rules decide whether a company is an Alkira fit. They set the fit score an
 - A qualifying M&A angle goes first in the brief. The lead line and the first question open with it.
 - An M&A angle names what has to be connected or separated: the sites, the systems, or the businesses on each side. A deal with a price and a closing date and nothing to connect is news, not an angle.
 - A completed deal outside the three months is not an angle, cannot lead and cannot raise the score. It may appear as one line of background inside another angle's evidence when it explains that angle, and nowhere else.
-- Give each M&A angle the date of its event and say whether the deal is pending or completed. The date is checked against the page, and the three-month rule is applied to it afterwards.
+- Give each M&A angle the date of its event and say whether the deal is pending or completed. The date is checked against the page, and the three-month rule is applied to it afterwards. A deal is pending only on the page's own words: a sentence from the company's release or filing that gives the expected completion, a condition still to be met, or says the deal has not closed. Without that sentence the deal is treated as completed on its date.
 
 **A specific, dated fact.** Every angle rests on at least one specific fact with a date: a deal announced on a day, a posting with its posted date, a programme announced in a quarter. An accounting adjustment after a closed sale is not that. Never add an angle to reach three. Example: a parts retailer with one strong network-modernization angle gains nothing from a third angle built on a divestiture that closed the year before and a line of risk-factor language.
 
