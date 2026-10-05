@@ -27,7 +27,8 @@ from brief_doc import (
     Reference, ResearchNote, Snapshot, SnapshotLine, Story, WriterOutput,
 )
 from evidence import (
-    FIRST_HAND, Source, clean_date, own_keys, parse_date, safe_url, source_type, to_references,
+    FIRST_HAND, Source, clean_date, dated_as_open, own_keys, parse_date, safe_url, source_type,
+    to_references,
 )
 from plain_text import plain
 
@@ -271,19 +272,25 @@ def _references(candidates: Sequence[Reference], order: dict[int, int]) -> list[
     return [{**by_number[old], "n": new} for old, new in order.items()]
 
 
-def _typed_references(sources: Sequence[Source], company: Company, typed_name: str) -> list[Reference]:
+def _typed_references(
+    sources: Sequence[Source], company: Company, typed_name: str, today: date,
+) -> list[Reference]:
     """Every source as a reference, typed again now that the company is resolved.
 
     Research knew only the typed name. With the legal name and the ticker a
     source on the company's own domain can be recognised as first-hand
-    ("oxy.com" for Occidental). Nothing is ever lowered here, and nothing
-    is taken on the model's word: the address decides.
+    ("oxy.com" for Occidental), and an undated posting that was seen open
+    there is then dated the day it was seen. Nothing is ever lowered here,
+    and nothing is taken on the model's word: the address decides.
     """
     keys = own_keys(typed_name, company["name"], company["legal_name"], ticker=ticker.normalise(company["ticker"]))
-    return [
-        ref if ref["source_type"] == FIRST_HAND else {**ref, "source_type": source_type(ref["url"], keys)}
-        for ref in to_references(sources)
-    ]
+    typed: list[Reference] = []
+    for source, ref in zip(sources, to_references(sources)):
+        kind = FIRST_HAND if ref["source_type"] == FIRST_HAND else source_type(ref["url"], keys)
+        if not ref["open_posting"] and dated_as_open(kind, ref["date"], source.seen_open):
+            ref = {**ref, "date": today.isoformat(), "open_posting": True}
+        typed.append({**ref, "source_type": kind})
+    return typed
 
 
 def _company(company: Company) -> Company:
@@ -326,7 +333,7 @@ def finalize(
     brief cites them.
     """
     output = _scrub(output)
-    candidates = _typed_references(sources, output["company"], typed_name)
+    candidates = _typed_references(sources, output["company"], typed_name, today)
     valid = frozenset(ref["n"] for ref in candidates)
     wanted = output["angles"] if output["fit"]["score"] > MAX_SCORE_WITHOUT_ANGLES else []
     placed = _angles(_standing(wanted, candidates, sources, today), language)

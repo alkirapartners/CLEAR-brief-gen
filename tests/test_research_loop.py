@@ -135,6 +135,15 @@ def test_a_page_on_the_company_s_own_domain_is_first_hand_and_the_same_page_for_
     assert own.sources[0].source_type == "first_hand" and other.sources[0].source_type == "second_hand"
 
 
+def test_an_undated_open_posting_on_the_company_s_careers_site_is_dated_the_day_of_the_research():
+    undated = {**FACT, "source_date": ""}
+    result, _, _ = _run([READ, reply(tool_use("e1", "record_evidence", {"items": [undated]}))], company="Acme")
+    (source,) = result.sources
+    assert (source.date, source.open_posting, source.source_type) == ("2026-10-05", True, "first_hand")
+    other, _, _ = _run([READ, reply(tool_use("e1", "record_evidence", {"items": [undated]}))], company="Zenith Holdings")
+    assert (other.sources[0].date, other.sources[0].open_posting) == ("", False)
+
+
 # ── Research that finds nothing is an error, never a brief ───────
 
 def test_no_recorded_evidence_is_an_error():

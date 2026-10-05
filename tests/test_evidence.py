@@ -135,7 +135,7 @@ def test_references_mirror_the_sources_and_carry_their_type():
     sources = evidence.build_sources([_item("https://www.zoominfo.com/c/acme", title="Acme profile")], pages)
     assert evidence.to_references(sources) == [{
         "n": 1, "title": "Acme profile", "url": "https://www.zoominfo.com/c/acme",
-        "date": "", "source_type": "last_resort",
+        "date": "", "source_type": "last_resort", "open_posting": False,
     }]
 
 
@@ -271,3 +271,67 @@ def test_a_source_title_is_made_plain_before_the_writer_or_the_reader_sees_it():
     item = _item("https://example.com/a", title="[Annual report](https://evil.example/login) see evil.example/x")
     (source,) = evidence.build_sources([item], [Page("https://example.com/a", 9)])
     assert source.title == "Annual report see"
+
+
+# ── An open posting on the company's own careers site is current ──
+
+from datetime import date as _date
+
+SEEN = _date(2026, 10, 5)
+POSTING = "https://careers.acmerefining.com/job/Dallas-Network-Engineer/1387485900"
+POSTING_TEXT = "Network Engineer. Dallas, TX. Apply now. Experience with ExpressRoute, Virtual WAN and BGP required."
+
+
+def _built(url=POSTING, text=POSTING_TEXT, dated="", keys=ACME, today=SEEN):
+    (source,) = evidence.build_sources([_item(url, date=dated)], [Page(url, 900)], keys, {evidence.canonical_url(url): text}, today)
+    return source
+
+
+def test_an_undated_posting_open_on_the_company_s_careers_site_is_dated_the_day_it_was_seen():
+    source = _built()
+    assert (source.date, source.open_posting, source.source_type) == ("2026-10-05", True, "first_hand")
+
+
+def test_a_posting_on_the_company_s_hosted_job_site_counts_the_same():
+    hosted = "https://acmerefining.wd5.myworkdayjobs.com/en-US/careers/job/Network-Engineer_R1"
+    assert _built(hosted).open_posting
+    listing = "https://jobs.acmerefining.com/us/en/c/it-jobs"
+    assert _built(listing).open_posting  # a page of open roles is open too
+
+
+def test_a_posting_that_prints_its_own_date_keeps_it():
+    source = _built(text="Posted Date: Sep 23, 2026. " + POSTING_TEXT, dated="2026-09-23")
+    assert (source.date, source.open_posting) == ("2026-09-23", False)
+
+
+@pytest.mark.parametrize("notice", [
+    "This position has been filled.", "This job is no longer accepting applications.",
+    "Sorry, this job has expired.", "The requisition is closed.", "Job not found.",
+    "Applications are now closed.", "Esta vacante ya no est\u00e1 disponible.",
+])
+def test_a_posting_the_page_says_is_filled_or_closed_stays_undated(notice):
+    source = _built(text=f"Network Engineer. {notice} " + POSTING_TEXT)
+    assert (source.date, source.open_posting) == ("", False)
+
+
+@pytest.mark.parametrize("url", [
+    "https://builtin.com/job/network-engineer/10427022",
+    "https://www.linkedin.com/jobs/view/network-engineer-at-acme-refining-123",
+    "https://boards.greenhouse.io/othercorp/jobs/7",
+    "https://careers.zenithholdings.com/job/1",
+], ids=["aggregator", "linkedin", "another-company-s-hosted-site", "another-company"])
+def test_a_posting_found_anywhere_else_stays_undated(url):
+    source = _built(url)
+    assert (source.date, source.open_posting) == ("", False)
+
+
+def test_a_page_that_is_not_a_job_page_is_never_dated_by_being_seen():
+    release = "https://investors.acmerefining.com/news/press-release-details/separation"
+    assert (_built(release).date, _built(release).open_posting) == ("", False)
+    assert _built(today=None).date == ""  # and nothing is, without the day of the research
+
+
+def test_the_writer_is_told_a_source_is_an_open_posting_and_when_it_was_seen():
+    payload = evidence.format_payload([_built()], fence="abc123")
+    assert "Date: 2026-10-05 (an open posting on the company's own careers site, seen on this date)" in payload
+    assert evidence.to_references([_built()])[0]["open_posting"] is True

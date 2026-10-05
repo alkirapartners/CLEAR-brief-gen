@@ -108,6 +108,7 @@ SAMPLE_DOC: dict = {
             "url": "https://careers.northwind.example/job/123",
             "date": "2026-09-23",
             "source_type": "first_hand",
+            "open_posting": False,
         },
         {
             "n": 2,
@@ -115,6 +116,7 @@ SAMPLE_DOC: dict = {
             "url": "https://www.northwind.example/annual-report.pdf",
             "date": "2026-02-20",
             "source_type": "first_hand",
+            "open_posting": False,
         },
     ],
     "research": {"searches": 21, "pages": 17, "seconds": 203, "stopped_by": "finished"},

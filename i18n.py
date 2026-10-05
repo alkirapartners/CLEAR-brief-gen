@@ -74,6 +74,7 @@ LABELS: dict[str, dict[str, str]] = {
         "source_last_resort": "last-resort source",
         "undated": "source undated",
         "source_dated": "source dated {date}",
+        "open_posting_seen": "open posting, seen {date}",
         # What the code says about a score it had to lower, in place of the writer's verdict.
         "verdict_2": "No use case with evidence that stands.",
         "verdict_3": "A use case without current first-hand evidence.",
@@ -145,6 +146,7 @@ LABELS: dict[str, dict[str, str]] = {
         "source_last_resort": "fuente de último recurso",
         "undated": "fuente sin fecha",
         "source_dated": "fuente con fecha {date}",
+        "open_posting_seen": "vacante abierta, vista el {date}",
         "verdict_2": "Ningún caso de uso con evidencia que se sostenga.",
         "verdict_3": "Un caso de uso sin evidencia de primera mano reciente.",
         "verdict_4": "Un caso de uso con evidencia de primera mano reciente.",

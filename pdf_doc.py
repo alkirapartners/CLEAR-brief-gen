@@ -10,7 +10,7 @@ from datetime import datetime
 
 import brief_compat
 import i18n
-from brief_doc import Angle, BriefDoc
+from brief_doc import Angle, BriefDoc, Reference
 from pdf import (
     ALKIRA_BLUE, ALKIRA_INK, ALKIRA_MUTED, ALKIRA_ORANGE, ALKIRA_WHITE, _BriefPDF, _safe_text,
 )
@@ -89,12 +89,14 @@ def _fit(pdf: _BriefPDF, doc: BriefDoc) -> None:
     pdf.set_y(max(pdf.get_y(), top + SCORE_TILE_H) + 2)
 
 
-def _angle(pdf: _BriefPDF, number: int, angle: Angle) -> None:
+def _angle(pdf: _BriefPDF, number: int, angle: Angle, references: list[Reference]) -> None:
     labels = pdf.labels
     pdf.ln(2)
     _text(pdf, f"{labels['angle'].upper()} {number:02d}", size=7, style="B", color=ALKIRA_ORANGE)
     _text(pdf, angle["title"], size=11, style="B")
-    _bullets(pdf, [brief_compat.evidence_text(line, pdf.labels, pdf.language) for line in angle["evidence"]])
+    _bullets(pdf, [
+        brief_compat.evidence_text(line, pdf.labels, pdf.language, references) for line in angle["evidence"]
+    ])
     _text(pdf, f"{labels['alkira_answer']}: {angle['alkira']}", size=9)
     proof = brief_compat.proof_text(angle["story"])
     if proof:
@@ -107,7 +109,7 @@ def _angles(pdf: _BriefPDF, doc: BriefDoc) -> None:
         return
     _heading(pdf, pdf.labels["why_now"])
     for number, angle in enumerate(doc["angles"], start=1):
-        _angle(pdf, number, angle)
+        _angle(pdf, number, angle, doc["references"])
 
 
 def _snapshot(pdf: _BriefPDF, doc: BriefDoc) -> None:

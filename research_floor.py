@@ -14,7 +14,9 @@ the brief says what was not found.
 import re
 from typing import Any, Mapping, Sequence
 
-from evidence import HOSTED_JOB_SITES, EvidenceItem, Page, canonical_url, is_on
+from evidence import (
+    HOSTED_JOB_SITES, EvidenceItem, Page, canonical_url, is_careers_address, is_on,
+)
 
 # ── The floor ────────────────────────────────────────────────────
 # Job or careers pages read, each with a fact recorded from it. With this
@@ -48,8 +50,7 @@ TOPIC_CATEGORIES: dict[str, str] = {
     "plant_networks": "plant_network",
 }
 
-_CAREERS_HOST = re.compile(r"^(?:www\.)?(?:careers?|jobs?|talent|recruiting|apply)\.", re.IGNORECASE)
-_CAREERS_PATH = re.compile(r"/(?:careers?|jobs?|job-search|vacanc|openings|join-us|work-with-us)", re.IGNORECASE)
+_CAREERS_SITE = re.compile(r"^(?:www\.)?(?:careers?|jobs?|talent|recruiting|apply)[.-]", re.IGNORECASE)
 _JOB_QUERY = re.compile(
     r"\b(?:careers?|jobs?|job posting|postings?|hiring|openings?|vacanc\w+|recruit\w*)\b", re.IGNORECASE,
 )
@@ -128,14 +129,9 @@ def _text(call_input: Mapping[str, Any], key: str) -> str:
     return value if isinstance(value, str) else ""
 
 
-def _is_careers_address(url: str) -> bool:
-    host, _, path = url.partition("://")[2].partition("/")
-    return bool(_CAREERS_HOST.match(host) or _CAREERS_PATH.search("/" + path))
-
-
 def _search_aims(query: str, site: str) -> set[str]:
     aims = {topic for topic, pattern in _TOPIC_QUERIES.items() if pattern.search(query)}
-    if _JOB_QUERY.search(query) or _CAREERS_HOST.match(site):
+    if _JOB_QUERY.search(query) or _CAREERS_SITE.match(site):
         aims.add(CAREERS_SITE)
     if _HOSTED_QUERY.search(f"{query} {site}") or is_on(f"https://{site}", HOSTED_JOB_SITES):
         aims.add(HOSTED_JOBS)
@@ -150,7 +146,7 @@ def _read_aims(url: str) -> set[str]:
     aims: set[str] = set()
     if is_on(url, HOSTED_JOB_SITES):
         aims.add(HOSTED_JOBS)
-    elif _is_careers_address(url):
+    elif is_careers_address(url):
         aims.add(CAREERS_SITE)
     if _FILING_URL.search(url):
         aims.add(FILING)
@@ -179,7 +175,7 @@ def _careers_pages(pages: Sequence[Page], evidence: Sequence[EvidenceItem]) -> i
     return sum(
         1 for page in pages
         if canonical_url(page.url) in gave_facts
-        and (is_on(page.url, HOSTED_JOB_SITES) or _is_careers_address(page.url))
+        and (is_on(page.url, HOSTED_JOB_SITES) or is_careers_address(page.url))
     )
 
 

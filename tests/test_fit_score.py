@@ -10,7 +10,7 @@ TODAY = date(2026, 10, 5)
 
 
 def _ref(n, source_type="first_hand", dated="2026-09-01"):
-    return {"n": n, "title": f"Page {n}", "url": f"https://example.com/{n}", "date": dated, "source_type": source_type}
+    return {"n": n, "title": f"Page {n}", "url": f"https://example.com/{n}", "date": dated, "source_type": source_type, "open_posting": False}
 
 
 def _angle(sources, use_case="multi_cloud"):

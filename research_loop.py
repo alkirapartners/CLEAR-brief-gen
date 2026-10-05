@@ -217,13 +217,18 @@ def _nothing_citable(company: str, ledger: Ledger, reason: str) -> ResearchError
 
 
 def _result(
-    company: str, run: _Run, seconds: float, stopped_by: str, cause: BaseException | None = None,
+    company: str, run: _Run, seconds: float, stopped_by: str, today: date,
+    cause: BaseException | None = None,
 ) -> ResearchResult:
-    """What research gathered, or an error when there is nothing to cite."""
+    """What research gathered, or an error when there is nothing to cite.
+
+    ``today`` is the day of the research: an undated posting seen open on
+    the company's own careers site is dated that day.
+    """
     ledger = run.ledger
     # The typed name is all that is known of the company here. The brief's
     # rules look again once the legal name and the ticker are resolved.
-    sources = build_sources(ledger.evidence, ledger.pages, own_keys(company))
+    sources = build_sources(ledger.evidence, ledger.pages, own_keys(company), ledger.texts, today)
     spent = ledger.searches >= MAX_SEARCHES or ledger.page_reads >= MAX_PAGES
     reason = BUDGET_SPENT if stopped_by == FINISHED and spent else stopped_by
     # Depth is a count, not a topic: the writer is told what was never looked for.
@@ -280,6 +285,7 @@ class _Session:
     started: float
     clock: Clock
     sleep: Callable[[float], None]
+    today: date
 
     def elapsed(self) -> float:
         return self.clock() - self.started
@@ -337,9 +343,11 @@ def research(
     before the research floor is covered is sent back to it.
     """
     status_callback("research")
-    session = _Session(company, client, web, new_fence(), clock(), clock, sleep or time.sleep)
+    session = _Session(
+        company, client, web, new_fence(), clock(), clock, sleep or time.sleep, today or date.today(),
+    )
     opening = prompts.build_research_message(
-        company, session.fence, today or date.today(), MAX_SEARCHES, MAX_PAGES, BUDGET_MINUTES,
+        company, session.fence, session.today, MAX_SEARCHES, MAX_PAGES, BUDGET_MINUTES,
     )
     run = _Run(messages=({"role": "user", "content": opening},))
     stopped_by, cause = TURN_CAP, None
@@ -348,4 +356,4 @@ def research(
         if ending is not None:
             stopped_by = ending
             break
-    return _result(company, run, session.elapsed(), stopped_by, cause)
+    return _result(company, run, session.elapsed(), stopped_by, session.today, cause)

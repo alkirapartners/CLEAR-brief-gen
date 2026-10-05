@@ -338,6 +338,44 @@ def test_nothing_the_model_writes_can_make_a_news_site_first_hand():
     assert doc["references"][0]["source_type"] == "second_hand" and doc["fit"]["score"] == 3
 
 
+# ── An open posting on the company's own careers site is current evidence ──
+
+def _posting(n, url, source_type, seen_open=True, dated="", open_posting=False):
+    base = _sources(n)[n - 1]
+    return Source(
+        n=n, url=url, title="Network Engineer posting", date=dated, source_type=source_type,
+        facts=base.facts, seen_open=seen_open, open_posting=open_posting,
+    )
+
+
+def test_an_open_posting_supports_an_angle_and_counts_as_dated_first_hand_evidence():
+    """The best technical evidence a brief has is often a live posting that prints no date."""
+    posting = _posting(1, "https://careers.northwind.example/job/1", "first_hand", dated="2026-10-05", open_posting=True)
+    doc = _finalize(writer_output(angles=[_angle([1])], fit=FIVE), sources=(posting,))
+    assert len(doc["angles"]) == 1 and doc["fit"]["score"] == 4
+    assert doc["angles"][0]["evidence"][0]["date"] == "2026-10-05"
+    assert doc["references"][0]["open_posting"] is True
+
+
+def test_a_posting_recognised_as_the_company_s_own_only_once_its_ticker_is_known_is_dated_then():
+    """Research knew "Occidental". The posting is on oxy.com, which the brief resolves through OXY."""
+    company = {**SAMPLE_DOC["company"], "name": "Occidental", "legal_name": "Occidental Petroleum Corporation", "ticker": "NYSE: OXY"}
+    posting = _posting(1, "https://www.oxy.com/careers/job/network-engineer", "second_hand")
+    output = writer_output(company=company, angles=[_angle([1])], fit=FIVE)
+    doc = brief_rules.finalize(output, (posting,), "en", TODAY, NOTE, "Occidental")
+    reference = doc["references"][0]
+    assert (reference["source_type"], reference["date"], reference["open_posting"]) == ("first_hand", "2026-10-05", True)
+    assert len(doc["angles"]) == 1 and doc["fit"]["score"] == 4
+
+
+def test_a_posting_that_was_filled_or_is_only_on_a_job_board_stays_undated_and_carries_no_angle():
+    filled = _posting(1, "https://careers.northwind.example/job/1", "first_hand", seen_open=False)
+    copy = _posting(1, "https://builtin.com/job/network-engineer/1", "second_hand", seen_open=True)
+    for source in (filled, copy):
+        doc = _finalize(writer_output(angles=[_angle([1])], fit=FIVE), sources=(source,))
+        assert doc["angles"] == [] and doc["fit"]["score"] == 2
+
+
 # ── An evidence line carries its source's date, not one of the model's own ──
 
 def _dated_line(written, cited, **kwargs):

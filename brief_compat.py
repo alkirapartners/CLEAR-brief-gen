@@ -12,11 +12,14 @@ lines with their markers, the full stats line, people, stories).
 """
 
 import re
+from typing import Sequence
 
 import i18n
 import proof_points
 import ticker
-from brief_doc import Angle, BriefDoc, EvidenceLine, Person, Question, SnapshotLine, Story
+from brief_doc import (
+    Angle, BriefDoc, EvidenceLine, Person, Question, Reference, SnapshotLine, Story,
+)
 
 SNIPPET_CHARS = 120
 Labels = dict[str, str]
@@ -41,24 +44,40 @@ _OWN_PERIOD = re.compile(
 )
 
 
-def source_date_note(line: EvidenceLine, labels: Labels, language: str | None) -> str:
+def _rests_on_open_posting(line: EvidenceLine, references: Sequence[Reference]) -> bool:
+    """True when the line's date is the day one of its sources was seen as an open posting."""
+    return any(
+        ref["open_posting"] and ref["n"] in line["sources"] and ref["date"] == line["date"]
+        for ref in references
+    )
+
+
+def source_date_note(
+    line: EvidenceLine, labels: Labels, language: str | None, references: Sequence[Reference] = (),
+) -> str:
     """What to say about when a line's source is dated, or "" when the line dates itself.
 
     "source dated 31 Dec 2025" when the source gives a date, so it is never
-    read as the date of what the line describes.
+    read as the date of what the line describes. "open posting, seen 5 Oct
+    2026" when the source is a posting dated by having been seen open.
     """
+    when = i18n.readable_date(line["date"], language)
+    if when and _rests_on_open_posting(line, references):
+        return labels["open_posting_seen"].format(date=when)
     if _OWN_PERIOD.search(line["text"]):
         return ""
-    when = i18n.readable_date(line["date"], language)
     return labels["source_dated"].format(date=when) if when else ""
 
 
-def evidence_text(line: EvidenceLine, labels: Labels, language: str | None = None) -> str:
+def evidence_text(
+    line: EvidenceLine, labels: Labels, language: str | None = None, references: Sequence[Reference] = (),
+) -> str:
     """An evidence line for the PDF and the text: its source's date, then its citations.
 
     A line whose source gives no date says so.
     """
-    note = source_date_note(line, labels, language) if line["date"].strip() else labels["undated"]
+    dated = line["date"].strip()
+    note = source_date_note(line, labels, language, references) if dated else labels["undated"]
     return f"{line['text']}{f' ({note})' if note else ''}{cite(line['sources'])}"
 
 
@@ -159,9 +178,9 @@ def _sentence(text: str) -> str:
     return clean if not clean or clean.endswith(_ENDS_A_SENTENCE) else f"{clean}."
 
 
-def _page_sentence(line: EvidenceLine, labels: Labels, language: str) -> str:
+def _page_sentence(line: EvidenceLine, labels: Labels, doc: BriefDoc) -> str:
     """An evidence line as the page shows it: one sentence, then when its source is dated."""
-    note = source_date_note(line, labels, language)
+    note = source_date_note(line, labels, doc["language"], doc["references"])
     text = line["text"].strip()
     return f"{text.rstrip('.')} ({note})." if note else _sentence(text)
 
@@ -175,7 +194,7 @@ def _trigger(angle: Angle) -> EvidenceLine | None:
 def signals(doc: BriefDoc, labels: Labels) -> list[str]:
     """One dated fact per angle, each said once on the page."""
     triggers = [_trigger(angle) for angle in doc["angles"]]
-    return [_page_sentence(line, labels, doc["language"]) for line in triggers if line is not None]
+    return [_page_sentence(line, labels, doc) for line in triggers if line is not None]
 
 
 def entry_points(doc: BriefDoc, labels: Labels) -> list[dict[str, str]]:
@@ -196,7 +215,7 @@ def entry_points(doc: BriefDoc, labels: Labels) -> list[dict[str, str]]:
         proof = proof_text(angle["story"]) or proof_points.fallback(angle["use_case"], language)["result"]
         points.append({
             "heading": angle["title"],
-            "signal": " ".join(_page_sentence(line, labels, doc["language"]) for line in rest),
+            "signal": " ".join(_page_sentence(line, labels, doc) for line in rest),
             "solution": angle["alkira"],
             "proof": proof,
         })

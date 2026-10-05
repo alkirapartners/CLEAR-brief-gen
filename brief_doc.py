@@ -141,6 +141,8 @@ class Reference(TypedDict):
     url: str
     date: str
     source_type: Literal["first_hand", "second_hand", "last_resort"]
+    # True when ``date`` is the day the research saw this posting open.
+    open_posting: bool
 
 
 class ResearchNote(TypedDict):

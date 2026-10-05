@@ -2,6 +2,7 @@
 
 import pytest
 
+import brief_doc
 import brief_view
 import i18n
 from tests.api_fakes import AUTH, FakeRepo, make_client
@@ -255,6 +256,20 @@ def test_an_evidence_line_with_no_date_still_says_so_in_the_text_and_pdf_renderi
     import brief_compat
     line = {"text": "A posting lists ExpressRoute.", "date": "", "sources": [1]}
     assert brief_compat.evidence_text(line, i18n.LABELS["en"]) == "A posting lists ExpressRoute. (source undated) [1]"
+
+
+def test_a_line_resting_on_an_open_posting_says_so_and_when_it_was_seen():
+    import brief_compat
+    import brief_text
+    doc = make_doc()
+    doc["references"][0].update(date="2026-10-05", open_posting=True)
+    doc["angles"][0]["evidence"][0]["date"] = "2026-10-05"
+    data = brief_view.to_detail(_row(brief_doc.dump(doc)))
+    expected = "A network engineer posting lists ExpressRoute and a Virtual WAN hub-and-spoke (open posting, seen 5 Oct 2026)."
+    assert data["signals"][0] == expected
+    assert "(open posting, seen 5 Oct 2026) [1]" in brief_text.render(doc)
+    spanish = brief_view.to_detail(_row(brief_doc.dump({**doc, "language": "es"})))
+    assert "(vacante abierta, vista el 5 oct 2026)" in spanish["signals"][0]
 
 
 def test_the_text_and_pdf_renderings_date_a_line_the_same_way_the_page_does():

@@ -9,7 +9,7 @@ import re
 import secrets
 from dataclasses import dataclass, replace
 from datetime import date
-from typing import Iterable, Sequence
+from typing import Iterable, Mapping, Sequence
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from brief_doc import Reference
@@ -49,6 +49,18 @@ HOSTED_JOB_SITES: tuple[str, ...] = (
     "smartrecruiters.com", "jobvite.com", "ashbyhq.com", "successfactors.com",
     "successfactors.eu", "taleo.net", "oraclecloud.com", "workable.com", "bamboohr.com",
     "eightfold.ai", "avature.net", "ultipro.com", "ukg.com", "paylocity.com",
+)
+# An address that is a careers site or a job posting: a "careers." or "jobs."
+# host, or a careers or jobs path.
+_CAREERS_HOST = re.compile(r"^(?:www\.)?(?:careers?|jobs?|talent|recruiting|apply)[.-]", re.IGNORECASE)
+_CAREERS_PATH = re.compile(r"/(?:careers?|jobs?|job-search|vacanc|openings|join-us|work-with-us)", re.IGNORECASE)
+# What a posting's page says once the job is gone.
+_POSTING_CLOSED = re.compile(
+    r"no longer (?:accepting|available|open|active|posted)"
+    r"|(?:position|job|role|posting|requisition|vacancy|opening) (?:has been|is|was|has) (?:filled|closed|expired|removed)"
+    r"|applications? (?:are|is) (?:now )?closed|job not found|posting (?:has )?expired"
+    r"|vacante (?:ya )?(?:no est[aá]|ha sido|fue) |puesto (?:ya )?(?:cubierto|cerrado)",
+    re.IGNORECASE,
 )
 # Where regulators and exchanges publish what companies file.
 REGULATOR_DOMAINS: tuple[str, ...] = (
@@ -116,6 +128,11 @@ class Source:
     # first_hand, second_hand or last_resort: see ``source_type``.
     source_type: str
     facts: tuple[EvidenceItem, ...]
+    # A job page that did not say the job was gone when the research opened it.
+    seen_open: bool = False
+    # True when ``date`` is the day the research saw this posting open, because
+    # the page prints no date and is the company's own. See ``dated_as_open``.
+    open_posting: bool = False
 
 
 def new_fence() -> str:
@@ -252,6 +269,34 @@ def source_type(url: str, keys: frozenset[str] = frozenset()) -> str:
     return FIRST_HAND if keys & _address_tokens(url, with_path=False) else SECOND_HAND
 
 
+def is_careers_address(url: str) -> bool:
+    """True for an address on a careers or jobs host, or under a careers or jobs path."""
+    parts = urlsplit(url)
+    return bool(_CAREERS_HOST.match(parts.hostname or "") or _CAREERS_PATH.search(parts.path))
+
+
+def is_job_page(url: str) -> bool:
+    """True for a careers page or a posting, on a company's site or a hosted job site."""
+    return is_on(url, HOSTED_JOB_SITES) or is_careers_address(url)
+
+
+def looks_open(url: str, page_text: str) -> bool:
+    """True for a job page whose text does not say the job is filled, closed or gone."""
+    return is_job_page(url) and _POSTING_CLOSED.search(page_text) is None
+
+
+def dated_as_open(kind: str, stated_date: str, seen_open: bool) -> bool:
+    """True when a source is dated by having been seen open.
+
+    A posting that is open on the company's own careers site, or on its own
+    hosted job site, is current on the day the research opens it. So an
+    undated first-hand job page that looked open takes the research date. A
+    posting that prints its own date keeps it. A copy on a job board, or a
+    page that says the job is filled, stays undated.
+    """
+    return kind == FIRST_HAND and seen_open and not stated_date
+
+
 def parse_date(text: str) -> date | None:
     """The day a date names, taking the first day of a month or a year. None if it is no date."""
     match = _DATE.match(text.strip())
@@ -288,12 +333,16 @@ def _first(values: Iterable[str]) -> str:
 
 def build_sources(
     items: Sequence[EvidenceItem], pages: Sequence[Page], keys: frozenset[str] = frozenset(),
+    texts: Mapping[str, str] | None = None, today: date | None = None,
 ) -> tuple[Source, ...]:
     """Opened pages that have usable facts, numbered in the order they were opened.
 
     ``items`` carry the opened flag they were given when recorded. Facts
     without it are discarded here. ``keys`` are the company's own names
-    (``own_keys``), which decide whether a page is first-hand.
+    (``own_keys``), which decide whether a page is first-hand. ``texts`` are
+    the pages' texts by canonical address and ``today`` the day of the
+    research: with both, an undated posting that is open on the company's
+    own careers site is dated that day.
     """
     usable = opened_only(items)
     sources: list[Source] = []
@@ -304,13 +353,19 @@ def build_sources(
         if key in seen or not facts:
             continue
         seen.add(key)
+        stated = clean_date(_first(f.source_date for f in facts))
+        kind = source_type(page.url, keys)
+        seen_open = today is not None and texts is not None and looks_open(page.url, texts.get(key, ""))
+        as_open = today is not None and dated_as_open(kind, stated, seen_open)
         sources.append(Source(
             n=len(sources) + 1,
             url=page.url,
             title=plain(_first(f.source_title for f in facts)) or _host(page.url),
-            date=clean_date(_first(f.source_date for f in facts)),
-            source_type=source_type(page.url, keys),
+            date=today.isoformat() if as_open and today else stated,
+            source_type=kind,
             facts=facts,
+            seen_open=seen_open,
+            open_posting=as_open,
         ))
     return tuple(sources)
 
@@ -318,7 +373,10 @@ def build_sources(
 def to_references(sources: Iterable[Source]) -> list[Reference]:
     """Every source as a reference the brief may cite."""
     return [
-        {"n": s.n, "title": plain(s.title), "url": s.url, "date": s.date, "source_type": s.source_type}
+        {
+            "n": s.n, "title": plain(s.title), "url": s.url, "date": s.date,
+            "source_type": s.source_type, "open_posting": s.open_posting,
+        }
         for s in sources
     ]
 
@@ -339,6 +397,8 @@ def _fact_lines(fact: EvidenceItem) -> str:
 
 def _source_block(source: Source, tag: str) -> str:
     dated = f"\nDate: {source.date}" if source.date else "\nDate: none given (undated)"
+    if source.open_posting:
+        dated += " (an open posting on the company's own careers site, seen on this date)"
     facts = "\n".join(_fact_lines(fact) for fact in source.facts)
     return (
         f"<source-{tag}>\n[{source.n}] {source.title} ({_TYPE_WORDS[source.source_type]})\n"

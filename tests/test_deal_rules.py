@@ -10,7 +10,7 @@ TODAY = date(2026, 10, 5)
 
 
 def _ref(n=1, source_type="first_hand", dated="2026-07-28"):
-    return {"n": n, "title": f"Page {n}", "url": f"https://example.com/{n}", "date": dated, "source_type": source_type}
+    return {"n": n, "title": f"Page {n}", "url": f"https://example.com/{n}", "date": dated, "source_type": source_type, "open_posting": False}
 
 
 EXPECTED = "The transaction is intended to be executed over the next 12-18 months."

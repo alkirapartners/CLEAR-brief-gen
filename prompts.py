@@ -128,8 +128,11 @@ outstanding and stop.
   filing's period, a press release's date. A date is kept only when its
   year is on the page, so never work one out from "posted 3 days ago".
   When the page prints no date, leave it empty: the source is then labelled
-  undated, and an undated source cannot carry a high score. If a posting
-  shows no date, look for the same fact on a page that does.
+  undated, and an undated source cannot carry a high score. One exception
+  is made for you: a job posting that is open on the company's own careers
+  site, or on its own hosted job site, is current on the day you open it,
+  and is dated that day when it prints no date. So open postings on the
+  company's own site, not a job board's copy of them.
 - What counts as first-hand is decided from the page's address, never from
   what anyone says about it: the company's own domain and the careers and
   investor sites under it, a regulator's filing system such as sec.gov,
@@ -201,6 +204,8 @@ before or after it.
   it. Where the two differ, the page's wording wins.
 - Each source is marked first-hand, second-hand or last resort, and gives
   its date or says it is undated. The marks come from the page's address.
+  A source marked as an open posting was open on the company's own careers
+  site on the date shown: it is current first-hand evidence.
   Score from those marks, by the scoring table. The score is checked against the sources afterwards and lowered
   when they do not support it, so a generous score gains nothing.
 - "The research did not find it" is different from "it is not there". What
