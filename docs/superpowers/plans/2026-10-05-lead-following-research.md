@@ -7453,3 +7453,19 @@ What still looks wrong on a sceptical read:
 
 The stricter quote check refused 23 of 61 recorded facts, against 11 of 110 in round two. Some were real: HF Sinclair's headquarters and its Lubricants separation were refused because the quote did not hold "Dallas", and that brief lost its strongest dated trigger. A first pass at commit `8d6c60a` scored the same three 5, 4 and 4, so the score still moves by a point between runs.
 
+### Fourth pass: the quote rule, M&A timing, and the entry cards
+
+- **Quote rule.** The third pass required a fact's names to be in its quote and lost real facts (HF Sinclair's headquarters and its separation). Now a fact is kept when its quote is on the page, every figure in the fact is in the quote, and every name in the fact is somewhere on the page (`quotes.missing_figures`, `quotes.missing_names`). An acronym the page spells out counts.
+- **M&A timing** (`deal_rules.py`). The owner's rule: an M&A event counts when it happened in the last three months, or when the deal is announced and not yet completed (`DEAL_WINDOW_MONTHS`, `PENDING_DEALS_COUNT`). An angle carries `deal_date` and `deal_status`, and the date has to be one a cited first-hand page gives. A qualifying M&A angle is ordered first and its questions with it (`Question.angle`). A completed deal outside the window is removed. An M&A angle must also name what is to be connected or separated (`angle_rules`).
+- **Dates.** A line shows "source dated 31 Dec 2025", and nothing when the line states its own date or period.
+- **Entry cards.** Every entry point on the current page has a signal and a proof. Where no story fits, the angle is given the headline figure for its use case from the knowledge base's Proof Points table (`proof_points.py`), stored with the story id `metric`.
+
+Checked live at commit `af0ce76` (suite: 1007 passed, 2 skipped):
+
+| Company | Score | Leads with | M&A qualified | Seconds | Cost | Facts kept / refused |
+|---|---|---|---|---|---|---|
+| HF Sinclair | 4 | Lubricants & Specialties separation | Yes: announced 28 July 2026, not yet completed, dated by its press release | 132 | $0.79 | 15 / 3 |
+| Occidental | 3 | AWS migration beside Azure | No: OxyChem sale completed 2 January 2026, outside three months and not pending | 127 | $0.75 | 10 / 4 |
+
+HF Sinclair's second angle was removed by the code because its network posting was recorded without a date, which held the score at 4.
+
