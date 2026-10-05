@@ -5062,7 +5062,7 @@ git commit -m "feat: add shared Claude request settings and a cost estimate"
 
 The old `build_system_prefix` and `build_user_message` stay until Task 15, because the old generator still calls them.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `tests/test_stage_prompts.py`:
 
@@ -5198,12 +5198,12 @@ def test_the_writer_is_told_when_research_stopped_early():
     assert message.index("stopped before") < message.index("The evidence follows.")
 ```
 
-- [ ] **Step 2: Run it and confirm it fails**
+- [x] **Step 2: Run it and confirm it fails**
 
 Run: `.venv/bin/python -m pytest tests/test_stage_prompts.py -q`
 Expected: `11 failed`, each with `AttributeError: module 'prompts' has no attribute 'build_research_prefix'` or the matching error for another new name.
 
-- [ ] **Step 3: Append the new builders**
+- [x] **Step 3: Append the new builders**
 
 Add this to the end of `prompts.py`, after `build_user_message`, with two blank lines before it. Do not change anything above it.
 
@@ -5467,7 +5467,7 @@ def build_writer_message(
     )
 ```
 
-- [ ] **Step 4: Run the tests**
+- [x] **Step 4: Run the tests**
 
 Run: `.venv/bin/python -m pytest tests/test_stage_prompts.py -q`
 Expected: `11 passed`.
@@ -5475,7 +5475,7 @@ Expected: `11 passed`.
 Run: `.venv/bin/python -m pytest -q`
 Expected: `488 passed, 2 skipped`.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add prompts.py tests/test_stage_prompts.py
