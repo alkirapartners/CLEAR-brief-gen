@@ -368,6 +368,20 @@ def test_facts_that_were_not_kept_take_no_room_from_facts_that_are():
     assert len(after.evidence) == 1 and after.evidence[0].opened is True
 
 
+def test_one_page_asked_for_three_ways_in_a_turn_is_fetched_and_charged_once():
+    variants = [
+        _read(JOB, call_id="r1"),
+        _read(JOB + "/?utm_source=x", call_id="r2"),
+        _read(JOB.replace("https://", "http://www.") + "#apply", call_id="r3"),
+    ]
+    results, after, web = _run(variants)
+    assert after.page_reads == 1 and len(after.pages) == 1
+    assert len(web.extracts) == 1
+    assert "is_error" not in results[0]
+    for repeat in results[1:]:
+        assert repeat["is_error"] is True and repeat["content"].startswith(tools.SAME_PAGE)
+
+
 # ── Budgets ──────────────────────────────────────────────────────
 
 def test_the_search_after_the_last_allowed_one_is_refused():

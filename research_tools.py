@@ -64,6 +64,7 @@ TIME_UP = "The research time is used up. Record any evidence you have not record
 SEARCHES_SPENT = "The search budget is spent. Open pages you already found, or record your evidence and stop."
 PAGES_SPENT = "The page budget is spent. Record your evidence and stop."
 NOT_PUBLIC = "That is not a public web address, so it was not opened."
+SAME_PAGE = "Another call in this turn is already opening that page. Read its result instead."
 NO_QUERY = "Give a search query."
 LEADS_ONLY = (
     "These are search summaries. They are leads, never evidence: open a page "
@@ -235,15 +236,25 @@ def _is_new_page(call: ToolCall, ledger: Ledger) -> bool:
 def _admit(
     calls: Sequence[ToolCall], ledger: Ledger, accepting: bool,
 ) -> tuple[Ledger, list[str | None]]:
-    """Charge the budget for each call that may run, in the order given."""
+    """Charge the budget for each call that may run, in the order given.
+
+    One page asked for under several spellings in the same turn is opened
+    and charged once: the repeats are refused.
+    """
     refusals: list[str | None] = []
+    opening: set[str] = set()
     for call in calls:
         refusal = _refusal(call, ledger, accepting)
-        refusals.append(refusal)
         if refusal is None and call.name == SEARCH:
             ledger = replace(ledger, searches=ledger.searches + 1)
         if refusal is None and call.name == READ and _is_new_page(call, ledger):
-            ledger = replace(ledger, page_reads=ledger.page_reads + 1)
+            page = canonical_url(_text_input(call, "url"))
+            if page in opening:
+                refusal = SAME_PAGE
+            else:
+                opening.add(page)
+                ledger = replace(ledger, page_reads=ledger.page_reads + 1)
+        refusals.append(refusal)
     return ledger, refusals
 
 
