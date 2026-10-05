@@ -588,7 +588,7 @@ def generate_brief_pdf(
 
     ``language`` selects the visible labels only. The markdown headings this
     function parses are English in every language by design, so the
-    extractors in ``app.py`` are language-independent.
+    extractors in ``briefparse.py`` are language-independent.
     """
     when = generated_at or datetime.now()
     pdf = _BriefPDF(generated_at=when, language=language)

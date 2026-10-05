@@ -13,8 +13,8 @@ build/
 .venv/
 venv/
 
-# Streamlit
-.streamlit/secrets.toml
+# Left over from the Streamlit era; may still hold local secrets
+.streamlit/
 
 # Generated briefs
 *.docx

@@ -101,10 +101,10 @@ def test_system_prefix_states_the_output_contract():
 
 
 def test_system_prefix_mandates_heading_format_the_parsers_require():
-    """app.py:extract_section matches ONLY '##'/'###' headings by exact text.
+    """briefparse.extract_section matches ONLY '##'/'###' headings by exact text.
 
     Live generation (Mary Kay, Chevron) emitted these as **bold** instead,
-    which app.py's regex-based extractors silently treat as a missing
+    which the regex-based extractors silently treat as a missing
     section — Infrastructure Snapshot, Signals & Timing, Three Alkira Entry
     Points, and Conversation Starters all rendered as 0 characters. The
     parsers and their fixtures are a frozen regression gate (test_parsers.py)

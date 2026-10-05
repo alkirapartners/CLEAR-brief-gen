@@ -1,7 +1,6 @@
 """Pure parsers for brief markdown, plus the company-name cleaner.
 
-No Streamlit and no I/O: the API, the PDF renderer and the legacy Streamlit
-page all import from here. The markdown headings these functions match are
+No I/O: the API and the PDF renderer both import from here. The markdown headings these functions match are
 English in every output language (see i18n.py).
 """
 
@@ -272,28 +271,3 @@ def extract_exec_snippet(brief_md: str, max_chars: int = 120) -> str:
                     return cut + "..."
                 return stripped
     return ""
-
-
-def get_brief_body(brief: str) -> str:
-    """Get the brief content starting from the first content section,
-    excluding the title, company header, and score (rendered separately)."""
-    markers = [
-        "### Infrastructure Snapshot",
-        "### Executive Summary",
-        "## Executive Summary",
-        "### Company Snapshot",
-        "### Cloud & Infrastructure",
-        "### Signals & Timing",
-    ]
-    for marker in markers:
-        idx = brief.find(marker)
-        if idx != -1:
-            # Find the CONFIDENTIAL marker or end
-            end_markers = ["*CONFIDENTIAL*", "*\"CONFIDENTIAL\"*", "CONFIDENTIAL"]
-            end_idx = len(brief)
-            for em in end_markers:
-                ei = brief.find(em, idx)
-                if ei != -1:
-                    end_idx = min(end_idx, ei + len(em))
-            return brief[idx:end_idx].strip()
-    return brief

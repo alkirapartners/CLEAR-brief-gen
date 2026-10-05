@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 MODEL = "claude-sonnet-5"
 MAX_TOKENS = 16000
 EFFORT = "medium"
-# The parser in app.py keys off this exact first line; anything else is garbage.
+# The parsers in briefparse.py key off this exact first line; anything else is garbage.
 BRIEF_MARKER = "# ALKIRA OPPORTUNITY BRIEF"
 ERROR_PREFIX_CHARS = 200
 

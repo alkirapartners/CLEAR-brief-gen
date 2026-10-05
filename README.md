@@ -2,20 +2,22 @@
 
 A web app for Alkira partners to generate scored opportunity briefs for any company. Enter a company name, get a structured brief with an Alkira Fit Score (1–5), strategic entry points, proof points, and sales questions — plus a downloadable PDF.
 
-Research runs on Tavily, generation on a single streamed `claude-sonnet-5` call. Magic-link authentication limits sign-in to authorized partner domains.
+Research runs on Tavily, generation on a single streamed `claude-sonnet-5` call. Sign-in is limited to authorized partner domains.
+
+This repo holds the Brief API, the sign-in service and the sign-in pages. The screens partners use live in [alkira-account-radar](https://github.com/alkirapartners/alkira-account-radar) (`web/`), which serves both the Brief Generator and Account Radar.
 
 ---
 
 ## How It Works
 
-1. Partner visits the app and signs in via magic link (email-based, no password)
-2. Types a company name and clicks **Generate Brief**
+1. Partner visits the app and signs in with a code sent to their work email (admins sign in through the dashboard's SSO)
+2. Types a company name and clicks **Generate brief**
 3. `research.py` runs the brief template's research checklist as 8 parallel Tavily searches, ranks the hits, and extracts the top 5 pages
 4. `generate.py` composes the whole brief in one streamed `claude-sonnet-5` call against those sources (~45s)
-5. Brief is scored (Alkira Fit 1–5), displayed as a bento card layout, and saved to the sidebar
-6. Partner can download as PDF, update (re-research), or delete the brief
+5. The brief is scored (Alkira Fit 1–5), saved, and opened on its own page
+6. Partner can download it as PDF, update it (re-research), or delete it
 
-A brief for a company already researched in the last 7 days is served from Supabase without a model call. **Update Brief** always re-researches and never consults that cache.
+A brief for a company already researched in the last 7 days is reused from Supabase without a model call. **Update brief** always re-researches and never consults that cache.
 
 ---
 
@@ -25,13 +27,12 @@ A brief for a company already researched in the last 7 days is served from Supab
 Browser (HTTPS)
   │
   └─► ALB (SSL termination, *.partners.alkira.cc)
-        │         [sticky sessions enabled — required for Streamlit WebSocket]
-        ├─► Instance A  →  nginx (HTTP)
-        │     ├─► /api/*  →  briefgen-proxy.js (port 3461)
-        │     └─► /*      →  Streamlit app (port 8501, auth_request gated)
-        └─► Instance B  →  nginx (HTTP)
-              ├─► /api/*  →  briefgen-proxy.js (port 3461)
-              └─► /*      →  Streamlit app (port 8501, auth_request gated)
+        ├─► Instance A  →  nginx (HTTP, auth_request on everything but sign-in)
+        │     ├─► /api/auth/*, /api/admins, /api/domains  →  briefgen-proxy.js (port 3461)
+        │     ├─► /api/brief/*   →  Brief API, this repo (uvicorn, port 8501)
+        │     ├─► /api/radar/*   →  Radar API (port 8601)
+        │     └─► /*             →  Next.js front end, alkira-account-radar (port 3001)
+        └─► Instance B  →  the same
 ```
 
 **Load balancer:** `ALB-Alkira-Channel-Team-Tools-170715566.us-west-2.elb.amazonaws.com`  
@@ -40,38 +41,56 @@ Browser (HTTPS)
 **Instance B:** `32.184.242.60` (us-west-2b)  
 **EFS:** `fs-00082cbd5d53945eb` — shared data storage, mounted on both instances
 
-> **Sticky sessions** are enabled on the ALB target group (load balancer generated cookie, 1-day duration). This is required because Streamlit uses WebSockets — all requests from a user must go to the same instance.
+nginx asks the sign-in service whether the session cookie is valid, then passes the signed-in email to the APIs and the front end in an `X-Auth-Email` header, replacing anything the client sent. The Brief API trusts that header, which is why it listens on `127.0.0.1` only. The nginx site file is kept in `deploy/nginx-briefgen.conf`.
+
+Sticky sessions are enabled on the ALB target group. Nothing here depends on them: any request can be served by either instance.
 
 **Key components:**
 
 | File | Purpose |
 |------|---------|
-| `app.py` | Streamlit web app — UI, auth gate and rendering. Still the served UI until the shared front end cuts over |
+| `server.py` | Brief API: FastAPI routes under `/api/brief/` (JSON plus a server-sent-event stream for generation) |
+| `brief_service.py` | Generate / reuse / save / update rules, the one-generation-per-user guard and the daily cap |
+| `usage_ledger.py` | Append-only record of paid generations in the shared data directory, for the daily cap |
+| `brief_view.py` | Shapes a stored brief row into the API's summary and detail objects |
+| `briefparse.py` | Pure brief-markdown parsers and the company-name cleaner |
+| `streaming.py` | Runs a blocking job in a thread and exposes it as an SSE stream with a heartbeat |
+| `authdep.py` | `X-Auth-Email` request dependency and the admin check |
+| `settings.py` | Environment configuration |
+| `errors.py` | Errors whose message is safe to show to a partner |
 | `research.py` | Tavily search + extract, result ranking, source payload |
 | `generate.py` | The single streamed Sonnet 5 call |
 | `prompts.py` | Prompt-cached system prefix + per-brief user message |
-| `generate_brief.py` | CLI tool for generating briefs from the terminal |
-| `briefgen-proxy.js` | Node.js auth backend — magic links, sessions, admin read API |
-| `server.py` | Brief API: FastAPI routes under `/api/brief/` (JSON plus a server-sent-event stream for generation) |
-| `brief_service.py` | Generate / reuse / save / refresh rules, the one-generation-per-user guard and the daily cap |
-| `brief_view.py` | Shapes a stored brief row into the API's summary and detail objects |
-| `streaming.py` | Runs a blocking job in a thread and exposes it as an SSE stream with a heartbeat |
-| `briefparse.py` | Pure brief-markdown parsers and the company-name cleaner (no Streamlit, no I/O) |
-| `authdep.py` | `X-Auth-Email` request dependency and the admin check |
-| `settings.py` | Environment configuration for the Brief API |
-| `errors.py` | Errors whose message is safe to show to a partner |
 | `db.py` | Supabase persistence and the 7-day repeat-company cache |
 | `pdf.py` | PDF generation (fpdf2) |
 | `notifications.py` | Slack webhook on successful brief generation |
+| `generate_brief.py` | CLI tool for generating briefs from the terminal |
 | `skills/` | Brief template, Alkira knowledge base, writing rules — inlined into the cached system prefix |
-| `auth.html` | Magic link sign-in page (static) |
-| `admin.html` | Admin panel — read-only view of trusted domains and admins |
+| `briefgen-proxy.js` | Node.js sign-in service — email codes, SSO, sessions, admin read API |
+| `auth.html` | Sign-in page (static) |
+| `admin.html` | Settings page — read-only view of trusted domains |
+| `deploy/nginx-briefgen.conf` | The nginx site file as deployed on both instances |
+
+### API
+
+Every route except `/health` needs `X-Auth-Email`. A brief id that belongs to someone else answers 404, the same as one that does not exist. Non-stream responses are `{"success", "data", "error"}`.
+
+| Method and path | Purpose |
+|---|---|
+| `GET /api/brief/health` | Liveness |
+| `GET /api/brief/me` | `{email, isAdmin}` |
+| `GET /api/brief/briefs` | The caller's briefs |
+| `GET /api/brief/briefs/{id}` | One brief, parsed into fields |
+| `POST /api/brief/briefs` | Body `{company, language}`. Streams progress, then the brief id |
+| `POST /api/brief/briefs/{id}/refresh` | Update: always re-researches. Same stream |
+| `DELETE /api/brief/briefs/{id}` | Delete |
+| `GET /api/brief/briefs/{id}/pdf` | PDF download |
 
 ---
 
 ## Admin management
 
-Trusted domains and admin accounts are managed centrally via the **[Admin Portal](https://admin.partners.alkira.cc)**. The per-app admin panel at `/admin.html` is read-only — it shows the current lists but changes must be made in the admin portal.
+Trusted domains and admin accounts are managed centrally via the **[Admin Portal](https://admin.partners.alkira.cc)**. The per-app page at `/admin.html` is read-only — it shows the current list but changes must be made in the admin portal.
 
 ---
 
@@ -79,11 +98,11 @@ Trusted domains and admin accounts are managed centrally via the **[Admin Portal
 
 ### Prerequisites
 
-- Python 3.10+
-- Node.js 18+ (for `briefgen-proxy.js` if running auth locally)
+- Python 3.11+
+- Node.js 18+ (for `briefgen-proxy.js` if running sign-in locally)
 - An Anthropic API key
 - A Tavily API key
-- A Supabase project (optional — app runs without it, briefs won't persist)
+- A Supabase project (optional — the API runs without it, briefs won't persist)
 
 ### Setup
 
@@ -91,10 +110,9 @@ Trusted domains and admin accounts are managed centrally via the **[Admin Portal
 git clone https://github.com/alkirapartners/CLEAR-brief-gen.git
 cd CLEAR-brief-gen
 
-# Python dependencies
-python -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt -r requirements-dev.txt
 
 # Environment variables — create .env in the repo root
 ```
@@ -108,9 +126,9 @@ SUPABASE_KEY=sb_secret_...                  # optional
 SLACK_WEBHOOK_URL=https://hooks.slack.com/services/...  # optional — posts a notification to Slack on successful brief generation
 ```
 
-`ANTHROPIC_API_KEY` and `TAVILY_API_KEY` are both required; the app fails at the config guard without them. There is no agent or environment to provision.
+`ANTHROPIC_API_KEY` and `TAVILY_API_KEY` are both required to generate; without them the API starts but refuses generation with a 503.
 
-Optional settings for the Brief API:
+Optional settings:
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
@@ -119,21 +137,17 @@ Optional settings for the Brief API:
 | `BRIEF_ADMINS_FILE` | `/var/www/briefgen/data/admins.json` | The admin list used to show the Settings link. |
 
 ```bash
-# Run the app
-streamlit run app.py
-```
-
-App opens at `http://localhost:8501`. Auth is bypassed locally — the nginx gate only runs in production.
-
-**Brief API** (runs alongside the Streamlit page; Streamlit remains the served UI until the shared front end cuts over):
-
-```bash
+# Run the API
 uvicorn server:app --host 127.0.0.1 --port 8501 --reload
-# every request needs the header nginx sets in production:
+
+# Every request needs the header nginx sets in production:
 curl -H "X-Auth-Email: you@example.com" http://127.0.0.1:8501/api/brief/briefs
+
+# Tests
+python -m pytest -q
 ```
 
-Both default to port 8501, so run one at a time or pass a different `--port`. `BRIEF_DAILY_LIMIT` (default 50) caps new briefs per user per UTC day.
+For the screens, run the front end from alkira-account-radar (`cd web && npm run dev`); it proxies `/api/brief/` to port 8501 in development. That repo also has a mock API, so the front end can be worked on with no keys at all.
 
 ### CLI Usage
 
@@ -149,21 +163,24 @@ python generate_brief.py "Chevron" --verbose
 
 **Processes on each instance:**
 
-| PM2 name | What it runs |
-|----------|-------------|
-| `briefgen` | `streamlit run app.py` (port 8501) |
-| `briefgen-proxy` | `node briefgen-proxy.js` (port 3461) |
+| Name | Manager | What it runs |
+|------|---------|--------------|
+| `briefgen` | PM2 | `uvicorn server:app --host 127.0.0.1 --port 8501`, started with `--kill-timeout 240000` |
+| `briefgen-proxy` | PM2 | `node briefgen-proxy.js` (port 3461) |
+| `radar-web` | systemd | The Next.js front end from alkira-account-radar (port 3001) |
+| `radar-api` | systemd | The radar API from alkira-account-radar (port 8601) |
+
+The kill timeout matters: PM2's default is 1.6 seconds, which would kill a brief mid-write on every deploy. With it, a restart waits for a brief in progress to finish and be saved.
 
 **Auto-deploy:**  
-Every push to `main` triggers webhooks on both instances → each server pulls latest code, installs dependencies, and restarts both PM2 processes automatically. No manual SSH needed.
+Every merge to `main` is picked up on both instances within about a minute → each server pulls the latest code, runs `pip install -r requirements.txt`, and restarts `briefgen` and `briefgen-proxy`. No manual SSH needed. The deploy recipe is fixed (it lives in the intranet repo), so anything beyond those three steps — a new process, an nginx change — has to be done by hand on both instances.
 
 - **Instance A webhook:** `http://35.166.223.217/webhook`
 - **Instance B webhook:** `http://32.184.242.60/webhook`
 
-**Secrets on server** (not in repo):
+**On the server, not in the repo:**
 - `/var/www/briefgen/.env` — API keys and Supabase credentials
-- `/var/www/briefgen/data/admins.json` — admin user list (written by admin portal, stored on EFS)
-- `/var/www/briefgen/data/domains.json` — trusted domain list (written by admin portal, stored on EFS)
+- `/var/www/briefgen/data/` — symlink to EFS, shared by both instances: `admins.json`, `domains.json` (written by the admin portal), `sessions.json`, `otps.json` (sign-in service), and `brief-usage-*.jsonl` (daily cap)
 
 ---
 
@@ -171,10 +188,10 @@ Every push to `main` triggers webhooks on both instances → each server pulls l
 
 ```bash
 # Instance A
-ssh -i ~/.ssh/alkira-channel.pem ubuntu@35.166.223.217
+ssh -i <path-to-key>.pem ubuntu@35.166.223.217
 
 # Instance B
-ssh -i ~/.ssh/alkira-channel.pem ubuntu@32.184.242.60
+ssh -i <path-to-key>.pem ubuntu@32.184.242.60
 ```
 
 ---
@@ -183,11 +200,10 @@ ssh -i ~/.ssh/alkira-channel.pem ubuntu@32.184.242.60
 
 Access is controlled by `briefgen-proxy.js`:
 
-- **Users** sign in via magic link on `auth.html` if their email domain is on the trusted domains list. A "Generate new code" button on step 2 lets users resend the link without starting over.
-- **Admins** can view the admin panel at `/admin.html` (read-only — manage via [Admin Portal](https://admin.partners.alkira.cc))
-- Sessions are cookie-based (7-day TTL, HttpOnly, Secure, SameSite=Strict), persisted to `data/sessions.json` on EFS — shared between instances
-- Magic-link tokens are persisted to `data/tokens.json` on EFS (15-min TTL) so either instance can verify a link regardless of which generated it
-- nginx `auth_request` gates all Streamlit traffic — unauthenticated requests redirect to `/auth.html`
+- **Users** enter their work email on `auth.html`. If its domain is on the trusted list they are emailed a 6-digit code, valid for 10 minutes, and enter it to sign in.
+- **Admins** sign in through the Channel Team Dashboard's SSO and can view `/admin.html` (read-only — manage via the [Admin Portal](https://admin.partners.alkira.cc)).
+- Sessions are cookie-based (7-day TTL, HttpOnly, Secure, SameSite=Strict), persisted to `data/sessions.json` on EFS — shared between instances. Pending codes are in `data/otps.json` for the same reason.
+- nginx `auth_request` gates everything except the sign-in page and its assets. Unauthenticated requests are redirected to `/auth.html`, as a path rather than an `http://` address so that a background request from an expired session reaches the sign-in page too.
 
 ---
 
@@ -211,7 +227,7 @@ Access is controlled by `briefgen-proxy.js`:
    sudo mount /mnt/efs
    ```
 
-4. **Deploy:**
+4. **Deploy this repo:**
    ```bash
    sudo mkdir -p /var/www/briefgen
    sudo chown -R ubuntu:ubuntu /var/www/briefgen
@@ -221,23 +237,26 @@ Access is controlled by `briefgen-proxy.js`:
    npm install @aws-sdk/client-ses
    # Copy .env from another instance or restore from secure storage
    ln -s /mnt/efs/briefgen/data /var/www/briefgen/data
-   sudo cp nginx-briefgen.conf /etc/nginx/sites-available/briefgen
+   sudo cp deploy/nginx-briefgen.conf /etc/nginx/sites-available/briefgen
    sudo ln -s /etc/nginx/sites-available/briefgen /etc/nginx/sites-enabled/
    sudo nginx -t && sudo systemctl reload nginx
-   pm2 start "venv/bin/streamlit run app.py --server.port 8501" --name briefgen
+   pm2 start venv/bin/uvicorn --name briefgen --interpreter none --cwd /var/www/briefgen \
+     --kill-timeout 240000 -- server:app --host 127.0.0.1 --port 8501
    pm2 start briefgen-proxy.js --name briefgen-proxy
    pm2 save && pm2 startup
    ```
 
-5. **Register with ALB** — add the new instance to the ALB target group.
+5. **Deploy the front end and radar** — follow `SETUP.md` in alkira-account-radar (`/opt/radar`, systemd `radar-web` and `radar-api`). Without it nginx has nothing to serve at `/`.
 
-6. **Add GitHub webhook** — add `http://<new-instance-eip>/webhook` to repo Settings → Webhooks.
+6. **Register with ALB** — add the new instance to the ALB target group.
+
+7. **Add GitHub webhook** — add `http://<new-instance-eip>/webhook` to repo Settings → Webhooks.
 
 ---
 
 ## Updating the Knowledge Base
 
-Edit the files under `skills/` (brief template and scoring rubric, Alkira proof points, writing rules) and restart the app. They are read at startup and inlined into the prompt-cached system prefix. Nothing to re-provision.
+Edit the files under `skills/` (brief template and scoring rubric, Alkira proof points, writing rules) and merge. They are read at startup and inlined into the prompt-cached system prefix. Nothing to re-provision.
 
 ---
 

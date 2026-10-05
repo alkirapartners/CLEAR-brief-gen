@@ -183,19 +183,6 @@ def delete_brief(brief_id: str, email: str) -> bool:
         return False
 
 
-def replace_brief(
-    old_brief_id: str,
-    email: str,
-    company: str,
-    score: int,
-    brief_md: str,
-) -> Optional[dict]:
-    """Delete old brief and save a new one. Returns the new record or None."""
-    if old_brief_id:
-        delete_brief(old_brief_id, email)
-    return save_brief(email, company, score, brief_md)
-
-
 def is_available() -> bool:
     """Check if the database is configured and reachable."""
     return _get_client() is not None
