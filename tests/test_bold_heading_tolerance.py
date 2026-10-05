@@ -14,7 +14,6 @@ tests/test_parsers.py and tests/test_pdf.py are the frozen regression gate
 for existing behavior and are intentionally left untouched.
 """
 
-import prompts
 from briefparse import extract_entry_points, extract_infra_cells, extract_section
 
 BOLD_INFRA_BRIEF = """
@@ -136,45 +135,3 @@ def test_extract_infra_cells_falls_back_when_heading_is_missing_entirely():
     assert "consolidated" in cells["on_prem"]
     assert "migration" in cells["deployment"]
     assert "Hybrid AWS" in cells["complexity"]
-
-
-def test_build_system_prefix_contains_literal_output_skeleton():
-    """Prose directives alone were not holding; the prefix must contain an
-    explicit literal skeleton showing the exact document structure in order,
-    including the '## Infrastructure Snapshot' heading."""
-    prefix = prompts.build_system_prefix()
-    assert "Full Literal Skeleton" in prefix
-    skeleton_start = prefix.index("# ALKIRA OPPORTUNITY BRIEF\n## [Company Name]")
-    skeleton = prefix[skeleton_start : skeleton_start + 2000]
-    assert "## Infrastructure Snapshot" in skeleton
-    assert "**Cloud Platforms:**" in skeleton
-    assert "**On-Prem / Hybrid:**" in skeleton
-    assert "**Deployment Model:**" in skeleton
-    assert "**Resulting Complexity:**" in skeleton
-    assert "## Signals & Timing" in skeleton
-    assert "## Three Alkira Entry Points" in skeleton
-    assert "## Conversation Starters" in skeleton
-    assert "## References" in skeleton
-    # Order matters: Infrastructure Snapshot must precede Signals & Timing.
-    assert skeleton.index("## Infrastructure Snapshot") < skeleton.index(
-        "## Signals & Timing"
-    )
-
-
-def test_build_system_prefix_mandates_infrastructure_snapshot_never_omitted():
-    """The prompt must explicitly forbid dropping Infrastructure Snapshot
-    when research is thin — the section-omission failure mode measured in
-    4 of 5 sampled production briefs (Southwest, Neiman Marcus, Whole Foods,
-    Sabre)."""
-    prefix = prompts.build_system_prefix()
-    assert "Never Omit" in prefix or "never omit" in prefix.lower()
-    assert "not disclosed" in prefix.lower()
-    # The four mandatory Infrastructure Snapshot sub-labels must be spelled
-    # out alongside the "always present" directive.
-    for sub_label in (
-        "**Cloud Platforms:**",
-        "**On-Prem / Hybrid:**",
-        "**Deployment Model:**",
-        "**Resulting Complexity:**",
-    ):
-        assert sub_label in prefix

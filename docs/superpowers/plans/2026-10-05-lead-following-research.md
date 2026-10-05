@@ -6035,7 +6035,7 @@ Phases: `init` at the start, `research` when the loop begins (Task 14 reports it
 
 Tests of the retired pipeline go with it. They pin a markdown prompt that no longer exists: all of `tests/test_prompts.py` and `tests/test_research.py`, the prompt and generator tests in `tests/test_language.py`, and the two prompt tests at the end of `tests/test_bold_heading_tolerance.py`. The parser tests in that file, `tests/test_parsers.py` and `tests/test_pdf.py` are not touched.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Replace the whole of `tests/test_generate.py` with:
 
@@ -6298,12 +6298,12 @@ def test_research_that_finds_nothing_reaches_the_partner_as_an_error_and_saves_n
     assert repo.rows == []
 ```
 
-- [ ] **Step 2: Run it and confirm it fails**
+- [x] **Step 2: Run it and confirm it fails**
 
 Run: `.venv/bin/python -m pytest tests/test_generate.py -q`
 Expected: `19 failed, 1 passed`, most with `AttributeError: module 'generate' has no attribute 'generate_detailed'`.
 
-- [ ] **Step 3: Replace the generator**
+- [x] **Step 3: Replace the generator**
 
 Replace the whole of `generate.py` with:
 
@@ -6490,7 +6490,7 @@ def generate_brief(
     ).stored
 ```
 
-- [ ] **Step 4: Remove the retired builders from `prompts.py`**
+- [x] **Step 4: Remove the retired builders from `prompts.py`**
 
 In `prompts.py`:
 
@@ -6517,13 +6517,13 @@ wc -l prompts.py
 
 Expected: `['build_research_message', 'build_research_prefix', 'build_writer_message', 'build_writer_prefix']` and `285 prompts.py`.
 
-- [ ] **Step 5: Delete the retired module and its tests**
+- [x] **Step 5: Delete the retired module and its tests**
 
 ```bash
 git rm -q research.py tests/test_research.py tests/test_prompts.py
 ```
 
-- [ ] **Step 6: Remove the retired tests from `tests/test_language.py`**
+- [x] **Step 6: Remove the retired tests from `tests/test_language.py`**
 
 1. Replace the top of the file, from the opening `"""` through `import prompts`, with:
 
@@ -6550,7 +6550,7 @@ Keep the label, period, PDF and `detect_language` tests exactly as they are.
 Run: `.venv/bin/python -m pytest tests/test_language.py -q`
 Expected: `17 passed, 2 skipped`.
 
-- [ ] **Step 7: Remove the two prompt tests from `tests/test_bold_heading_tolerance.py`**
+- [x] **Step 7: Remove the two prompt tests from `tests/test_bold_heading_tolerance.py`**
 
 1. Delete the line `import prompts`.
 2. Delete everything from `def test_build_system_prefix_contains_literal_output_skeleton():` to the end of the file. That removes that test and `test_build_system_prefix_mandates_infrastructure_snapshot_never_omitted`.
@@ -6560,7 +6560,7 @@ Do not change the five parser tests above them or any fixture.
 Run: `.venv/bin/python -m pytest tests/test_bold_heading_tolerance.py -q`
 Expected: `5 passed`.
 
-- [ ] **Step 8: Confirm nothing still uses what was removed**
+- [x] **Step 8: Confirm nothing still uses what was removed**
 
 ```bash
 git grep -E "build_system_prefix|build_user_message|^import research$|generate\.research\b" -- "*.py"; echo "exit: $?"
@@ -6568,7 +6568,7 @@ git grep -E "build_system_prefix|build_user_message|^import research$|generate\.
 
 Expected: no matches and `exit: 1`.
 
-- [ ] **Step 9: Run the tests**
+- [x] **Step 9: Run the tests**
 
 Run: `.venv/bin/python -m pytest tests/test_generate.py -q`
 Expected: `20 passed`.
@@ -6576,7 +6576,7 @@ Expected: `20 passed`.
 Run: `.venv/bin/python -m pytest -q`
 Expected: `453 passed, 2 skipped`.
 
-- [ ] **Step 10: Commit**
+- [x] **Step 10: Commit**
 
 ```bash
 git add generate.py prompts.py tests/test_generate.py tests/test_language.py tests/test_bold_heading_tolerance.py
