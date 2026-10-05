@@ -144,7 +144,9 @@ Task order: the probe, the limits and the knowledge base first; then the documen
 
 **Interfaces:**
 - Consumes: nothing from this plan.
-- Produces: `probe.decide(report: dict[str, Any]) -> tuple[str, str]` returning a verdict (`"tavily"`, `"anthropic"` or `"blocked"`) and a reason; `probe.run(client: Any, web: Any) -> dict[str, Any]`. The report's `refusal_fallback` value is read again in Task 12.
+- Produces: `probe.decide(report: dict[str, Any]) -> tuple[str, str]` returning a verdict (`"tavily"`, `"anthropic"` or `"blocked"`) and a reason; `probe.run(client: Any, web: Any) -> dict[str, Any]`; `probe.CAREERS_PAGES`, each careers URL with the pattern its text must contain; `probe.page_result(text: str, error: str, marker: str) -> int | str`, the characters read or the reason the page does not count as read. The report's `refusal_fallback` value is read again in Task 12.
+
+A page counts as read only when its text holds what the page is for. The first version of this probe counted any page of 1,500 characters or more as read, and on the production keys that called Anthropic's web fetch a success on both Workday job lists, where it had returned only the page's description and not one job. The probe now requires a link to a posting or the job count on a job-list page.
 
 - [x] **Step 1: Write the failing test**
 
@@ -163,6 +165,11 @@ probe = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(probe)
 
 LONG = 20_000
+URLS = [url for url, _marker in probe.CAREERS_PAGES]
+WORKDAY = "https://oxy.wd5.myworkdayjobs.com/en-US/Corporate"
+JOB_LIST = "[Network Engineer](https://oxy.wd5.myworkdayjobs.com/en-US/Corporate/job/Houston/Network-Engineer_JR1) Posted Today. " * 40
+# What a fetch without JavaScript gets from a Workday job list: the page's description, no jobs.
+METADATA_ONLY = "meta-description: Oxy has bold ambitions to achieve net zero. Introduce yourself to our recruiters. " * 30
 
 
 def _report(anthropic_reads=(LONG, 0, 0, LONG, LONG), tavily_reads=(LONG,) * 5, **changes):
@@ -171,7 +178,7 @@ def _report(anthropic_reads=(LONG, 0, 0, LONG, LONG), tavily_reads=(LONG,) * 5, 
         "tavily_search": 3, "tavily_pdf": 850_000,
         "careers": {
             url: {"tavily": tavily, "anthropic": anthropic}
-            for url, tavily, anthropic in zip(probe.CAREERS_URLS, tavily_reads, anthropic_reads)
+            for url, tavily, anthropic in zip(URLS, tavily_reads, anthropic_reads)
         },
     }
     report.update(changes)
@@ -184,8 +191,14 @@ def test_tavily_is_chosen_when_it_reads_careers_sites_anthropic_cannot():
     assert "Tavily read 5 of 5" in reason and "web fetch read 3" in reason
 
 
-def test_an_error_code_or_a_near_empty_page_does_not_count_as_read():
-    reads = ("url_not_accessible", 40, "BadRequestError: web fetch is not enabled", LONG, LONG)
+def test_an_error_a_near_empty_page_or_a_page_without_its_job_list_does_not_count_as_read():
+    """Length is not enough: a Workday page fetched without JavaScript is long and lists no jobs."""
+    marker = dict(probe.CAREERS_PAGES)[WORKDAY]
+    assert probe.page_result(JOB_LIST, "", marker) == len(JOB_LIST)
+    unread = probe.page_result(METADATA_ONLY, "", marker)
+    assert unread == f"{len(METADATA_ONLY)} characters, none of them a job listing"
+    assert probe.page_result("", "url_not_accessible", marker) == "url_not_accessible"
+    reads = ("url_not_accessible", 40, unread, LONG, LONG)
     assert probe.decide(_report(anthropic_reads=reads))[0] == "tavily"
 
 
@@ -217,15 +230,16 @@ def test_run_builds_a_full_report_from_the_two_clients():
             return {"results": [{"url": "https://example.com"}]}
 
         def extract(self, urls, **kwargs):
-            return {"results": [{"url": urls[0], "raw_content": "x" * LONG}]}
+            return {"results": [{"url": urls[0], "raw_content": JOB_LIST}]}
 
     def create(**kwargs):
         if "output_config" in kwargs:
             return SimpleNamespace(stop_reason="end_turn", content=[SimpleNamespace(type="text", text='{"score": 3}')])
         tools = kwargs.get("tools") or []
         if tools and tools[0].get("type") == "web_fetch_20260209":
-            error = SimpleNamespace(type="web_fetch_tool_result_error", error_code="url_not_accessible")
-            return SimpleNamespace(stop_reason="end_turn", content=[SimpleNamespace(type="web_fetch_tool_result", content=error)])
+            page = SimpleNamespace(content=SimpleNamespace(source=SimpleNamespace(data=METADATA_ONLY)))
+            page.type = "web_fetch_result"
+            return SimpleNamespace(stop_reason="end_turn", content=[SimpleNamespace(type="web_fetch_tool_result", content=page)])
         if tools:
             call = SimpleNamespace(type="tool_use", input={"word": "probe"})
             return SimpleNamespace(stop_reason="tool_use", content=[call])
@@ -234,9 +248,12 @@ def test_run_builds_a_full_report_from_the_two_clients():
     client = SimpleNamespace(beta=SimpleNamespace(messages=SimpleNamespace(create=create)))
     report = probe.run(client, Web())
     assert report["model"] == report["refusal_fallback"] == report["strict_tool"] == report["structured_output"] == "ok"
-    assert report["tavily_pdf"] == LONG and report["tavily_search"] == 1
-    assert set(report["careers"]) == set(probe.CAREERS_URLS)
-    assert report["careers"][probe.CAREERS_URLS[1]] == {"tavily": LONG, "anthropic": "url_not_accessible"}
+    assert report["tavily_pdf"] == len(JOB_LIST) and report["tavily_search"] == 1
+    assert set(report["careers"]) == set(URLS)
+    assert report["careers"][WORKDAY] == {
+        "tavily": len(JOB_LIST),
+        "anthropic": f"{len(METADATA_ONLY)} characters, none of them a job listing",
+    }
     assert report["verdict"] == "tavily"
 ```
 
@@ -263,6 +280,10 @@ a laptop). It makes a handful of small requests and answers:
      sites? The design chose Tavily because web fetch does not render
      JavaScript and two of these sites need it. This confirms it.
 
+A page counts as read only when the text that came back holds what the page
+is for. A Workday job list fetched without JavaScript returns a few thousand
+characters of page description and not one job, so length alone proves nothing.
+
 It prints one JSON report ending in a verdict, and never prints a key. The
 keys come from the environment, or from a .env file in the repository root.
 
@@ -271,6 +292,7 @@ keys come from the environment, or from a .env file in the repository root.
 
 import json
 import os
+import re
 import sys
 from typing import Any
 
@@ -282,14 +304,19 @@ MODEL = "claude-sonnet-5-5"
 FALLBACK_BETA = "server-side-fallback-2026-07-01"
 MIN_READABLE_CHARS = 1500
 TAVILY_TIMEOUT_SECONDS = 30
-# Careers sites of companies in the evaluation set. The two Workday sites
-# render their job lists with JavaScript.
-CAREERS_URLS: tuple[str, ...] = (
-    "https://careers.hfsinclair.com/",
-    "https://oxy.wd5.myworkdayjobs.com/en-US/Corporate",
-    "https://kemper.wd5.myworkdayjobs.com/en-US/Kemper_Careers",
-    "https://www.jobs-ups.com/",
-    "https://jobs.globalpayments.com/",
+# A job list is read when a link to a posting or the count of jobs is in the text.
+JOB_LIST = r"/job/|of \d+ jobs"
+LANDING_PAGE = r"(?i)career|job"
+ANY_TEXT = r"\S"
+# Careers sites of companies in the evaluation set, each with what its text
+# must contain to count as read. The two Workday sites render their job
+# lists with JavaScript.
+CAREERS_PAGES: tuple[tuple[str, str], ...] = (
+    ("https://careers.hfsinclair.com/", LANDING_PAGE),
+    ("https://oxy.wd5.myworkdayjobs.com/en-US/Corporate", JOB_LIST),
+    ("https://kemper.wd5.myworkdayjobs.com/en-US/Kemper_Careers", JOB_LIST),
+    ("https://www.jobs-ups.com/", LANDING_PAGE),
+    ("https://jobs.globalpayments.com/", LANDING_PAGE),
 )
 PDF_URL = "https://www.sec.gov/Archives/edgar/data/1090727/000162828026019882/ups2025arsa.pdf"
 
@@ -350,8 +377,17 @@ def check_structured_output(client: Any) -> str:
         return _error(exc)
 
 
-def anthropic_fetch_chars(client: Any, url: str) -> int | str:
-    """Characters of text Anthropic's web fetch returned, or the error it gave."""
+def page_result(text: str, error: str, marker: str) -> int | str:
+    """The characters read, or why the page does not count as read."""
+    if error:
+        return error
+    if not re.search(marker, text):
+        return f"{len(text)} characters, none of them a job listing"
+    return len(text)
+
+
+def anthropic_fetch(client: Any, url: str) -> tuple[str, str]:
+    """The text Anthropic's web fetch returned and, when it failed, the error."""
     tool = {
         "type": "web_fetch_20260209", "name": "web_fetch", "max_uses": 1,
         "max_content_tokens": 3000, "allowed_callers": ["direct"],
@@ -362,14 +398,14 @@ def anthropic_fetch_chars(client: Any, url: str) -> int | str:
             messages=[{"role": "user", "content": f"Fetch {url} and reply with its title only."}],
         )
     except Exception as exc:
-        return _error(exc)
+        return "", _error(exc)
     for block in reply.content:
         if block.type == "web_fetch_tool_result":
             result = block.content
             if getattr(result, "type", "") != "web_fetch_result":
-                return str(getattr(result, "error_code", "error"))
-            return len(str(getattr(result.content.source, "data", "") or ""))
-    return "no fetch attempted"
+                return "", str(getattr(result, "error_code", "error"))
+            return str(getattr(result.content.source, "data", "") or ""), ""
+    return "", "no fetch attempted"
 
 
 def tavily_search_count(web: Any) -> int | str:
@@ -380,13 +416,14 @@ def tavily_search_count(web: Any) -> int | str:
     return len(found.get("results") or [])
 
 
-def tavily_extract_chars(web: Any, url: str) -> int | str:
+def tavily_extract(web: Any, url: str) -> tuple[str, str]:
+    """The text Tavily extract returned and, when it failed, the error."""
     try:
         found = web.extract(urls=[url], extract_depth="advanced", timeout=TAVILY_TIMEOUT_SECONDS)
     except Exception as exc:
-        return _error(exc)
+        return "", _error(exc)
     results = found.get("results") or []
-    return len(str(results[0].get("raw_content") or "")) if results else "not extracted"
+    return (str(results[0].get("raw_content") or ""), "") if results else ("", "not extracted")
 
 
 def _readable(value: Any) -> bool:
@@ -422,10 +459,13 @@ def run(client: Any, web: Any) -> dict[str, Any]:
         "strict_tool": check_strict_tool(client),
         "structured_output": check_structured_output(client),
         "tavily_search": tavily_search_count(web),
-        "tavily_pdf": tavily_extract_chars(web, PDF_URL),
+        "tavily_pdf": page_result(*tavily_extract(web, PDF_URL), ANY_TEXT),
         "careers": {
-            url: {"tavily": tavily_extract_chars(web, url), "anthropic": anthropic_fetch_chars(client, url)}
-            for url in CAREERS_URLS
+            url: {
+                "tavily": page_result(*tavily_extract(web, url), marker),
+                "anthropic": page_result(*anthropic_fetch(client, url), marker),
+            }
+            for url, marker in CAREERS_PAGES
         },
     }
     report["verdict"], report["reason"] = decide(report)

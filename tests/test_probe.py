@@ -10,6 +10,11 @@ probe = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(probe)
 
 LONG = 20_000
+URLS = [url for url, _marker in probe.CAREERS_PAGES]
+WORKDAY = "https://oxy.wd5.myworkdayjobs.com/en-US/Corporate"
+JOB_LIST = "[Network Engineer](https://oxy.wd5.myworkdayjobs.com/en-US/Corporate/job/Houston/Network-Engineer_JR1) Posted Today. " * 40
+# What a fetch without JavaScript gets from a Workday job list: the page's description, no jobs.
+METADATA_ONLY = "meta-description: Oxy has bold ambitions to achieve net zero. Introduce yourself to our recruiters. " * 30
 
 
 def _report(anthropic_reads=(LONG, 0, 0, LONG, LONG), tavily_reads=(LONG,) * 5, **changes):
@@ -18,7 +23,7 @@ def _report(anthropic_reads=(LONG, 0, 0, LONG, LONG), tavily_reads=(LONG,) * 5, 
         "tavily_search": 3, "tavily_pdf": 850_000,
         "careers": {
             url: {"tavily": tavily, "anthropic": anthropic}
-            for url, tavily, anthropic in zip(probe.CAREERS_URLS, tavily_reads, anthropic_reads)
+            for url, tavily, anthropic in zip(URLS, tavily_reads, anthropic_reads)
         },
     }
     report.update(changes)
@@ -31,8 +36,14 @@ def test_tavily_is_chosen_when_it_reads_careers_sites_anthropic_cannot():
     assert "Tavily read 5 of 5" in reason and "web fetch read 3" in reason
 
 
-def test_an_error_code_or_a_near_empty_page_does_not_count_as_read():
-    reads = ("url_not_accessible", 40, "BadRequestError: web fetch is not enabled", LONG, LONG)
+def test_an_error_a_near_empty_page_or_a_page_without_its_job_list_does_not_count_as_read():
+    """Length is not enough: a Workday page fetched without JavaScript is long and lists no jobs."""
+    marker = dict(probe.CAREERS_PAGES)[WORKDAY]
+    assert probe.page_result(JOB_LIST, "", marker) == len(JOB_LIST)
+    unread = probe.page_result(METADATA_ONLY, "", marker)
+    assert unread == f"{len(METADATA_ONLY)} characters, none of them a job listing"
+    assert probe.page_result("", "url_not_accessible", marker) == "url_not_accessible"
+    reads = ("url_not_accessible", 40, unread, LONG, LONG)
     assert probe.decide(_report(anthropic_reads=reads))[0] == "tavily"
 
 
@@ -64,15 +75,16 @@ def test_run_builds_a_full_report_from_the_two_clients():
             return {"results": [{"url": "https://example.com"}]}
 
         def extract(self, urls, **kwargs):
-            return {"results": [{"url": urls[0], "raw_content": "x" * LONG}]}
+            return {"results": [{"url": urls[0], "raw_content": JOB_LIST}]}
 
     def create(**kwargs):
         if "output_config" in kwargs:
             return SimpleNamespace(stop_reason="end_turn", content=[SimpleNamespace(type="text", text='{"score": 3}')])
         tools = kwargs.get("tools") or []
         if tools and tools[0].get("type") == "web_fetch_20260209":
-            error = SimpleNamespace(type="web_fetch_tool_result_error", error_code="url_not_accessible")
-            return SimpleNamespace(stop_reason="end_turn", content=[SimpleNamespace(type="web_fetch_tool_result", content=error)])
+            page = SimpleNamespace(content=SimpleNamespace(source=SimpleNamespace(data=METADATA_ONLY)))
+            page.type = "web_fetch_result"
+            return SimpleNamespace(stop_reason="end_turn", content=[SimpleNamespace(type="web_fetch_tool_result", content=page)])
         if tools:
             call = SimpleNamespace(type="tool_use", input={"word": "probe"})
             return SimpleNamespace(stop_reason="tool_use", content=[call])
@@ -81,7 +93,10 @@ def test_run_builds_a_full_report_from_the_two_clients():
     client = SimpleNamespace(beta=SimpleNamespace(messages=SimpleNamespace(create=create)))
     report = probe.run(client, Web())
     assert report["model"] == report["refusal_fallback"] == report["strict_tool"] == report["structured_output"] == "ok"
-    assert report["tavily_pdf"] == LONG and report["tavily_search"] == 1
-    assert set(report["careers"]) == set(probe.CAREERS_URLS)
-    assert report["careers"][probe.CAREERS_URLS[1]] == {"tavily": LONG, "anthropic": "url_not_accessible"}
+    assert report["tavily_pdf"] == len(JOB_LIST) and report["tavily_search"] == 1
+    assert set(report["careers"]) == set(URLS)
+    assert report["careers"][WORKDAY] == {
+        "tavily": len(JOB_LIST),
+        "anthropic": f"{len(METADATA_ONLY)} characters, none of them a job listing",
+    }
     assert report["verdict"] == "tavily"

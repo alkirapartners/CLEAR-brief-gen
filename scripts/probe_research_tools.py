@@ -11,6 +11,10 @@ a laptop). It makes a handful of small requests and answers:
      sites? The design chose Tavily because web fetch does not render
      JavaScript and two of these sites need it. This confirms it.
 
+A page counts as read only when the text that came back holds what the page
+is for. A Workday job list fetched without JavaScript returns a few thousand
+characters of page description and not one job, so length alone proves nothing.
+
 It prints one JSON report ending in a verdict, and never prints a key. The
 keys come from the environment, or from a .env file in the repository root.
 
@@ -19,6 +23,7 @@ keys come from the environment, or from a .env file in the repository root.
 
 import json
 import os
+import re
 import sys
 from typing import Any
 
@@ -30,14 +35,19 @@ MODEL = "claude-sonnet-5-5"
 FALLBACK_BETA = "server-side-fallback-2026-07-01"
 MIN_READABLE_CHARS = 1500
 TAVILY_TIMEOUT_SECONDS = 30
-# Careers sites of companies in the evaluation set. The two Workday sites
-# render their job lists with JavaScript.
-CAREERS_URLS: tuple[str, ...] = (
-    "https://careers.hfsinclair.com/",
-    "https://oxy.wd5.myworkdayjobs.com/en-US/Corporate",
-    "https://kemper.wd5.myworkdayjobs.com/en-US/Kemper_Careers",
-    "https://www.jobs-ups.com/",
-    "https://jobs.globalpayments.com/",
+# A job list is read when a link to a posting or the count of jobs is in the text.
+JOB_LIST = r"/job/|of \d+ jobs"
+LANDING_PAGE = r"(?i)career|job"
+ANY_TEXT = r"\S"
+# Careers sites of companies in the evaluation set, each with what its text
+# must contain to count as read. The two Workday sites render their job
+# lists with JavaScript.
+CAREERS_PAGES: tuple[tuple[str, str], ...] = (
+    ("https://careers.hfsinclair.com/", LANDING_PAGE),
+    ("https://oxy.wd5.myworkdayjobs.com/en-US/Corporate", JOB_LIST),
+    ("https://kemper.wd5.myworkdayjobs.com/en-US/Kemper_Careers", JOB_LIST),
+    ("https://www.jobs-ups.com/", LANDING_PAGE),
+    ("https://jobs.globalpayments.com/", LANDING_PAGE),
 )
 PDF_URL = "https://www.sec.gov/Archives/edgar/data/1090727/000162828026019882/ups2025arsa.pdf"
 
@@ -98,8 +108,17 @@ def check_structured_output(client: Any) -> str:
         return _error(exc)
 
 
-def anthropic_fetch_chars(client: Any, url: str) -> int | str:
-    """Characters of text Anthropic's web fetch returned, or the error it gave."""
+def page_result(text: str, error: str, marker: str) -> int | str:
+    """The characters read, or why the page does not count as read."""
+    if error:
+        return error
+    if not re.search(marker, text):
+        return f"{len(text)} characters, none of them a job listing"
+    return len(text)
+
+
+def anthropic_fetch(client: Any, url: str) -> tuple[str, str]:
+    """The text Anthropic's web fetch returned and, when it failed, the error."""
     tool = {
         "type": "web_fetch_20260209", "name": "web_fetch", "max_uses": 1,
         "max_content_tokens": 3000, "allowed_callers": ["direct"],
@@ -110,14 +129,14 @@ def anthropic_fetch_chars(client: Any, url: str) -> int | str:
             messages=[{"role": "user", "content": f"Fetch {url} and reply with its title only."}],
         )
     except Exception as exc:
-        return _error(exc)
+        return "", _error(exc)
     for block in reply.content:
         if block.type == "web_fetch_tool_result":
             result = block.content
             if getattr(result, "type", "") != "web_fetch_result":
-                return str(getattr(result, "error_code", "error"))
-            return len(str(getattr(result.content.source, "data", "") or ""))
-    return "no fetch attempted"
+                return "", str(getattr(result, "error_code", "error"))
+            return str(getattr(result.content.source, "data", "") or ""), ""
+    return "", "no fetch attempted"
 
 
 def tavily_search_count(web: Any) -> int | str:
@@ -128,13 +147,14 @@ def tavily_search_count(web: Any) -> int | str:
     return len(found.get("results") or [])
 
 
-def tavily_extract_chars(web: Any, url: str) -> int | str:
+def tavily_extract(web: Any, url: str) -> tuple[str, str]:
+    """The text Tavily extract returned and, when it failed, the error."""
     try:
         found = web.extract(urls=[url], extract_depth="advanced", timeout=TAVILY_TIMEOUT_SECONDS)
     except Exception as exc:
-        return _error(exc)
+        return "", _error(exc)
     results = found.get("results") or []
-    return len(str(results[0].get("raw_content") or "")) if results else "not extracted"
+    return (str(results[0].get("raw_content") or ""), "") if results else ("", "not extracted")
 
 
 def _readable(value: Any) -> bool:
@@ -170,10 +190,13 @@ def run(client: Any, web: Any) -> dict[str, Any]:
         "strict_tool": check_strict_tool(client),
         "structured_output": check_structured_output(client),
         "tavily_search": tavily_search_count(web),
-        "tavily_pdf": tavily_extract_chars(web, PDF_URL),
+        "tavily_pdf": page_result(*tavily_extract(web, PDF_URL), ANY_TEXT),
         "careers": {
-            url: {"tavily": tavily_extract_chars(web, url), "anthropic": anthropic_fetch_chars(client, url)}
-            for url in CAREERS_URLS
+            url: {
+                "tavily": page_result(*tavily_extract(web, url), marker),
+                "anthropic": page_result(*anthropic_fetch(client, url), marker),
+            }
+            for url, marker in CAREERS_PAGES
         },
     }
     report["verdict"], report["reason"] = decide(report)
