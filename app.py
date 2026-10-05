@@ -1538,7 +1538,7 @@ def _confirm_delete_dialog(idx: int) -> None:
             # Remove from DB if it was persisted
             brief_id = entry.get("id")
             if brief_id:
-                db.delete_brief(brief_id)
+                db.delete_brief(brief_id, st.session_state["user_email"])
             # Remove from session state
             st.session_state.brief_history.pop(idx)
             # Adjust viewing pointer

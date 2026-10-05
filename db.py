@@ -10,8 +10,6 @@ import os
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-import streamlit as st
-
 logger = logging.getLogger(__name__)
 
 # Module-level client cache
@@ -20,14 +18,8 @@ _client_failed = False
 
 
 def _secret(key: str) -> str:
-    """Read from env vars first, then st.secrets."""
-    val = os.environ.get(key, "")
-    if not val:
-        try:
-            val = st.secrets.get(key, "")
-        except FileNotFoundError:
-            pass
-    return val
+    """Read configuration from the environment."""
+    return os.environ.get(key, "")
 
 
 def _get_client():
@@ -142,18 +134,70 @@ def save_brief(
     return saved
 
 
-def delete_brief(brief_id: str) -> bool:
-    """Delete a brief by UUID. Returns True on success."""
+def get_brief(brief_id: str, email: str) -> Optional[dict]:
+    """One brief by id, only if it belongs to this email. None otherwise."""
+    client = _get_client()
+    if client is None:
+        return None
+
+    try:
+        result = (
+            client.table("briefs")
+            .select("id, email, company, score, brief_md, created_at")
+            .eq("id", brief_id)
+            .eq("email", _normalize_email(email))
+            .limit(1)
+            .execute()
+        )
+        rows = result.data or []
+        return rows[0] if rows else None
+    except Exception as exc:
+        logger.error("Failed to fetch brief %s: %s", brief_id, exc)
+        return None
+
+
+def delete_brief(brief_id: str, email: str) -> bool:
+    """Delete a brief by UUID if it belongs to this email.
+
+    Returns True only when a row was removed, so a caller can tell "deleted"
+    from "not yours or not there".
+    """
     client = _get_client()
     if client is None:
         return False
 
     try:
-        client.table("briefs").delete().eq("id", brief_id).execute()
-        return True
+        result = (
+            client.table("briefs")
+            .delete()
+            .eq("id", brief_id)
+            .eq("email", _normalize_email(email))
+            .execute()
+        )
+        return bool(result.data)
     except Exception as exc:
         logger.error("Failed to delete brief %s: %s", brief_id, exc)
         return False
+
+
+def count_user_briefs_since(email: str, since_iso: str) -> int:
+    """How many of this user's briefs are dated at or after ``since_iso``."""
+    client = _get_client()
+    if client is None:
+        return 0
+
+    try:
+        result = (
+            client.table("briefs")
+            .select("id", count="exact")
+            .eq("email", _normalize_email(email))
+            .gte("created_at", since_iso)
+            .execute()
+        )
+        return result.count or 0
+    except Exception as exc:
+        logger.error("Failed to count briefs for %s: %s", email, exc)
+        return 0
 
 
 def replace_brief(
@@ -165,7 +209,7 @@ def replace_brief(
 ) -> Optional[dict]:
     """Delete old brief and save a new one. Returns the new record or None."""
     if old_brief_id:
-        delete_brief(old_brief_id)
+        delete_brief(old_brief_id, email)
     return save_brief(email, company, score, brief_md)
 
 

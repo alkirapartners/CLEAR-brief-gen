@@ -1,7 +1,7 @@
 """
 Slack notification dispatch for brief generation events.
 
-Reads SLACK_WEBHOOK_URL from env vars first, then st.secrets.
+Reads SLACK_WEBHOOK_URL from the environment.
 All public functions catch their own exceptions and return a safe
 default so a notification failure never affects the calling code.
 """
@@ -13,20 +13,12 @@ import urllib.error
 import urllib.request
 from datetime import datetime, timezone
 
-import streamlit as st
-
 logger = logging.getLogger(__name__)
 
 
 def _slack_webhook_url() -> str:
-    """Read SLACK_WEBHOOK_URL from env, then st.secrets. Returns '' if unset."""
-    val = os.environ.get("SLACK_WEBHOOK_URL", "")
-    if not val:
-        try:
-            val = st.secrets.get("SLACK_WEBHOOK_URL", "")
-        except FileNotFoundError:
-            val = ""
-    return val
+    """Read SLACK_WEBHOOK_URL from the environment. Returns '' if unset."""
+    return os.environ.get("SLACK_WEBHOOK_URL", "")
 
 
 def _post(url: str, payload: dict, timeout: float = 5.0) -> None:
