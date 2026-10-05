@@ -143,3 +143,13 @@ def test_notify_returns_false_on_http_error(monkeypatch):
     with patch("notifications._post", side_effect=err):
         result = notify_brief_generated("u@x.com", "Acme", 3)
     assert result is False
+
+
+def test_format_message_neutralises_slack_markup_in_the_company_and_email():
+    """The company name is typed by a partner; it must not ping a channel or forge a link."""
+    msg = _format_message("u<x>@x.com", "<!channel> Acme & <https://evil.example|Alkira>", 3)
+
+    assert "<!channel>" not in msg
+    assert "<https://evil.example|Alkira>" not in msg
+    assert "&lt;!channel&gt; Acme &amp; &lt;https://evil.example|Alkira&gt;" in msg
+    assert "u&lt;x&gt;@x.com" in msg

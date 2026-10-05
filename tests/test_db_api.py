@@ -56,18 +56,39 @@ def test_delete_brief_is_scoped_to_the_owner_and_reports_removal():
         assert db.delete_brief("b1", "other@x.com") is False
 
 
-def test_count_user_briefs_since_uses_an_exact_count():
+def _cache_client(rows):
     client = MagicMock()
-    select = client.table.return_value.select
-    select.return_value.eq.return_value.gte.return_value.execute.return_value.count = 7
-    with patch("db._get_client", return_value=client):
-        assert db.count_user_briefs_since("A@x.com", "2026-10-05T00:00:00+00:00") == 7
-    select.assert_called_once_with("id", count="exact")
-    select.return_value.eq.assert_called_once_with("email", "a@x.com")
+    (client.table.return_value.select.return_value.ilike.return_value
+     .gte.return_value.order.return_value.limit.return_value
+     .execute.return_value.data) = rows
+    return client
 
 
-def test_count_user_briefs_since_is_zero_on_error():
-    client = MagicMock()
-    client.table.side_effect = RuntimeError("down")
-    with patch("db._get_client", return_value=client):
-        assert db.count_user_briefs_since("a@x.com", "2026-10-05T00:00:00+00:00") == 0
+def _cached(company, brief_id="b1"):
+    return {"id": brief_id, "email": "other@x.com", "company": company, "score": 4,
+            "brief_md": "# b", "created_at": "2026-10-01T00:00:00Z"}
+
+
+def test_cache_lookup_never_returns_a_different_company():
+    """PostgREST reads * as a wildcard in ilike, so "Micro*" can match Microsoft.
+
+    Reuse copies the matched brief into the caller's account, so a loose match
+    would hand one partner another partner's research on a company they did
+    not ask for.
+    """
+    with patch("db._get_client", return_value=_cache_client([_cached("Microsoft")])):
+        assert db.find_recent_brief_by_company("Micro*") is None
+    with patch("db._get_client", return_value=_cache_client([_cached("Anything At All")])):
+        assert db.find_recent_brief_by_company("*") is None
+
+
+def test_cache_lookup_matches_the_same_name_ignoring_case_and_spacing():
+    row = _cached("Acme Corp")
+    with patch("db._get_client", return_value=_cache_client([row])):
+        assert db.find_recent_brief_by_company("  acme CORP ") == row
+
+
+def test_cache_lookup_finds_the_exact_name_among_looser_matches():
+    exact = _cached("E*TRADE", "exact")
+    with patch("db._get_client", return_value=_cache_client([_cached("Elite Trade", "loose"), exact])):
+        assert db.find_recent_brief_by_company("E*TRADE") == exact

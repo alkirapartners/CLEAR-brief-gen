@@ -1,12 +1,14 @@
 """In-memory stand-ins for the database and the brief generator."""
 
 import json
+import tempfile
 from datetime import datetime, timezone
 from uuid import uuid4
 
 from fastapi.testclient import TestClient
 
 from settings import Settings
+from usage_ledger import UsageLedger
 from tests.test_pdf import SAMPLE_FULL_BRIEF
 
 SAMPLE_BRIEF = SAMPLE_FULL_BRIEF
@@ -14,7 +16,7 @@ AUTH = {"X-Auth-Email": "Partner@Example.com"}
 OTHER = {"X-Auth-Email": "someone@else.com"}
 TEST_SETTINGS = Settings(
     anthropic_key="test-anthropic", tavily_key="test-tavily",
-    daily_limit=50, admins_file="/nonexistent/admins.json",
+    daily_limit=50, admins_file="/nonexistent/admins.json", usage_dir="",
 )
 
 
@@ -64,12 +66,6 @@ class FakeRepo:
         matches = [r for r in self.rows if r["company"].lower() == wanted]
         return max(matches, key=lambda r: r["created_at"]) if matches else None
 
-    def count_user_briefs_since(self, email, since_iso):
-        return len([
-            r for r in self.rows
-            if r["email"] == email.lower() and r["created_at"] >= since_iso
-        ])
-
 
 def fake_generator(api_key, tavily_key, company, status_callback,
                    timeout_seconds=180, language="en"):
@@ -79,12 +75,15 @@ def fake_generator(api_key, tavily_key, company, status_callback,
 
 
 def make_client(repo=None, generator=fake_generator, settings=TEST_SETTINGS,
-                heartbeat_seconds=15.0):
+                heartbeat_seconds=15.0, ledger=None, clock=None):
+    """A test client over a fresh app. Usage is recorded in a throwaway directory."""
     from server import create_app
     app = create_app(
         repo=repo if repo is not None else FakeRepo(),
         generator=generator, settings=settings,
         heartbeat_seconds=heartbeat_seconds,
+        ledger=ledger if ledger is not None else UsageLedger(tempfile.mkdtemp(prefix="brief-usage-")),
+        clock=clock,
     )
     return TestClient(app)
 

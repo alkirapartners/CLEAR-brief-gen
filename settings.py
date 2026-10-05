@@ -11,6 +11,8 @@ logger = logging.getLogger(__name__)
 DEFAULT_DAILY_LIMIT = 50
 # Written by the admin portal, shared between instances on EFS.
 DEFAULT_ADMINS_FILE = "/var/www/briefgen/data/admins.json"
+# In production data/ is a symlink to EFS, shared by both instances.
+DEFAULT_DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 
 
 @dataclass(frozen=True)
@@ -19,6 +21,7 @@ class Settings:
     tavily_key: str
     daily_limit: int
     admins_file: str
+    usage_dir: str
 
 
 def _daily_limit() -> int:
@@ -47,4 +50,5 @@ def load_settings() -> Settings:
         tavily_key=os.environ.get("TAVILY_API_KEY", ""),
         daily_limit=_daily_limit(),
         admins_file=os.environ.get("BRIEF_ADMINS_FILE", DEFAULT_ADMINS_FILE),
+        usage_dir=os.environ.get("BRIEF_DATA_DIR", DEFAULT_DATA_DIR),
     )

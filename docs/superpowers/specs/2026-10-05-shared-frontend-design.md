@@ -124,7 +124,7 @@ Non-stream responses use one envelope: `{"success": bool, "data": ..., "error": 
 
 - `company`: control characters and whitespace flattened, 1 to 100 characters (the radar's cap on an account name). `language`: `en` or `es`.
 - One generation in flight per user per server (in memory).
-- Daily cap per user, counted from that user's briefs dated today (UTC). `BRIEF_DAILY_LIMIT`, default 50. A reused brief is never blocked by the cap, since it costs nothing.
+- Daily cap per user, per UTC day. `BRIEF_DAILY_LIMIT`, default 50. Each paid generation (new or update) is counted in an append-only usage file in the shared data directory when it is accepted, so both servers see the same count, a failed generation still counts, and deleting or updating a brief never gives one back. A reused brief is free and never blocked. If usage cannot be read, generation is refused rather than let through uncounted.
 - Errors shown to the user are friendly and generic. The exception detail goes to the server log only. Today the page prints the raw exception.
 - The session cookie is `SameSite=Strict`, which blocks cross-site requests. Mutating routes also require a JSON content type.
 
@@ -253,7 +253,7 @@ On one instance, a second checkout of each feature branch runs on spare ports (w
 1. **Prep (additive):** add an auth-gated `location /_next/` pointing at port 3001 on both instances. Streamlit does not use that path.
 2. **Merge the brief-gen PR.** The poller installs FastAPI and restarts Streamlit, which is still what PM2 runs. The only visible change is the restyled sign-in page.
 3. **Merge the radar PR.** The poller builds the new app. Radar keeps working at `/radar`. The new home page exists but `/` still goes to Streamlit.
-4. **Switch instance A**, verify, then **instance B:** change PM2 `briefgen` to the uvicorn command and save; point `location /` at port 3001 and add `location /api/brief/` to port 8501 with a 600s read timeout; remove the Streamlit title and favicon rewrite; `nginx -t` and reload. Seconds per instance.
+4. **Switch instance A**, verify, then **instance B:** change PM2 `briefgen` to the uvicorn command with a kill timeout of 240 seconds (PM2's default of 1.6 seconds would kill a brief mid-write on every deploy) and save; point `location /` at port 3001 and add `location /api/brief/` to port 8501 with a 600s read timeout; remove the Streamlit title and favicon rewrite; `nginx -t` and reload. Seconds per instance.
 5. **Verify** in a browser: sign in, generate, open, download PDF, update, delete, Spanish, radar, prefill handoff.
 6. **Cleanup PR** once confirmed: delete `app.py`, `.streamlit/`, the `streamlit` requirement; update Dockerfile, README and SETUP.
 

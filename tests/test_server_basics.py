@@ -74,3 +74,10 @@ def test_unexpected_errors_return_a_generic_500_in_the_envelope():
     assert resp.status_code == 500
     assert resp.json() == {"success": False, "data": None, "error": GENERIC_ERROR}
     assert "hunter2" not in resp.text
+
+
+def test_a_malformed_id_gets_a_message_that_fits_any_request():
+    resp = make_client().delete("/api/brief/briefs/not-a-uuid", headers=AUTH)
+
+    assert resp.status_code == 422
+    assert "company" not in resp.json()["error"].lower()

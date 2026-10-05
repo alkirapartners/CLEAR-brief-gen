@@ -12,6 +12,9 @@ from typing import Optional
 
 logger = logging.getLogger(__name__)
 
+# How many recent rows the reuse lookup reads before picking the exact company.
+CACHE_CANDIDATES = 5
+
 # Module-level client cache
 _client = None
 _client_failed = False
@@ -180,26 +183,6 @@ def delete_brief(brief_id: str, email: str) -> bool:
         return False
 
 
-def count_user_briefs_since(email: str, since_iso: str) -> int:
-    """How many of this user's briefs are dated at or after ``since_iso``."""
-    client = _get_client()
-    if client is None:
-        return 0
-
-    try:
-        result = (
-            client.table("briefs")
-            .select("id", count="exact")
-            .eq("email", _normalize_email(email))
-            .gte("created_at", since_iso)
-            .execute()
-        )
-        return result.count or 0
-    except Exception as exc:
-        logger.error("Failed to count briefs for %s: %s", email, exc)
-        return 0
-
-
 def replace_brief(
     old_brief_id: str,
     email: str,
@@ -242,11 +225,18 @@ def find_recent_brief_by_company(
             .ilike("company", _escape_like(company.strip()))
             .gte("created_at", cutoff)
             .order("created_at", desc=True)
-            .limit(1)
+            .limit(CACHE_CANDIDATES)
             .execute()
         )
-        rows = result.data or []
-        return rows[0] if rows else None
     except Exception as exc:
         logger.error("Failed company-cache lookup for %s: %s", company, exc)
         return None
+
+    # PostgREST reads * as a wildcard in ilike, and the pattern cannot escape
+    # it. Only a row for exactly this company may be reused: reuse copies the
+    # brief into the caller's account.
+    wanted = company.strip().casefold()
+    for row in result.data or []:
+        if (row.get("company") or "").strip().casefold() == wanted:
+            return row
+    return None

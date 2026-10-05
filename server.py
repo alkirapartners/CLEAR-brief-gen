@@ -21,7 +21,7 @@ import generate
 import i18n
 import pdf
 from authdep import is_admin, require_email
-from brief_service import BriefService
+from brief_service import BriefService, Clock, _utc_now
 from brief_view import to_detail, to_summary
 from briefparse import (
     clean_brief,
@@ -32,10 +32,11 @@ from briefparse import (
 from errors import GENERIC_ERROR, UserFacingError
 from settings import Settings, load_settings
 from streaming import Work, stream_job
+from usage_ledger import UsageLedger
 
 logger = logging.getLogger(__name__)
 
-VALIDATION_ERROR = "Check the company name and language, then try again."
+VALIDATION_ERROR = "That request wasn't valid. Check it and try again."
 NOT_FOUND = "Brief not found"
 # no-transform and X-Accel-Buffering keep proxies from compressing or buffering
 # the stream, either of which would deliver every event in one lump at the end.
@@ -92,8 +93,9 @@ def _install_error_handlers(app: FastAPI) -> None:
 
 
 def _install_brief_routes(app: FastAPI, repo: Any, settings: Settings) -> None:
+    # async, so it never queues behind database calls in the worker thread pool.
     @app.get("/api/brief/health")
-    def health() -> dict:
+    async def health() -> dict:
         return ok({"status": "ok"})
 
     @app.get("/api/brief/me")
@@ -145,12 +147,14 @@ def _install_pdf_route(app: FastAPI, repo: Any) -> None:
 def _install_generation_routes(
     app: FastAPI, service: BriefService, heartbeat_seconds: float
 ) -> None:
-    def _stream(work: Work) -> StreamingResponse:
-        return StreamingResponse(
-            stream_job(work, heartbeat_seconds),
-            media_type="text/event-stream",
-            headers=STREAM_HEADERS,
-        )
+    def _stream(work: Work, email: str) -> StreamingResponse:
+        try:
+            events = stream_job(work, heartbeat_seconds)
+        except BaseException:
+            # The job never started, so it will never release the guard itself.
+            service.abandon(email)
+            raise
+        return StreamingResponse(events, media_type="text/event-stream", headers=STREAM_HEADERS)
 
     @app.post("/api/brief/briefs")
     async def generate_route(
@@ -159,7 +163,7 @@ def _install_generation_routes(
         work = await run_in_threadpool(
             service.start_generate, email, body.company, body.language
         )
-        return _stream(work)
+        return _stream(work, email)
 
     @app.post("/api/brief/briefs/{brief_id}/refresh")
     async def refresh_route(
@@ -168,7 +172,7 @@ def _install_generation_routes(
         work = await run_in_threadpool(
             service.start_refresh, email, str(brief_id), body.language
         )
-        return _stream(work)
+        return _stream(work, email)
 
 
 def create_app(
@@ -176,13 +180,16 @@ def create_app(
     generator: Callable[..., str] = generate.generate_brief,
     settings: Settings | None = None,
     heartbeat_seconds: float = 15.0,
+    ledger: UsageLedger | None = None,
+    clock: Clock | None = None,
 ) -> FastAPI:
     settings = settings or load_settings()
     if not settings.anthropic_key or not settings.tavily_key:
         logger.warning("ANTHROPIC_API_KEY or TAVILY_API_KEY missing: generation is disabled.")
 
     app = FastAPI(title="Alkira Brief API", docs_url=None, redoc_url=None, openapi_url=None)
-    service = BriefService(repo, generator, settings)
+    ledger = ledger or UsageLedger(settings.usage_dir)
+    service = BriefService(repo, generator, settings, ledger, clock or _utc_now)
     app.state.service = service
 
     _install_error_handlers(app)

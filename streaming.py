@@ -51,15 +51,21 @@ def stream_job(work: Work, heartbeat_seconds: float = 15.0) -> AsyncIterator[str
             emit({"type": "phase", "phase": phase})
 
     def runner() -> None:
+        event: dict = {"type": "error", "message": GENERIC_ERROR}
         try:
-            emit(work(on_phase))
+            event = work(on_phase)
         except UserFacingError as exc:
-            emit({"type": "error", "message": str(exc)})
+            event = {"type": "error", "message": str(exc)}
         except Exception:
             logger.exception("Brief job failed")
-            emit({"type": "error", "message": GENERIC_ERROR})
+        finally:
+            # Also reached for SystemExit and the like, which are not Exceptions.
+            # Without a terminal event the client would wait on heartbeats forever.
+            emit(event)
 
-    threading.Thread(target=runner, name="brief-job", daemon=True).start()
+    # Not a daemon: at shutdown the interpreter waits for the job, so a brief
+    # that has been paid for is still saved after its client has gone.
+    threading.Thread(target=runner, name="brief-job", daemon=False).start()
     return _events(queue, heartbeat_seconds)
 
 

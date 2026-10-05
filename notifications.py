@@ -37,6 +37,11 @@ def _post(url: str, payload: dict, timeout: float = 5.0) -> None:
             )
 
 
+def _escape_slack(text: str) -> str:
+    """Neutralise Slack's control characters, so text cannot ping a channel or forge a link."""
+    return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+
 def _format_message(email: str, company: str, score: int) -> str:
     """Return the Slack-formatted notification text for a brief generation."""
     # Alkira Fit Score is a 1-5 scale (see README).
@@ -51,9 +56,9 @@ def _format_message(email: str, company: str, score: int) -> str:
 
     return (
         f"{emoji} *New Alkira brief generated*\n"
-        f"*Company:* {company}\n"
+        f"*Company:* {_escape_slack(company)}\n"
         f"*Score:* {score}\n"
-        f"*By:* {email}\n"
+        f"*By:* {_escape_slack(email)}\n"
         f"*At:* {now_utc}"
     )
 

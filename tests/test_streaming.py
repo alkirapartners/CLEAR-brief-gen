@@ -3,6 +3,8 @@ import json
 import threading
 import time
 
+import pytest
+
 from errors import GENERIC_ERROR, UserFacingError
 from streaming import stream_job
 
@@ -98,3 +100,37 @@ def test_work_runs_even_if_the_stream_is_never_read():
 
     asyncio.run(scenario())
     assert finished.wait(2), "the job must start when the stream is created"
+
+
+@pytest.mark.filterwarnings("ignore::pytest.PytestUnhandledThreadExceptionWarning")
+def test_a_job_that_dies_abnormally_still_ends_the_stream():
+    """SystemExit is not an Exception; without a terminal event the client would spin forever."""
+    def work(on_phase):
+        on_phase("init")
+        raise SystemExit(1)
+
+    chunks = _collect(work, heartbeat_seconds=0.05)
+
+    assert _data(chunks) == [
+        {"type": "phase", "phase": "init"},
+        {"type": "error", "message": GENERIC_ERROR},
+    ]
+
+
+def test_the_job_thread_outlives_a_normal_shutdown():
+    """A daemon thread is killed at interpreter exit, losing a paid, unsaved brief."""
+    seen = {}
+    release = threading.Event()
+
+    def work(on_phase):
+        seen["daemon"] = threading.current_thread().daemon
+        release.wait(2)
+        return {"type": "done", "briefId": "b1", "reusedFrom": None}
+
+    async def scenario():
+        stream = stream_job(work, heartbeat_seconds=5)
+        release.set()
+        return [chunk async for chunk in stream]
+
+    asyncio.run(scenario())
+    assert seen["daemon"] is False
