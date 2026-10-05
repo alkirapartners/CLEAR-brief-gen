@@ -15,7 +15,7 @@ from errors import GENERIC_ERROR
 from tests.api_fakes import AUTH, FakeRepo, events, make_client
 from tests.brief_fixtures import writer_output
 from tests.llm_fakes import FakeClient, reply, text, thinking
-from tests.test_research_loop import FOUND_SOMETHING
+from tests.test_research_loop import FOUND_SOMETHING, Clock
 from tests.test_research_tools import JOB, FakeWeb
 
 TODAY = date(2026, 10, 5)
@@ -36,14 +36,37 @@ def _written(output=None, **kwargs):
     return reply(thinking(), text(json.dumps(output if output is not None else _output())), **kwargs)
 
 
-def _generate(writer=None, turns=FOUND_SOMETHING, language="en", company="Northwind"):
-    client = FakeClient(list(turns), writer=writer or _written())
+def _generate(writer=None, turns=FOUND_SOMETHING, language="en", company="Northwind", client=None, clock=None):
+    client = client or FakeClient(list(turns), writer=writer or _written())
     phases = []
     result = generate.generate_detailed(
         "anthropic-key", "tavily-key", company, phases.append,
         language=language, client=client, web=FakeWeb(), today=TODAY,
+        **({"clock": clock} if clock is not None else {}),
     )
     return result, client, phases
+
+
+# ── The writer cannot outrun the clock ───────────────────────────
+
+def test_the_writer_request_has_a_stall_limit_and_one_retry():
+    _, client, _ = _generate()
+    assert client.options[-1] == {
+        "timeout": generate.WRITER_STALL_SECONDS, "max_retries": generate.WRITER_RETRIES,
+    }
+    assert generate.WRITER_RETRIES == 1
+
+
+def test_a_writer_that_runs_past_its_deadline_is_stopped_and_its_stream_closed():
+    clock = Clock()
+
+    def slow():
+        clock.now += generate.WRITER_DEADLINE_SECONDS  # every event takes the whole allowance
+
+    client = FakeClient(list(FOUND_SOMETHING), writer=_written(), on_writer_event=slow)
+    with pytest.raises(RuntimeError, match="Writing the brief for 'Northwind' ran past"):
+        _generate(client=client, clock=clock)
+    assert client.stream.closed
 
 
 # ── What comes back ──────────────────────────────────────────────

@@ -9,7 +9,7 @@ that comes back from the web in a random fence.
 import concurrent.futures as futures
 import logging
 from dataclasses import dataclass, field, replace
-from typing import Any, Mapping, Protocol, Sequence
+from typing import Any, Callable, Mapping, Protocol, Sequence
 from urllib.parse import urlsplit
 
 from evidence import (
@@ -43,6 +43,9 @@ MAX_SOURCE_URL_CHARS = 500
 MAX_EVIDENCE_ITEMS = 150
 MAX_PARALLEL_CALLS = 6
 TAVILY_TIMEOUT_SECONDS = 30
+# With less time than this left, no web call is started. A call that had to
+# wait for a free slot is still given this long.
+MIN_WEB_TIMEOUT_SECONDS = 5
 SEARCH_DEPTH = "advanced"
 # "advanced" renders JavaScript pages (Workday careers sites) and reads PDFs.
 EXTRACT_DEPTH = "advanced"
@@ -127,6 +130,10 @@ class WebClient(Protocol):
     def extract(self, urls: list[str], **kwargs: Any) -> dict: ...
 
 
+# Seconds until web calls must be over, read when a call is about to start.
+TimeLeft = Callable[[], float]
+
+
 @dataclass(frozen=True)
 class ToolCall:
     id: str
@@ -166,6 +173,13 @@ def budget_line(ledger: Ledger, accepting: bool = True) -> str:
     searches = max(0, MAX_SEARCHES - ledger.searches)
     pages = max(0, MAX_PAGES - ledger.page_reads)
     return f"Budget left: {searches} searches, {pages} page reads."
+
+
+def web_timeout(time_left: TimeLeft | None) -> float:
+    """Seconds one web call may take: the usual limit, or less when time is short."""
+    if time_left is None:
+        return TAVILY_TIMEOUT_SECONDS
+    return max(MIN_WEB_TIMEOUT_SECONDS, min(TAVILY_TIMEOUT_SECONDS, time_left()))
 
 
 def _fenced(body: str, fence: str) -> str:
@@ -230,11 +244,11 @@ def _hit_lines(number: int, hit: Mapping[str, Any]) -> str:
     return "\n".join(lines)
 
 
-def _search(call: ToolCall, web: WebClient, fence: str) -> Outcome:
+def _search(call: ToolCall, web: WebClient, fence: str, timeout: float) -> Outcome:
     options: dict[str, Any] = {
         "max_results": RESULTS_PER_SEARCH,
         "search_depth": SEARCH_DEPTH,
-        "timeout": TAVILY_TIMEOUT_SECONDS,
+        "timeout": timeout,
     }
     site = _site(_text_input(call, "site"))
     if site:
@@ -311,11 +325,13 @@ def _page_view(url: str, content: str, find: str) -> tuple[str, str]:
     return content, f"{url} is opened. Record what it states with {RECORD}."
 
 
-def _read(call: ToolCall, web: WebClient, fence: str, texts: Mapping[str, str]) -> Outcome:
+def _read(
+    call: ToolCall, web: WebClient, fence: str, texts: Mapping[str, str], timeout: float,
+) -> Outcome:
     url, find = safe_url(_text_input(call, "url")) or "", _text_input(call, "find")
     known = texts.get(canonical_url(url))
     if known is None:
-        response = web.extract(urls=[url], extract_depth=EXTRACT_DEPTH, timeout=TAVILY_TIMEOUT_SECONDS)
+        response = web.extract(urls=[url], extract_depth=EXTRACT_DEPTH, timeout=timeout)
         results = response.get("results") or []
         content = str(results[0].get("raw_content") or "").strip() if results else ""
         if len(content) < MIN_PAGE_CHARS:
@@ -366,7 +382,10 @@ def _record(call: ToolCall, opened_before: Sequence[Page]) -> Outcome:
     return Outcome(call.id, text, evidence=marked)
 
 
-def _execute(call: ToolCall, refusal: str | None, web: WebClient, fence: str, before: Ledger) -> Outcome:
+def _execute(
+    call: ToolCall, refusal: str | None, web: WebClient, fence: str, before: Ledger,
+    time_left: TimeLeft | None,
+) -> Outcome:
     """Run one call against the ledger as it stood when the turn began."""
     if refusal is not None:
         return Outcome(call.id, refusal, is_error=True)
@@ -374,8 +393,8 @@ def _execute(call: ToolCall, refusal: str | None, web: WebClient, fence: str, be
         return _record(call, before.pages)
     try:
         if call.name == SEARCH:
-            return _search(call, web, fence)
-        return _read(call, web, fence, before.texts)
+            return _search(call, web, fence, web_timeout(time_left))
+        return _read(call, web, fence, before.texts, web_timeout(time_left))
     except Exception as exc:  # whatever the web service did, the model must get an answer
         logger.warning("%s failed: %s: %s", call.name, type(exc).__name__, exc)
         return Outcome(
@@ -410,19 +429,22 @@ def _result_block(outcome: Outcome, footer: str) -> dict[str, Any]:
 
 
 def run_calls(
-    calls: Sequence[ToolCall], ledger: Ledger, web: WebClient, fence: str, accepting: bool = True,
+    calls: Sequence[ToolCall], ledger: Ledger, web: WebClient, fence: str,
+    accepting: bool = True, time_left: TimeLeft | None = None,
 ) -> tuple[list[dict[str, Any]], Ledger]:
     """Run one turn's tool calls and return their results with the new ledger.
 
     Calls past the budget are refused without reaching the web. The rest run
     side by side, each against the ledger as it stood when the turn began.
     ``accepting`` is False once the research time is used up: searches and
-    page reads are refused, evidence is still recorded.
+    page reads are refused, evidence is still recorded. ``time_left`` gives
+    the seconds until web calls must be over: no call is given longer.
     """
+    accepting = accepting and (time_left is None or time_left() >= MIN_WEB_TIMEOUT_SECONDS)
     admitted, refusals = _admit(calls, ledger, accepting)
 
     def work(pair: tuple[ToolCall, str | None]) -> Outcome:
-        return _execute(pair[0], pair[1], web, fence, ledger)
+        return _execute(pair[0], pair[1], web, fence, ledger, time_left)
 
     with futures.ThreadPoolExecutor(max_workers=MAX_PARALLEL_CALLS) as pool:
         outcomes = list(pool.map(work, zip(calls, refusals)))

@@ -21,7 +21,7 @@ import llm
 import prompts
 from evidence import Source, build_sources, new_fence
 from research_tools import (
-    MAX_PAGES, MAX_SEARCHES, TOOLS, Ledger, ToolCall, WebClient, run_calls,
+    MAX_PAGES, MAX_SEARCHES, TAVILY_TIMEOUT_SECONDS, TOOLS, Ledger, ToolCall, WebClient, run_calls,
 )
 
 logger = logging.getLogger(__name__)
@@ -34,6 +34,17 @@ EFFORT = "medium"
 SOFT_DEADLINE_SECONDS = 200
 HARD_DEADLINE_SECONDS = 240
 BUDGET_MINUTES = HARD_DEADLINE_SECONDS // 60
+# A web call started just before the soft deadline is over by this point,
+# which leaves a model turn before the hard deadline to record what it returned.
+WEB_DEADLINE_SECONDS = SOFT_DEADLINE_SECONDS + TAVILY_TIMEOUT_SECONDS
+# One request to the model. Early in a run a stalled request is retried once,
+# and both attempts end by the hard deadline. Late in a run there is a single
+# attempt, long enough to record what was just read.
+TURN_TIMEOUT_SECONDS = 90
+TURN_RETRIES = 1
+LAST_TURN_TIMEOUT_SECONDS = 60
+# Research cannot run longer than this, whatever the model or the web does.
+RESEARCH_CEILING_SECONDS = HARD_DEADLINE_SECONDS + LAST_TURN_TIMEOUT_SECONDS
 MAX_TURNS = 40
 MAX_FAILURES_IN_A_ROW = 5
 
@@ -76,8 +87,18 @@ class ResearchResult:
     usage: llm.Usage
 
 
-def _ask(client: Any, messages: list[dict[str, Any]]) -> Any:
-    return client.beta.messages.create(
+def turn_limits(elapsed: float) -> tuple[float, int]:
+    """Seconds per attempt, and retries, for a model turn that starts now."""
+    remaining = HARD_DEADLINE_SECONDS - elapsed
+    attempts = TURN_RETRIES + 1
+    if remaining >= attempts * LAST_TURN_TIMEOUT_SECONDS:
+        return min(TURN_TIMEOUT_SECONDS, remaining / attempts), TURN_RETRIES
+    return LAST_TURN_TIMEOUT_SECONDS, 0
+
+
+def _ask(client: Any, messages: list[dict[str, Any]], elapsed: float) -> Any:
+    timeout, retries = turn_limits(elapsed)
+    return client.with_options(timeout=timeout, max_retries=retries).beta.messages.create(
         **llm.request_settings(prompts.build_research_prefix(), MAX_TOKENS),
         output_config={"effort": EFFORT},
         tools=list(TOOLS),
@@ -160,11 +181,12 @@ def research(
     ledger, usage, stopped_by = Ledger(), llm.Usage(), TURN_CAP
     cause: BaseException | None = None
     for _turn in range(MAX_TURNS):
-        if clock() - started >= HARD_DEADLINE_SECONDS:
+        elapsed = clock() - started
+        if elapsed >= HARD_DEADLINE_SECONDS:
             stopped_by = DEADLINE
             break
         try:
-            response = _ask(client, messages)
+            response = _ask(client, messages, elapsed)
         except anthropic.APIError as exc:
             logger.warning("research request failed for %s: %s: %s", company, type(exc).__name__, exc)
             stopped_by, cause = MODEL_FAILED, exc
@@ -176,7 +198,10 @@ def research(
             stopped_by = ending
             break
         accepting = clock() - started < SOFT_DEADLINE_SECONDS
-        results, ledger = run_calls(calls, ledger, web, fence, accepting)
+        results, ledger = run_calls(
+            calls, ledger, web, fence, accepting,
+            time_left=lambda: started + WEB_DEADLINE_SECONDS - clock(),
+        )
         if ledger.failures_in_a_row >= MAX_FAILURES_IN_A_ROW:
             stopped_by = WEB_FAILED
             break

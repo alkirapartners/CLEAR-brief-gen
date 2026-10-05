@@ -238,3 +238,55 @@ def test_a_cut_off_reply_ends_research_without_running_its_tool_calls():
 def test_only_abnormal_stops_are_worded_for_the_writer():
     assert set(research_loop.EARLY_STOPS) == {"deadline", "turn_cap", "truncated", "web_failed", "model_failed"}
     assert "finished" not in research_loop.EARLY_STOPS and "budget" not in research_loop.EARLY_STOPS
+
+
+# ── No single request can outrun the clock ───────────────────────
+
+@pytest.mark.parametrize("elapsed, timeout, retries", [
+    (0, 90, 1),      # early: the usual limit and one retry
+    (100, 70, 1),    # both attempts end by the hard deadline
+    (120, 60, 1),
+    (121, 60, 0),    # late: one attempt, long enough to record what was read
+    (239, 60, 0),
+])
+def test_a_turn_is_given_a_time_limit_that_ends_the_run_on_time(elapsed, timeout, retries):
+    assert research_loop.turn_limits(elapsed) == (timeout, retries)
+
+
+def test_no_turn_can_end_later_than_the_research_ceiling():
+    for elapsed in range(0, research_loop.HARD_DEADLINE_SECONDS):
+        timeout, retries = research_loop.turn_limits(elapsed)
+        assert elapsed + timeout * (retries + 1) <= research_loop.RESEARCH_CEILING_SECONDS
+
+
+def test_every_research_request_is_sent_with_its_own_time_limit():
+    clock = Clock()
+
+    def tick(request_number):
+        clock.now += 70  # each request takes 70 seconds
+
+    _, client, _ = _run(clock=clock, on_request=tick)
+    assert client.options == [
+        {"timeout": 90, "max_retries": 1},
+        {"timeout": 85, "max_retries": 1},
+        {"timeout": 60, "max_retries": 0},
+        {"timeout": 60, "max_retries": 0},
+    ]
+
+
+def test_pages_read_just_before_the_web_closes_are_still_recorded():
+    """A read issued at the last moment is over in time for the turn that records it."""
+    clock, web = Clock(), FakeWeb()
+
+    def tick(request_number):
+        if request_number == 1:  # the reply asking for the page arrives a second before the web closes
+            clock.now += research_loop.SOFT_DEADLINE_SECONDS - 1
+
+    def slow_web(timeout):
+        clock.now += timeout  # the page takes as long as it is allowed
+
+    web.on_call = slow_web
+    result, client, _ = _run([READ, RECORD], web=web, clock=clock, on_request=tick)
+    assert web.extracts[0][1]["timeout"] <= tools.TAVILY_TIMEOUT_SECONDS
+    assert len(result.sources) == 1 and result.stopped_by == "finished"
+    assert result.seconds < research_loop.HARD_DEADLINE_SECONDS

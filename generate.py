@@ -27,10 +27,16 @@ logger = logging.getLogger(__name__)
 
 MAX_TOKENS = 16000
 EFFORT = "medium"
+# The writer streams, so the client's time limit bounds a silence on the
+# stream, not the whole reply. The deadline bounds the whole reply.
+WRITER_STALL_SECONDS = 120
+WRITER_RETRIES = 1
+WRITER_DEADLINE_SECONDS = 180
 ERROR_PREFIX_CHARS = 200
 ERROR_DETAIL_CHARS = 500
 
 StatusCallback = Callable[[str], None]
+Clock = Callable[[], float]
 
 
 @dataclass(frozen=True)
@@ -53,7 +59,7 @@ def _starts_text(event: Any) -> bool:
 
 def _write(
     client: Any, company: str, found: research_loop.ResearchResult,
-    today: date, language: str, status_callback: StatusCallback,
+    today: date, language: str, status_callback: StatusCallback, clock: Clock,
 ) -> Any:
     """The judge-and-write call. Reports "analyze" while it thinks, "compose" once it writes."""
     status_callback("analyze")
@@ -61,8 +67,9 @@ def _write(
         company, evidence.format_payload(found.sources), today, language,
         research_loop.EARLY_STOPS.get(found.stopped_by, ""),
     )
-    composing = False
-    with client.beta.messages.stream(
+    composing, started = False, clock()
+    bounded = client.with_options(timeout=WRITER_STALL_SECONDS, max_retries=WRITER_RETRIES)
+    with bounded.beta.messages.stream(
         **llm.request_settings(prompts.build_writer_prefix(), MAX_TOKENS),
         output_config={
             "effort": EFFORT,
@@ -71,6 +78,11 @@ def _write(
         messages=[{"role": "user", "content": content}],
     ) as stream:
         for event in stream:
+            if clock() - started > WRITER_DEADLINE_SECONDS:
+                # Leaving the block closes the stream, so nothing more is billed.
+                raise RuntimeError(
+                    f"Writing the brief for {company!r} ran past {WRITER_DEADLINE_SECONDS} seconds."
+                )
             if not composing and _starts_text(event):
                 composing = True
                 status_callback("compose")
@@ -133,14 +145,15 @@ def generate_detailed(
     client: Any = None,
     web: WebClient | None = None,
     today: date | None = None,
+    clock: Clock = time.monotonic,
 ) -> Generation:
     """Research the company and write its brief. Returns the brief with its cost.
 
     ``language`` sets the prose language of the brief. Research always runs
-    in English. ``client`` and ``web`` are for tests; production builds them
-    from the keys.
+    in English. ``client``, ``web`` and ``clock`` are for tests; production
+    builds the first two from the keys.
     """
-    started = time.monotonic()
+    started = clock()
     status_callback("init")
     if web is None and not tavily_key:
         raise research_loop.ResearchError("TAVILY_API_KEY is not configured.")
@@ -148,12 +161,12 @@ def generate_detailed(
     web = web or TavilyClient(api_key=tavily_key)
     day = today or date.today()
 
-    found = research_loop.research(company, status_callback, client, web, today=day)
-    message = _write(client, company, found, day, language, status_callback)
+    found = research_loop.research(company, status_callback, client, web, clock=clock, today=day)
+    message = _write(client, company, found, day, language, status_callback, clock)
     doc = _document(company, message, found, day, language)
 
     usage = llm.combine(found.usage, llm.add_usage(llm.Usage(), message.usage))
-    seconds = time.monotonic() - started
+    seconds = clock() - started
     cost = llm.token_cost(usage) + llm.web_cost(found.searches, found.pages_opened)
     logger.info(
         "brief=%s lang=%s score=%d angles=%d requests=%d cache_read=%d cache_write=%d "

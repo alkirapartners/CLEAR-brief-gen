@@ -45,17 +45,22 @@ def reply(*blocks, stop_reason=None, stop_details=None, used=None):
 class FakeStream:
     """What ``client.beta.messages.stream(...)`` returns: events, then a message."""
 
-    def __init__(self, message, events):
-        self.message, self.events = message, events
+    def __init__(self, message, events, on_event=None):
+        self.message, self.events, self.on_event = message, events, on_event
+        self.closed = False
 
     def __enter__(self):
         return self
 
     def __exit__(self, *exc_info):
+        self.closed = True
         return False
 
     def __iter__(self):
-        return iter(self.events)
+        for event in self.events:
+            if self.on_event is not None:
+                self.on_event()
+            yield event
 
     def get_final_message(self):
         return self.message
@@ -70,19 +75,28 @@ class FakeClient:
 
     ``turns`` are returned one per research request; when they run out,
     ``then`` is returned for every further request. A turn that is an
-    exception is raised instead. ``on_request`` is called
-    before each research request with its number, so a test can move a clock.
+    exception is raised instead. ``on_request`` is called before each
+    research request with its number, and ``on_writer_event`` before each
+    event of the writer's stream, so a test can move a clock.
     """
 
-    def __init__(self, turns=(), then=None, writer=None, on_request=None):
+    def __init__(self, turns=(), then=None, writer=None, on_request=None, on_writer_event=None):
         self.turns = list(turns)
         self.then = then or reply(text("Research complete."))
         self.writer = writer
         self.on_request = on_request
+        self.on_writer_event = on_writer_event
+        self.stream = None
         self.requests, self.writer_requests = [], []
+        # What each ``with_options`` call asked for, in order: one per request.
+        self.options = []
         self.beta = SimpleNamespace(
             messages=SimpleNamespace(create=self._create, stream=self._stream)
         )
+
+    def with_options(self, **options):
+        self.options.append(options)
+        return self
 
     def _create(self, **kwargs):
         self.requests.append(kwargs)
@@ -96,4 +110,5 @@ class FakeClient:
     def _stream(self, **kwargs):
         self.writer_requests.append(kwargs)
         events = [block_start(block.type) for block in self.writer.content]
-        return FakeStream(self.writer, events)
+        self.stream = FakeStream(self.writer, events, self.on_writer_event)
+        return self.stream
