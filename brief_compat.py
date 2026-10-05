@@ -20,7 +20,6 @@ from brief_doc import Angle, BriefDoc, EvidenceLine, Person, Question, SnapshotL
 SNIPPET_CHARS = 120
 Labels = dict[str, str]
 _ENDS_A_SENTENCE = (".", "!", "?")
-_WORD_OR_NUMBER = re.compile(r"[^\W\d_]+|\d+")
 
 
 def cite(sources: list[int]) -> str:
@@ -28,10 +27,38 @@ def cite(sources: list[int]) -> str:
     return "".join(f" [{number}]" for number in sources)
 
 
-def evidence_text(line: EvidenceLine, labels: Labels) -> str:
-    """An evidence line with its date, or with the word that says it has none."""
-    dated = line["date"].strip() or labels["undated"]
-    return f"{line['text']} ({dated}){cite(line['sources'])}"
+# A sentence that carries its own date or period: a year, a quarter, a half,
+# a fiscal year, a month. Its source's date is then left off, because
+# "in the first quarter of 2026 (31 Dec 2025)" reads as a contradiction.
+_OWN_PERIOD = re.compile(
+    r"\b(?:19|20)\d{2}\b|\bFY\s?\d{2,4}\b|\b[QH][1-4]\b"
+    r"|\b(?:first|second|third|fourth|last|next|this)\s+(?:quarter|half|year)\b|\byear[- ]end\b"
+    r"|\b(?:primer|segundo|tercer|cuarto|[uú]ltimo|pr[oó]ximo|este)\s+(?:trimestre|semestre|a[nñ]o)\b"
+    r"|\b(?:january|february|march|april|june|july|august|september|october|november|december)\b"
+    r"|\b(?:enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)\b",
+    re.IGNORECASE,
+)
+
+
+def source_date_note(line: EvidenceLine, labels: Labels, language: str | None) -> str:
+    """What to say about when a line's source is dated, or "" when the line dates itself.
+
+    "source dated 31 Dec 2025" when the source gives a date, so it is never
+    read as the date of what the line describes.
+    """
+    if _OWN_PERIOD.search(line["text"]):
+        return ""
+    when = i18n.readable_date(line["date"], language)
+    return labels["source_dated"].format(date=when) if when else ""
+
+
+def evidence_text(line: EvidenceLine, labels: Labels, language: str | None = None) -> str:
+    """An evidence line for the PDF and the text: its source's date, then its citations.
+
+    A line whose source gives no date says so.
+    """
+    note = source_date_note(line, labels, language) if line["date"].strip() else labels["undated"]
+    return f"{line['text']}{f' ({note})' if note else ''}{cite(line['sources'])}"
 
 
 def snapshot_text(line: SnapshotLine, labels: Labels) -> str:
@@ -126,27 +153,11 @@ def _sentence(text: str) -> str:
     return clean if not clean or clean.endswith(_ENDS_A_SENTENCE) else f"{clean}."
 
 
-def _already_says(text: str, stored_date: str, language: str) -> bool:
-    """True when the sentence itself gives the date: its year, its month and its day."""
-    year, _, rest = stored_date.partition("-")
-    month, _, day = rest.partition("-")
-    words = {word.casefold() for word in _WORD_OR_NUMBER.findall(text)}
-    if year not in words:
-        return False
-    if month and not any(
-        word.startswith(names[int(month) - 1].casefold()) for names in i18n.SHORT_MONTHS.values() for word in words
-    ):
-        return False
-    return not day or str(int(day)) in words
-
-
-def _page_sentence(line: EvidenceLine, language: str) -> str:
-    """An evidence line as the page shows it: one sentence, its date in words at the end."""
-    when = i18n.readable_date(line["date"], language)
+def _page_sentence(line: EvidenceLine, labels: Labels, language: str) -> str:
+    """An evidence line as the page shows it: one sentence, then when its source is dated."""
+    note = source_date_note(line, labels, language)
     text = line["text"].strip()
-    if not when or _already_says(text, line["date"].strip(), language):
-        return _sentence(text)
-    return f"{text.rstrip('.')} ({when})."
+    return f"{text.rstrip('.')} ({note})." if note else _sentence(text)
 
 
 def _trigger(angle: Angle) -> EvidenceLine | None:
@@ -155,13 +166,13 @@ def _trigger(angle: Angle) -> EvidenceLine | None:
     return next((line for line in lines if line["date"].strip()), lines[0] if lines else None)
 
 
-def signals(doc: BriefDoc) -> list[str]:
+def signals(doc: BriefDoc, labels: Labels) -> list[str]:
     """One dated fact per angle, each said once on the page."""
     triggers = [_trigger(angle) for angle in doc["angles"]]
-    return [_page_sentence(line, doc["language"]) for line in triggers if line is not None]
+    return [_page_sentence(line, labels, doc["language"]) for line in triggers if line is not None]
 
 
-def entry_points(doc: BriefDoc) -> list[dict[str, str]]:
+def entry_points(doc: BriefDoc, labels: Labels) -> list[dict[str, str]]:
     """One entry point per angle: as many as the brief has, never padded.
 
     The signal is the angle's evidence other than the fact already shown
@@ -174,7 +185,7 @@ def entry_points(doc: BriefDoc) -> list[dict[str, str]]:
         rest = [line for line in angle["evidence"] if line is not trigger]
         points.append({
             "heading": angle["title"],
-            "signal": " ".join(_page_sentence(line, doc["language"]) for line in rest),
+            "signal": " ".join(_page_sentence(line, labels, doc["language"]) for line in rest),
             "solution": angle["alkira"],
             "proof": proof_text(angle["story"]),
         })

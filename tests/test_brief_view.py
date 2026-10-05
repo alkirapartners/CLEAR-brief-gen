@@ -1,5 +1,7 @@
 """A JSON brief must fill every field the current front end reads."""
 
+import pytest
+
 import brief_view
 import i18n
 from tests.api_fakes import AUTH, FakeRepo, make_client
@@ -129,8 +131,8 @@ def _three_line_angle():
 def test_signals_and_timing_carries_one_dated_fact_per_angle_with_the_date_in_words():
     data = _detail(angles=[_three_line_angle(), make_doc()["angles"][1]])
     assert data["signals"] == [
-        "The same posting asks for ExpressRoute and BGP (Sep 23, 2026).",
-        "The annual report describes separating the lubricants business (Feb 20, 2026).",
+        "The same posting asks for ExpressRoute and BGP (source dated 23 Sep 2026).",
+        "The annual report describes separating the lubricants business (source dated 20 Feb 2026).",
     ]
 
 
@@ -138,7 +140,7 @@ def test_the_entry_point_signal_holds_the_rest_of_the_evidence_and_never_repeats
     point = _detail(angles=[_three_line_angle()])["entryPoints"][0]
     assert point["heading"] == "Hand-built Azure network"
     assert point["signal"] == (
-        "A posting lists a Virtual WAN hub-and-spoke. The annual report describes a cloud migration (Feb 2026)."
+        "A posting lists a Virtual WAN hub-and-spoke. The annual report describes a cloud migration (source dated Feb 2026)."
     )
     assert point["solution"].startswith("Alkira replaces hand-built hubs")
     assert point["proof"].startswith("Koch Industries: Significant reduction")
@@ -146,7 +148,7 @@ def test_the_entry_point_signal_holds_the_rest_of_the_evidence_and_never_repeats
 
 def test_an_angle_with_a_single_fact_shows_it_once_under_signals_and_timing():
     data = _detail()
-    assert data["signals"][0] == "A network engineer posting lists ExpressRoute and a Virtual WAN hub-and-spoke (Sep 23, 2026)."
+    assert data["signals"][0] == "A network engineer posting lists ExpressRoute and a Virtual WAN hub-and-spoke (source dated 23 Sep 2026)."
     assert [point["signal"] for point in data["entryPoints"]] == ["", ""]
 
 
@@ -156,18 +158,25 @@ def test_no_citation_marker_or_undated_marker_reaches_the_page_text():
     assert "[1]" not in shown and "[2]" not in shown and "undated" not in shown
 
 
-def test_a_date_the_sentence_already_gives_is_not_said_twice():
+@pytest.mark.parametrize("text", [
+    "On September 23, 2026 the company posted a role asking for ExpressRoute.",
+    "It completed the acquisition for $38 million in the first quarter of 2026.",
+    "The FY2025 filing describes a cloud migration.",
+    "The deal closed in Q3.",
+    "Sites will close in the second half of next year.",
+    "The role was posted in March.",
+], ids=["full-date", "quarter", "fiscal-year", "q3", "half", "month"])
+def test_a_line_that_states_its_own_date_or_period_is_not_given_its_source_s_date(text):
+    """ "first quarter of 2026 (Dec 31, 2025)" reads as a contradiction. The line's own period stands."""
     angle = _three_line_angle()
-    angle["evidence"][1]["text"] = "On September 23, 2026 the company posted a role asking for ExpressRoute."
-    assert _detail(angles=[angle])["signals"] == [
-        "On September 23, 2026 the company posted a role asking for ExpressRoute.",
-    ]
+    angle["evidence"][1]["text"] = text
+    assert _detail(angles=[angle])["signals"] == [text]
 
 
 def test_dates_are_written_the_spanish_way_in_a_spanish_brief():
     data = _detail(angles=[_three_line_angle()], language="es")
-    assert data["signals"] == ["The same posting asks for ExpressRoute and BGP (23 sep 2026)."]
-    assert data["entryPoints"][0]["signal"].endswith("(feb 2026).")
+    assert data["signals"] == ["The same posting asks for ExpressRoute and BGP (fuente con fecha 23 sep 2026)."]
+    assert data["entryPoints"][0]["signal"].endswith("(fuente con fecha feb 2026).")
 
 
 def test_starters_hold_people_the_first_question_pointer_and_the_questions():
@@ -235,7 +244,19 @@ def test_a_reference_that_is_not_first_hand_says_so():
 def test_an_evidence_line_with_no_date_still_says_so_in_the_text_and_pdf_renderings():
     import brief_compat
     line = {"text": "A posting lists ExpressRoute.", "date": "", "sources": [1]}
-    assert brief_compat.evidence_text(line, i18n.LABELS["en"]) == "A posting lists ExpressRoute. (undated) [1]"
+    assert brief_compat.evidence_text(line, i18n.LABELS["en"]) == "A posting lists ExpressRoute. (source undated) [1]"
+
+
+def test_the_text_and_pdf_renderings_date_a_line_the_same_way_the_page_does():
+    import brief_compat
+    en = i18n.LABELS["en"]
+    plain = {"text": "A posting lists ExpressRoute.", "date": "2025-12-31", "sources": [3]}
+    own = {"text": "It closed the deal in the first quarter of 2026.", "date": "2025-12-31", "sources": [3]}
+    assert brief_compat.evidence_text(plain, en) == "A posting lists ExpressRoute. (source dated 31 Dec 2025) [3]"
+    assert brief_compat.evidence_text(own, en) == "It closed the deal in the first quarter of 2026. [3]"
+    assert brief_compat.evidence_text(plain, i18n.LABELS["es"], "es") == (
+        "A posting lists ExpressRoute. (fuente con fecha 31 dic 2025) [3]"
+    )
 
 
 # ── Briefs with fewer angles are not padded ──────────────────────

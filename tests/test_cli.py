@@ -52,7 +52,7 @@ def test_the_text_shows_every_part_of_the_brief():
         "Lead with: Open with the Azure hub build",
         "## Why this account, why now",
         "### 1. Hand-built Azure network (multi_cloud)",
-        "- A network engineer posting lists ExpressRoute and a Virtual WAN hub-and-spoke. (2026-09-23) [1]",
+        "- A network engineer posting lists ExpressRoute and a Virtual WAN hub-and-spoke. (source dated 23 Sep 2026) [1]",
         "Customer story: Koch Industries: Significant reduction",
         "## Technical snapshot",
         "- Data centers: Not found",

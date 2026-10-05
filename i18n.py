@@ -71,7 +71,8 @@ LABELS: dict[str, dict[str, str]] = {
         "raise_score": "What would raise the score",
         "source_second_hand": "second-hand",
         "source_last_resort": "last-resort source",
-        "undated": "undated",
+        "undated": "source undated",
+        "source_dated": "source dated {date}",
         # What the code says about a score it had to lower, in place of the writer's verdict.
         "verdict_2": "No use case with evidence that stands.",
         "verdict_3": "A use case without current first-hand evidence.",
@@ -140,7 +141,8 @@ LABELS: dict[str, dict[str, str]] = {
         "raise_score": "Qué subiría la puntuación",
         "source_second_hand": "fuente indirecta",
         "source_last_resort": "fuente de último recurso",
-        "undated": "sin fecha",
+        "undated": "fuente sin fecha",
+        "source_dated": "fuente con fecha {date}",
         "verdict_2": "Ningún caso de uso con evidencia que se sostenga.",
         "verdict_3": "Un caso de uso sin evidencia de primera mano reciente.",
         "verdict_4": "Un caso de uso con evidencia de primera mano reciente.",
@@ -190,10 +192,9 @@ def labels(language: str | None) -> dict[str, str]:
 
 
 def readable_date(stored: str, language: str | None) -> str:
-    """A stored date as people write it: "Sep 23, 2026", "Sep 2026" or "2026".
+    """A stored date as people write it: "23 Sep 2026", "Sep 2026" or "2026".
 
-    Spanish puts the day first: "23 sep 2026". Text that is not a stored
-    date (YYYY, YYYY-MM or YYYY-MM-DD) gives "".
+    Text that is not a stored date (YYYY, YYYY-MM or YYYY-MM-DD) gives "".
     """
     match = _STORED_DATE.match(stored.strip())
     if match is None:
@@ -203,11 +204,8 @@ def readable_date(stored: str, language: str | None) -> str:
         return ""
     if month == 0:
         return year
-    code = normalize(language)
-    name = SHORT_MONTHS[code][month - 1]
-    if day == 0:
-        return f"{name} {year}"
-    return f"{day} {name} {year}" if code == "es" else f"{name} {day}, {year}"
+    name = SHORT_MONTHS[normalize(language)][month - 1]
+    return f"{day} {name} {year}" if day else f"{name} {year}"
 
 
 def format_period(when: date, language: str | None) -> str:
