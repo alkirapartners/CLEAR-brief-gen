@@ -14,6 +14,7 @@ from urllib.parse import urlsplit
 
 from evidence import (
     CATEGORIES, EvidenceItem, Page, canonical_url, is_fetchable_url, mark_opened, one_line,
+    safe_url,
 )
 
 logger = logging.getLogger(__name__)
@@ -38,6 +39,7 @@ MAX_QUERY_CHARS = 400
 MAX_FACT_CHARS = 500
 MAX_TITLE_CHARS = 160
 MAX_DATE_CHARS = 20
+MAX_SOURCE_URL_CHARS = 500
 MAX_EVIDENCE_ITEMS = 150
 MAX_PARALLEL_CALLS = 6
 TAVILY_TIMEOUT_SECONDS = 30
@@ -240,7 +242,8 @@ def _search(call: ToolCall, web: WebClient, fence: str) -> Outcome:
     if call.input.get("recent_news") is True:
         options.update(topic="news", time_range="year")
     response = web.search(_text_input(call, "query")[:MAX_QUERY_CHARS], **options)
-    hits = [hit for hit in response.get("results") or [] if is_fetchable_url(str(hit.get("url") or ""))]
+    found = [{**hit, "url": safe_url(str(hit.get("url") or ""))} for hit in response.get("results") or []]
+    hits = [hit for hit in found if hit["url"] is not None]
     if not hits:
         return Outcome(call.id, "No results. Try other words, or drop the site filter.", web_failed=False)
     body = "\n".join(_hit_lines(number, hit) for number, hit in enumerate(hits, start=1))
@@ -282,7 +285,7 @@ def _page_view(url: str, content: str, find: str) -> tuple[str, str]:
 
 
 def _read(call: ToolCall, web: WebClient, fence: str, texts: Mapping[str, str]) -> Outcome:
-    url, find = _text_input(call, "url"), _text_input(call, "find")
+    url, find = safe_url(_text_input(call, "url")) or "", _text_input(call, "find")
     known = texts.get(canonical_url(url))
     if known is None:
         response = web.extract(urls=[url], extract_depth=EXTRACT_DEPTH, timeout=TAVILY_TIMEOUT_SECONDS)
@@ -315,7 +318,7 @@ def _evidence_item(raw: Any) -> EvidenceItem | None:
     return EvidenceItem(
         fact=one_line(fact)[:MAX_FACT_CHARS],
         category=raw["category"],
-        source_url=url.strip(),
+        source_url=one_line(url)[:MAX_SOURCE_URL_CHARS],
         source_title=one_line(str(raw.get("source_title") or ""))[:MAX_TITLE_CHARS],
         source_date=one_line(str(raw.get("source_date") or ""))[:MAX_DATE_CHARS],
     )

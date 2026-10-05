@@ -5,11 +5,11 @@ Search-result summaries merge companies and invent names, so a fact whose
 page was never opened is discarded here, in code.
 """
 
-import ipaddress
+import re
 import secrets
 from dataclasses import dataclass, replace
 from typing import Iterable, Sequence
-from urllib.parse import parse_qsl, urlencode, urlsplit
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from brief_doc import Reference
 
@@ -28,6 +28,11 @@ DATA_BROKER_DOMAINS: tuple[str, ...] = (
     "cbinsights.com", "pitchbook.com", "crunchbase.com", "signalhire.com",
     "lusha.com", "contactout.com", "theorg.com", "enlyft.com", "hgdata.com",
 )
+MAX_URL_CHARS = 2000
+# A public host ends in a real top-level domain. This refuses every numeric
+# spelling of an address (10.0.0.5, 127.1, 0x7f.1) along with bare names.
+_TOP_LEVEL_DOMAIN = re.compile(r"^(?:[a-z]{2,}|xn--[a-z0-9-]+)$")
+_INTERNAL_SUFFIXES = (".local", ".internal", ".localhost", ".lan", ".corp", ".home", ".intranet")
 _TRACKING_PREFIXES = ("utm_",)
 _TRACKING_PARAMS = frozenset({"gclid", "fbclid", "msclkid", "mc_cid", "mc_eid"})
 
@@ -92,17 +97,41 @@ def canonical_url(url: str) -> str:
     return f"{_host(url)}{path}{suffix}"
 
 
+def _is_public_host(host: str) -> bool:
+    labels = host.split(".")
+    if len(labels) < 2 or not all(labels) or not _TOP_LEVEL_DOMAIN.match(labels[-1]):
+        return False
+    return not host.endswith(_INTERNAL_SUFFIXES)
+
+
+def safe_url(url: str) -> str | None:
+    """The address rebuilt from its parts, or None when it is not a public web page.
+
+    A URL chosen by the model or found on a page is never kept as written:
+    credentials and the fragment are dropped, the host is lower-cased, and
+    anything with spaces, control characters, a numeric or internal host, or
+    a scheme other than http(s) is refused.
+    """
+    text = url.strip()
+    if not text or len(text) > MAX_URL_CHARS:
+        return None
+    if any(ch.isspace() or not ch.isprintable() for ch in text):
+        return None
+    try:
+        parts = urlsplit(text)
+        host = (parts.hostname or "").rstrip(".").lower()
+        port = parts.port
+    except ValueError:
+        return None
+    if parts.scheme.lower() not in ("http", "https") or not _is_public_host(host):
+        return None
+    netloc = host if port is None else f"{host}:{port}"
+    return urlunsplit((parts.scheme.lower(), netloc, parts.path, parts.query, ""))
+
+
 def is_fetchable_url(url: str) -> bool:
     """A public http(s) address: a named host, never an IP or a local name."""
-    parts = urlsplit(url.strip())
-    host = parts.hostname or ""
-    if parts.scheme not in ("http", "https") or "." not in host:
-        return False
-    try:
-        ipaddress.ip_address(host)
-    except ValueError:
-        return not host.endswith((".local", ".internal", ".localhost"))
-    return False
+    return safe_url(url) is not None
 
 
 def is_data_broker(url: str) -> bool:
@@ -167,7 +196,7 @@ def _source_block(source: Source, tag: str) -> str:
     dated = f"\nDate: {source.date}" if source.date else ""
     facts = "\n".join(f"- [{fact.category}] {one_line(fact.fact)}" for fact in source.facts)
     return (
-        f"<source-{tag}>\n[{source.n}] {source.title}{broker}\nURL: {source.url}{dated}\n"
+        f"<source-{tag}>\n[{source.n}] {source.title}{broker}\nURL: {one_line(source.url)}{dated}\n"
         f"{facts}\n</source-{tag}>"
     )
 
