@@ -1,7 +1,7 @@
 """Output language for briefs: visible labels and month names.
 
 Only the *visible* chrome lives here. The markdown headings the model
-emits stay English in every language, because ``app.py``'s regex
+emits stay English in every language, because ``briefparse.py``'s regex
 extractors match them literally and neither renderer ever displays them --
 both the PDF and the web tiles print their own labels from this table.
 Translating a heading would blank a section; translating a label here
@@ -85,7 +85,7 @@ def format_period(when: date, language: str | None) -> str:
     """Month and year in the brief's language, e.g. 'Agosto 2026'.
 
     Deliberately table-driven rather than locale-driven: ``locale.setlocale``
-    is process-wide and not thread-safe, and Streamlit serves every session
+    is process-wide and not thread-safe, and the API serves every request
     from the same process.
     """
     if normalize(language) == "es":

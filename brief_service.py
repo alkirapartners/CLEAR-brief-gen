@@ -1,6 +1,6 @@
 """The rules for producing a brief: reuse, generate, save, refresh.
 
-Lifted from the Streamlit page's main(). Each start_* method does every
+Each start_* method does every
 check that can fail fast (in flight, not found, daily cap, configuration)
 and returns the blocking job to run; the job saves the brief itself.
 """

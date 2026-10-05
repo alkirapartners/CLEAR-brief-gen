@@ -1,7 +1,5 @@
 """Tests for Slack notifications module."""
 
-import sys
-import types
 
 import pytest
 
@@ -62,17 +60,6 @@ def test_slack_webhook_url_reads_from_env(monkeypatch):
 
 def test_slack_webhook_url_returns_empty_when_unset(monkeypatch):
     monkeypatch.delenv("SLACK_WEBHOOK_URL", raising=False)
-    assert _slack_webhook_url() == ""
-
-
-def test_slack_webhook_url_ignores_streamlit_secrets(monkeypatch):
-    # The st.secrets fallback was removed with the Streamlit import: the
-    # webhook now comes from the environment only.
-    monkeypatch.delenv("SLACK_WEBHOOK_URL", raising=False)
-    fake_streamlit = types.SimpleNamespace(
-        secrets={"SLACK_WEBHOOK_URL": "https://hooks.slack.com/from-secrets"}
-    )
-    monkeypatch.setitem(sys.modules, "streamlit", fake_streamlit)
     assert _slack_webhook_url() == ""
 
 
