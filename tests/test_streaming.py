@@ -78,3 +78,23 @@ def test_work_finishes_after_consumer_stops():
     asyncio.run(scenario())
     release.set()
     assert finished.wait(2), "the job must run to completion after the client leaves"
+
+
+def test_work_runs_even_if_the_stream_is_never_read():
+    """A client that drops before the first byte must not leave the job unstarted.
+
+    The job releases the per-user in-flight guard when it finishes, so a job
+    that never starts would lock that user out until the process restarts.
+    """
+    finished = threading.Event()
+
+    def work(on_phase):
+        finished.set()
+        return {"type": "done", "briefId": "b1", "reusedFrom": None}
+
+    async def scenario():
+        stream_job(work, heartbeat_seconds=5)  # created, never iterated
+        await asyncio.sleep(0)
+
+    asyncio.run(scenario())
+    assert finished.wait(2), "the job must start when the stream is created"

@@ -24,6 +24,8 @@ def test_generate_streams_phases_then_done_and_saves_once():
     assert resp.status_code == 200
     assert resp.headers["content-type"].startswith("text/event-stream")
     assert resp.headers["x-accel-buffering"] == "no"
+    # no-transform stops any proxy in between from compressing, and so buffering, the stream.
+    assert "no-transform" in resp.headers["cache-control"]
     got = events(resp)
     assert [e.get("phase") for e in got[:-1]] == ["init", "research", "analyze", "compose"]
     assert got[-1]["type"] == "done" and got[-1]["reusedFrom"] is None

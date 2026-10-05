@@ -37,7 +37,9 @@ logger = logging.getLogger(__name__)
 
 VALIDATION_ERROR = "Check the company name and language, then try again."
 NOT_FOUND = "Brief not found"
-STREAM_HEADERS = {"Cache-Control": "no-cache", "X-Accel-Buffering": "no"}
+# no-transform and X-Accel-Buffering keep proxies from compressing or buffering
+# the stream, either of which would deliver every event in one lump at the end.
+STREAM_HEADERS = {"Cache-Control": "no-cache, no-transform", "X-Accel-Buffering": "no"}
 
 
 def ok(data: Any) -> dict:

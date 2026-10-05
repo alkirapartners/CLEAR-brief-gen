@@ -27,7 +27,14 @@ def _frame(event: dict) -> str:
     return f"data: {json.dumps(event)}\n\n"
 
 
-async def stream_job(work: Work, heartbeat_seconds: float = 15.0) -> AsyncIterator[str]:
+def stream_job(work: Work, heartbeat_seconds: float = 15.0) -> AsyncIterator[str]:
+    """Start the job now and return its event stream.
+
+    Must be called from inside a running event loop. The job thread starts
+    here, not on the stream's first iteration: the job releases its caller's
+    in-flight guard when it ends, so it has to run even if the client drops
+    before a single byte of the response is read.
+    """
     loop = asyncio.get_running_loop()
     queue: asyncio.Queue[dict] = asyncio.Queue()
 
@@ -53,7 +60,11 @@ async def stream_job(work: Work, heartbeat_seconds: float = 15.0) -> AsyncIterat
             emit({"type": "error", "message": GENERIC_ERROR})
 
     threading.Thread(target=runner, name="brief-job", daemon=True).start()
+    return _events(queue, heartbeat_seconds)
 
+
+async def _events(queue: "asyncio.Queue[dict]", heartbeat_seconds: float) -> AsyncIterator[str]:
+    """Yield queued events as SSE frames, with a heartbeat through any silence."""
     while True:
         try:
             event = await asyncio.wait_for(queue.get(), timeout=heartbeat_seconds)
