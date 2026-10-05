@@ -7002,7 +7002,7 @@ git commit -m "feat: print readable briefs and metrics from the CLI"
 
 This fixes the stale text ("8 parallel Tavily searches", "top 5 pages", "one streamed `claude-sonnet-5` call", "7 days", a default cap of 50) and describes the new pipeline and files. The README line about PM2's `--kill-timeout 240000` is left alone here: it describes the servers as they are until Blake approves the change listed under "Gated steps".
 
-- [ ] **Step 1: Update `README.md`**
+- [x] **Step 1: Update `README.md`**
 
 Apply this change:
 
@@ -7105,7 +7105,7 @@ Apply this change:
  ## Production Deployment
 ````
 
-- [ ] **Step 2: Update `SETUP.md`**
+- [x] **Step 2: Update `SETUP.md`**
 
 Apply this change:
 
@@ -7174,7 +7174,7 @@ Apply this change:
 +Each stage's system prefix is prompt-cached for 1 hour. Repeat briefs within that window read the cache instead of paying full input rate. Separately, a brief for a company already researched in the last 14 days is served from Supabase without any model call at all. The daily cap is 10 paid briefs per person.
 ```
 
-- [ ] **Step 3: Check that the stale text is gone**
+- [x] **Step 3: Check that the stale text is gone**
 
 ```bash
 git grep -n -E "8 parallel|top 5 pages|last 7 days|7-day repeat|claude-sonnet-5[^-]|research\.py" -- README.md SETUP.md; echo "exit: $?"
@@ -7185,7 +7185,7 @@ Expected: no matches and `exit: 1`.
 Run: `.venv/bin/python -m pytest -q`
 Expected: `461 passed, 2 skipped`.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add README.md SETUP.md

@@ -2,7 +2,7 @@
 
 A web app for Alkira partners to generate scored opportunity briefs for any company. Enter a company name, get a structured brief with an Alkira Fit Score (1–5), strategic entry points, proof points, and sales questions — plus a downloadable PDF.
 
-Research runs on Tavily, generation on a single streamed `claude-sonnet-5` call. Sign-in is limited to authorized partner domains.
+A `claude-sonnet-5-5` research loop follows leads on the web through Tavily, then one streamed call judges the fit and writes the brief. Sign-in is limited to authorized partner domains.
 
 This repo holds the Brief API, the sign-in service and the sign-in pages. The screens partners use live in [alkira-account-radar](https://github.com/alkirapartners/alkira-account-radar) (`web/`), which serves both the Brief Generator and Account Radar.
 
@@ -12,12 +12,16 @@ This repo holds the Brief API, the sign-in service and the sign-in pages. The sc
 
 1. Partner visits the app and signs in with a code sent to their work email (admins sign in through the dashboard's SSO)
 2. Types a company name and clicks **Generate brief**
-3. `research.py` runs the brief template's research checklist as 8 parallel Tavily searches, ranks the hits, and extracts the top 5 pages
-4. `generate.py` composes the whole brief in one streamed `claude-sonnet-5` call against those sources (~45s)
-5. The brief is scored (Alkira Fit 1–5), saved, and opened on its own page
+3. `research_loop.py` lets the model research the company: it identifies the entity, then searches, opens pages and records evidence, choosing each step from what it just read. The budget is 25 searches, 20 page reads and about four minutes, enforced in code. Only facts recorded from a page that was opened are kept
+4. `generate.py` makes one streamed call that scores the fit and writes the brief from that evidence as a JSON document. `brief_rules.py` then enforces the rules in code: an angle with no opened-page evidence is removed, customer stories come from the knowledge base, and the score cannot exceed what the surviving angles support
+5. The brief is saved and opened on its own page. It has one to three angles, never padded
 6. Partner can download it as PDF, update it (re-research), or delete it
 
-A brief for a company already researched in the last 7 days is reused from Supabase without a model call. **Update brief** always re-researches and never consults that cache.
+A brief takes about three minutes and costs about a dollar. If research finds nothing it can cite, the partner gets an error and no brief is written.
+
+A brief for a company already researched in the last 14 days is reused from Supabase without a model call. **Update brief** always re-researches and never consults that cache.
+
+Briefs written before this pipeline are stored as markdown and still open: `briefparse.py` reads them. New briefs are stored as JSON in the same column (`brief_doc.py`).
 
 ---
 
@@ -52,17 +56,26 @@ Sticky sessions are enabled on the ALB target group. Nothing here depends on the
 | `server.py` | Brief API: FastAPI routes under `/api/brief/` (JSON plus a server-sent-event stream for generation) |
 | `brief_service.py` | Generate / reuse / save / update rules, the one-generation-per-user guard and the daily cap |
 | `usage_ledger.py` | Append-only record of paid generations in the shared data directory, for the daily cap |
-| `brief_view.py` | Shapes a stored brief row into the API's summary and detail objects |
-| `briefparse.py` | Pure brief-markdown parsers and the company-name cleaner |
+| `brief_view.py` | Shapes a stored brief row into the API's summary and detail objects, for both stored formats |
+| `brief_doc.py` | The JSON brief document: its shape, the schema sent to the model, and telling a JSON brief from a legacy one |
+| `brief_rules.py` | Rules enforced on a brief in code: cited pages only, no padded angles, score capped by evidence, stories from the knowledge base |
+| `brief_compat.py` | A JSON brief expressed as the fields the current front end reads |
+| `stored_brief.py` | Score, company and language of a stored brief in either format |
+| `brief_text.py` | A JSON brief as readable text, for the CLI |
+| `briefparse.py` | Pure parsers for legacy markdown briefs, and the company-name cleaner |
 | `streaming.py` | Runs a blocking job in a thread and exposes it as an SSE stream with a heartbeat |
 | `authdep.py` | `X-Auth-Email` request dependency and the admin check |
 | `settings.py` | Environment configuration |
 | `errors.py` | Errors whose message is safe to show to a partner |
-| `research.py` | Tavily search + extract, result ranking, source payload |
-| `generate.py` | The single streamed Sonnet 5 call |
-| `prompts.py` | Prompt-cached system prefix + per-brief user message |
-| `db.py` | Supabase persistence and the 7-day repeat-company cache |
-| `pdf.py` | PDF generation (fpdf2) |
+| `research_loop.py` | The research conversation: the clock, the turn limit, and the rule that research with nothing citable is an error |
+| `research_tools.py` | The search, page-read and record-evidence tools, run against Tavily under the search and page budgets |
+| `evidence.py` | Recorded facts, which pages were opened, and the fenced evidence the writer reads |
+| `case_studies.py` | The customer-story table in the knowledge base, read as data |
+| `llm.py` | The model, the request settings shared by both stages, and the cost estimate |
+| `generate.py` | Research, then the judge-and-write call, then the rules |
+| `prompts.py` | The two prompt-cached system prefixes and the per-brief messages |
+| `db.py` | Supabase persistence and the 14-day repeat-company cache |
+| `pdf.py`, `pdf_doc.py` | PDF generation (fpdf2): legacy markdown briefs and JSON briefs |
 | `notifications.py` | Slack webhook on successful brief generation |
 | `generate_brief.py` | CLI tool for generating briefs from the terminal |
 | `skills/` | Brief template, Alkira knowledge base, writing rules — inlined into the cached system prefix |
@@ -80,7 +93,7 @@ Every route except `/health` needs `X-Auth-Email`. A brief id that belongs to so
 | `GET /api/brief/health` | Liveness |
 | `GET /api/brief/me` | `{email, isAdmin}` |
 | `GET /api/brief/briefs` | The caller's briefs |
-| `GET /api/brief/briefs/{id}` | One brief, parsed into fields |
+| `GET /api/brief/briefs/{id}` | One brief as fields. A JSON brief also carries the whole document under `doc` (`format` is 2); a legacy brief has `format` 1 and `doc` null |
 | `POST /api/brief/briefs` | Body `{company, language}`. Streams progress, then the brief id |
 | `POST /api/brief/briefs/{id}/refresh` | Update: always re-researches. Same stream |
 | `DELETE /api/brief/briefs/{id}` | Delete |
@@ -132,7 +145,7 @@ Optional settings:
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
-| `BRIEF_DAILY_LIMIT` | `50` | Paid generations (new briefs and updates) each person may run per UTC day. Reused research is free and not counted. |
+| `BRIEF_DAILY_LIMIT` | `10` | Paid generations (new briefs and updates) each person may run per UTC day. Reused research is free and not counted. |
 | `BRIEF_DATA_DIR` | `./data` | Where daily usage files (`brief-usage-YYYY-MM-DD.jsonl`) are kept. In production `data/` is the EFS symlink, so both instances share one count. |
 | `BRIEF_ADMINS_FILE` | `/var/www/briefgen/data/admins.json` | The admin list used to show the Settings link. |
 
@@ -155,7 +168,10 @@ For the screens, run the front end from alkira-account-radar (`cd web && npm run
 python generate_brief.py "Palo Alto Networks"
 python generate_brief.py "Walmart" --output walmart_brief.md
 python generate_brief.py "Chevron" --verbose
+python generate_brief.py "HF Sinclair" --save-dir out/   # JSON, text, PDF, and a line in out/metrics.jsonl
 ```
+
+The CLI prints the brief as readable text, then one line of time, tokens and estimated cost.
 
 ---
 

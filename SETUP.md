@@ -4,12 +4,12 @@ The API behind the Brief Generator: partners type a company name and get a score
 
 ## How a brief is produced
 
-1. `research.py` runs the brief template's research checklist as 8 parallel Tavily searches, ranks the hits, and extracts the top 5 pages.
-2. `generate.py` makes one streamed `claude-sonnet-5` call that composes the whole brief from those sources.
-3. `prompts.py` builds the system prefix (brief template, Alkira knowledge base, writing rules). It is byte-stable and prompt-cached with a 1-hour TTL; everything per-brief lives in the user message.
-4. `brief_service.py` saves the brief; `briefparse.py` and `brief_view.py` turn the stored markdown into the fields the front end shows.
+1. `research_loop.py` runs a research conversation with `claude-sonnet-5-5`. The model identifies the company, then searches, opens pages and records evidence through the tools in `research_tools.py`, which call Tavily. The budget is 25 searches, 20 page reads and about four minutes, enforced in code.
+2. `generate.py` makes one streamed call that scores the fit and writes the brief as a JSON document from the recorded evidence. `brief_rules.py` enforces the rules on the result.
+3. `prompts.py` builds two system prefixes, one per stage (instructions plus skill files). Each is byte-stable and prompt-cached with a 1-hour TTL; everything per-brief lives in the user message.
+4. `brief_service.py` saves the brief; `brief_view.py` turns it into the fields the front end shows. Briefs from before this pipeline are markdown and are read by `briefparse.py`.
 
-There is no agent session and no model-driven tool loop. A brief takes roughly 45 seconds.
+The loop runs in this process, not in a hosted agent. A brief takes about three minutes.
 
 ## Prerequisites
 
@@ -61,10 +61,12 @@ Tests: `python -m pytest -q`.
 | `authdep.py` | `X-Auth-Email` request dependency and the admin check |
 | `settings.py` | Environment configuration |
 | `errors.py` | Errors whose message is safe to show to a partner |
-| `research.py` | Tavily search + extract, ranking, source payload |
-| `generate.py` | The single streamed Sonnet 5 call |
-| `prompts.py` | Cached system prefix + per-brief user message |
-| `db.py` | Supabase persistence and the 7-day repeat-company cache |
+| `research_loop.py`, `research_tools.py`, `evidence.py` | The research conversation, its tools and budgets, and the evidence it records |
+| `generate.py` | Research, then the judge-and-write call |
+| `brief_doc.py`, `brief_rules.py` | The JSON brief document and the rules enforced on it |
+| `llm.py` | The model and the request settings shared by both stages |
+| `prompts.py` | Cached system prefixes + per-brief messages |
+| `db.py` | Supabase persistence and the 14-day repeat-company cache |
 | `pdf.py` | PDF generation (fpdf2) |
 | `notifications.py` | Slack webhook on successful generation |
 | `generate_brief.py` | CLI alternative |
@@ -72,7 +74,7 @@ Tests: `python -m pytest -q`.
 
 ## Model Choice
 
-`claude-sonnet-5` with `thinking={"type": "adaptive"}` and `output_config={"effort": "medium"}`, streamed. The task is source-grounded synthesis against a fixed template, not open-ended reasoning. To change it, edit `MODEL` in `generate.py`.
+`claude-sonnet-5-5` with adaptive thinking at `medium` effort for both stages. Research is a tool loop of short requests; the judge-and-write call is streamed and returns JSON checked against a schema. To change the model, edit `MODEL` in `llm.py`.
 
 ## Docker
 
@@ -94,8 +96,11 @@ Edit the files under `skills/` (brief template and scoring rubric, Alkira proof 
 
 | Item | Estimate |
 |------|----------|
-| Tavily searches (8) + extract | ~$0.05 |
-| Sonnet 5 tokens (cached prefix, ~3K output) | ~$0.05–0.15 |
-| **Total** | **~$0.10–0.20 per brief** |
+| Tavily: up to 25 searches and 20 page reads | up to ~$0.45 |
+| Research tokens (a conversation that grows to about 120K tokens, cached turn to turn) | ~$0.40–0.75 |
+| Judge-and-write tokens (cached prefix, ~6K output) | ~$0.07–0.13 |
+| **Total** | **~$0.70–1.35 per brief (estimate)** |
 
-The system prefix is prompt-cached for 1 hour. Repeat briefs within that window read the cache instead of paying full input rate. Separately, a brief for a company already researched in the last 7 days is served from Supabase without any model call at all.
+These are estimates from published prices. `generate_brief.py` prints the measured time, tokens and cost of every run.
+
+Each stage's system prefix is prompt-cached for 1 hour. Repeat briefs within that window read the cache instead of paying full input rate. Separately, a brief for a company already researched in the last 14 days is served from Supabase without any model call at all. The daily cap is 10 paid briefs per person.
