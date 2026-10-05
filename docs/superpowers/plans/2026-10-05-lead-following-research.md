@@ -7333,7 +7333,7 @@ Do none of these as part of executing the plan. List them for Blake when Task 18
 - Paid contact data for named people.
 - The Account Radar scorer.
 - Re-generating briefs that are already stored.
-- The known risk that a crafted company name can steer the model and be served to the next partner through reuse. Fixing it needs a column for the typed name, which is a Supabase schema change the spec rules out here. This plan does not make it worse: the name is still passed as quoted text in a user message, never in a system prefix.
+- Closed after the plan, without a schema change (see "After the plan" below): a crafted company name steering the model and reaching the next partner through reuse. A brief is now filed under the typed name, the typed name is validated and fenced, and every fact needs a quote that is on its page.
 
 ## Spec coverage
 
@@ -7360,3 +7360,67 @@ Do none of these as part of executing the plan. List them for Blake when Task 18
 | README | Task 17 |
 | PM2 kill timeout, `.env` override, merge | Gated steps |
 | Front end | Not in this plan |
+
+---
+
+## After the plan: review fixes and tuning (2026-10-05)
+
+Two independent reviews of the branch and a sceptical read of the eight evaluation briefs led to a second pass. The code blocks in Tasks 1 to 17 show the code as it was first written. Where this section and a task disagree, this section and the repository are right.
+
+### Review fixes
+
+| Item | What changed |
+|---|---|
+| S1 poisoned brief through reuse | `company_name.py` refuses a web address or markup typed as the company. The name reaches the model inside a random `<name-…>` tag with a line saying it is data. `record_evidence` takes a `quote` per fact, checked against the page text in `quotes.py`; a fact whose quote is not on the page is dropped. A JSON brief is filed under the typed name (`stored_brief.filing_name`), which is the name reuse looks up, and shown under the resolved one. Task 7 says the opposite and is superseded. |
+| C1 evidence lost on a late failure | A web service that keeps failing, or a model request that fails, ends research with `web_failed` or `model_failed` and the writer runs on what was gathered. An error is raised only when nothing is citable. |
+| C2 wall clock | Every research request goes through `client.with_options` with a time limit taken from the time left (`research_loop.turn_limits`). Web calls get the time left before the web deadline. The writer has a stall limit and a deadline. Research cannot exceed 300 seconds. |
+| Cost | Research stops at `MAX_RESEARCH_COST_DOLLARS` (1.50) with `cost_cap` and the writer runs. |
+| C6 reuse | Only a JSON brief whose research ended `finished` or `budget` is shared (`stored_brief.is_reusable`). |
+| S2, S3, S4 | Links and addresses are stripped from model text; model-chosen URLs are rebuilt from their parts and internal look-alikes refused; a website that is not a public address is dropped. |
+| C3, C4, C5 | Every `find` word gets a passage and the model is told when passages were cut; a person's note needs a source and headquarters, revenue and headcount must trace to the evidence; a translated story result is kept only when its figures match the table. |
+| Smaller items | Refused facts no longer count toward the 150 limit; one page asked for three ways in a turn is opened once; a score of 1 or 2 carries no angles; the self-comparing test was replaced; research that finds nothing gives its own message (the daily slot is still spent, because the research was paid for); the SSH key file name and the server environment path were removed from the docs. |
+
+### Tuning
+
+| Item | What changed |
+|---|---|
+| Research depth | `research_floor.py`: research may not stop until it has reached the careers site and job postings (or tried the site and a hosted job site), looked for the annual filing, searched the past year's news, sourced or searched each snapshot line, and run 12 searches and opened 10 pages. Every tool result ends with what is not covered, and a model that says it is done is sent back, twice at most. |
+| Scores | Each fact declares `source_type`; `evidence.source_type` overrides it where the address decides (data brokers and encyclopedias are a last resort, job boards second-hand, filings and hosted job sites first-hand). `fit_score.py` caps the score: above 3 needs a first-hand source dated in the last two years, and 5 needs two use cases with a first-hand source each. When a score is lowered the verdict says why. An evidence line carries its source's date, never one the model wrote. |
+| Stories | A story is kept only when the table tags it for the angle's use case, and once per brief. |
+| "Network" | The fit rules say a delivery, logistics, store, distribution or branch network is not the IT network, with UPS as the example. In code a `network_modernization` angle needs a line naming network technology, and a plant-network line must be about industrial control systems. |
+| Padding and noise | Risk-factor language, headcount and hiring statistics are removed from angle evidence; an angle with no dated line is removed; a name needs a first-hand source; references that are second-hand or a last resort say so; an evidence line with no date prints as undated. |
+
+### Interfaces that changed
+
+- `brief_rules.finalize(output, sources, language, today, research)` takes the `evidence.Source` tuple, not references.
+- `Reference` and `evidence.Source` carry `source_type` (`first_hand`, `second_hand`, `last_resort`) in place of `data_broker`.
+- `EvidenceItem` gains `quote` and `source_type`. `CATEGORIES` gains `cloud_connectivity`.
+- `research_tools.run_calls(..., time_left=None)`; `Ledger` gains `attempts` and `facts_refused`.
+- `ResearchResult` gains `not_covered`, `facts_kept`, `facts_refused`. `EARLY_STOPS` gains `web_failed`, `model_failed`, `cost_cap`.
+- `prompts.build_writer_message(company, fence, payload, today, language, stopped_early, not_covered)`.
+- New modules: `company_name.py`, `quotes.py`, `research_floor.py`, `angle_rules.py`, `fit_score.py`.
+
+### Round two of the evaluation
+
+The same eight companies were run again on server A, in a scratch checkout of commit `af24332`, with nothing under the production directory written and no process restarted. The suite passed there first (782 passed, 2 skipped, Python 3.14).
+
+| Company | Round one | Round two | Angles | Searches / pages | Seconds | Cost |
+|---|---|---|---|---|---|---|
+| HF Sinclair | 5 | 5 | 2 | 12 / 10 | 133 | $0.61 |
+| Anker | 3 | 3 | 1 | 18 / 10 | 181 | $0.84 |
+| Occidental | 5 | 4 | 2 | 15 / 11 | 148 | $0.70 |
+| Global Payments | 5 | 4 | 2 | 14 / 11 | 158 | $0.70 |
+| Kemper | 3 | 4 | 2 | 15 / 10 | 157 | $0.63 |
+| UPS | 3 | 5 | 2 | 15 / 10 | 139 | $0.60 |
+| Advance Auto Parts | 5 | 3 | 1 | 13 / 10 | 149 | $0.62 |
+| Southern Glazer's | 5 | 4 | 1 | 14 / 10 | 107 | $0.56 |
+
+Average 147 seconds and $0.66 a brief, against 100 seconds and $0.40 in round one. Every run covered the floor and ended on its own. The quote check refused 11 of 110 recorded facts. The score ceiling never had to lower a score: the writer, told the rule, stayed inside it.
+
+What still looks wrong on a sceptical read:
+
+- UPS at 5 follows the rule and is still generous. Its multi-cloud angle rests on a Google Cloud support posting from two years back and an Azure developer posting, with nothing found about the WAN or firewalls.
+- Several job postings carry a year as their only date. A year is accepted as a date and counts as current, though it may come from a requisition number or a page footer and not from a posted date.
+- Advance Auto Parts at 3 is strict: its network posting is first-hand and live, and loses a point only because the page gives no date.
+- Basics the research did not record are now empty where round one filled them in (UPS has no entity or headquarters line, Occidental and Southern Glazer's no revenue). Empty is honest, and it reads thinner.
+

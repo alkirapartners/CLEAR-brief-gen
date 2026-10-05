@@ -4,12 +4,12 @@ The API behind the Brief Generator: partners type a company name and get a score
 
 ## How a brief is produced
 
-1. `research_loop.py` runs a research conversation with `claude-sonnet-5-5`. The model identifies the company, then searches, opens pages and records evidence through the tools in `research_tools.py`, which call Tavily. The budget is 25 searches, 20 page reads and about four minutes, enforced in code.
-2. `generate.py` makes one streamed call that scores the fit and writes the brief as a JSON document from the recorded evidence. `brief_rules.py` enforces the rules on the result.
+1. `research_loop.py` runs a research conversation with `claude-sonnet-5-5`. The model identifies the company, then searches, opens pages and records evidence through the tools in `research_tools.py`, which call Tavily. The budget is 25 searches, 20 page reads and about four minutes, enforced in code. Every fact carries a quote that is checked against the page (`quotes.py`), and the model is sent back if it stops before the floor in `research_floor.py` is covered.
+2. `generate.py` makes one streamed call that scores the fit and writes the brief as a JSON document from the recorded evidence. `brief_rules.py` enforces the rules on the result, with `angle_rules.py` (what counts as evidence) and `fit_score.py` (how high the sources let the score go).
 3. `prompts.py` builds two system prefixes, one per stage (instructions plus skill files). Each is byte-stable and prompt-cached with a 1-hour TTL; everything per-brief lives in the user message.
 4. `brief_service.py` saves the brief; `brief_view.py` turns it into the fields the front end shows. Briefs from before this pipeline are markdown and are read by `briefparse.py`.
 
-The loop runs in this process, not in a hosted agent. A brief took between one and a half and two and a half minutes when measured, and can take about five at the full research allowance.
+The loop runs in this process, not in a hosted agent. A brief took about two and a half minutes when measured (three at most), and the code stops research at five minutes.
 
 ## Prerequisites
 
@@ -62,8 +62,10 @@ Tests: `python -m pytest -q`.
 | `settings.py` | Environment configuration |
 | `errors.py` | Errors whose message is safe to show to a partner |
 | `research_loop.py`, `research_tools.py`, `evidence.py` | The research conversation, its tools and budgets, and the evidence it records |
+| `research_floor.py`, `quotes.py` | What research must cover before it stops, and the check that a quoted passage is on its page |
 | `generate.py` | Research, then the judge-and-write call |
-| `brief_doc.py`, `brief_rules.py` | The JSON brief document and the rules enforced on it |
+| `brief_doc.py`, `brief_rules.py`, `angle_rules.py`, `fit_score.py` | The JSON brief document and the rules enforced on it |
+| `company_name.py` | What may be typed as a company name |
 | `llm.py` | The model and the request settings shared by both stages |
 | `prompts.py` | Cached system prefixes + per-brief messages |
 | `db.py` | Supabase persistence and the 14-day repeat-company cache |
@@ -101,6 +103,6 @@ Edit the files under `skills/` (brief template and scoring rubric, Alkira proof 
 | Judge-and-write tokens (cached prefix, ~6K output) | ~$0.07–0.13 |
 | **Total** | **~$0.70–1.35 per brief (estimate)** |
 
-The table is the estimate at the full research allowance. Measured over 8 companies on 2026-10-05: median 94 seconds and $0.39 per brief (range 82 to 138 seconds, $0.32 to $0.51). Those runs stopped on their own after 6 to 13 of the 25 searches and 4 to 11 of the 20 page reads. `generate_brief.py` prints the measured time, tokens and cost of every run.
+The table is the estimate at the full research allowance. Measured over 8 companies on 2026-10-05, with the research floor in place: median 149 seconds and $0.62 per brief (range 107 to 181 seconds, $0.56 to $0.84), using 12 to 18 of the 25 searches and 10 or 11 of the 20 page reads, about 33 Tavily credits a brief. Research stops at $1.50 of spend whatever happens (`MAX_RESEARCH_COST_DOLLARS`). `generate_brief.py` prints the measured time, tokens and cost of every run.
 
 Each stage's system prefix is prompt-cached for 1 hour. Repeat briefs within that window read the cache instead of paying full input rate. Separately, a brief for a company already researched in the last 14 days is served from Supabase without any model call at all, when the same name is typed again and that research ran its course. The daily cap is 10 paid briefs per person.

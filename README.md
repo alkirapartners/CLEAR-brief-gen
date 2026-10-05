@@ -12,12 +12,12 @@ This repo holds the Brief API, the sign-in service and the sign-in pages. The sc
 
 1. Partner visits the app and signs in with a code sent to their work email (admins sign in through the dashboard's SSO)
 2. Types a company name and clicks **Generate brief**
-3. `research_loop.py` lets the model research the company: it identifies the entity, then searches, opens pages and records evidence, choosing each step from what it just read. The budget is 25 searches, 20 page reads and about four minutes, enforced in code. Only facts recorded from a page that was opened are kept
-4. `generate.py` makes one streamed call that scores the fit and writes the brief from that evidence as a JSON document. `brief_rules.py` then enforces the rules in code: an angle with no opened-page evidence is removed, customer stories come from the knowledge base, and the score cannot exceed what the surviving angles support
+3. `research_loop.py` lets the model research the company: it identifies the entity, then searches, opens pages and records evidence, choosing each step from what it just read. The budget is 25 searches, 20 page reads and about four minutes, enforced in code. A fact is kept only when it was recorded from a page that was opened and comes with a quote that really is on that page (`quotes.py`). The model may not stop until it has covered a floor (`research_floor.py`): the careers site and job postings, the latest annual filing, the past year's news, each line of the technical snapshot, and at least 12 searches and 10 pages
+4. `generate.py` makes one streamed call that scores the fit and writes the brief from that evidence as a JSON document. `brief_rules.py` then enforces the rules in code: an angle with no opened-page evidence is removed, so is risk-factor language, a headcount line and an angle with no dated fact (`angle_rules.py`); a customer story must be tagged for the angle's use case and is used once; and the score cannot exceed what the sources support (`fit_score.py`): above 3 takes a first-hand source dated in the last two years, and a 5 takes two use cases with a first-hand source each
 5. The brief is saved and opened on its own page. It has one to three angles, never padded
 6. Partner can download it as PDF, update it (re-research), or delete it
 
-A brief took one and a half to two and a half minutes and cost about 40 cents when measured on eight companies; at the full research allowance it can take about five minutes and cost about a dollar. If research finds nothing it can cite, the partner gets an error and no brief is written.
+A brief took about two and a half minutes (107 to 181 seconds) and cost about 65 cents (55 to 84) when measured on eight companies. The code stops research at 300 seconds and at $1.50 of spend, so the slowest brief can take about ten minutes and the dearest about two dollars. If research finds nothing it can cite, the partner is told so and no brief is written; the attempt still counts toward the daily limit, because the research was paid for.
 
 A brief for a company already researched in the last 14 days is reused from Supabase without a model call. Reuse matches the name as it was typed, ignoring case: a brief is filed under what the partner typed, not under the name the model wrote, so nobody can plant a brief under another company's name. Only a brief in the current format whose research ran its course is shared; one that was cut short, or an older markdown brief, is researched again. **Update brief** always re-researches and never consults that cache.
 
@@ -58,7 +58,7 @@ Sticky sessions are enabled on the ALB target group. Nothing here depends on the
 | `usage_ledger.py` | Append-only record of paid generations in the shared data directory, for the daily cap |
 | `brief_view.py` | Shapes a stored brief row into the API's summary and detail objects, for both stored formats |
 | `brief_doc.py` | The JSON brief document: its shape, the schema sent to the model, and telling a JSON brief from a legacy one |
-| `brief_rules.py` | Rules enforced on a brief in code: cited pages only, no padded angles, score capped by evidence, stories from the knowledge base |
+| `brief_rules.py` | Rules enforced on a brief in code: cited pages only, dates taken from the sources, no padded angles, stories that fit the angle, basics that trace to the evidence, score capped by the sources |
 | `brief_compat.py` | A JSON brief expressed as the fields the current front end reads |
 | `stored_brief.py` | Score, company and language of a stored brief in either format |
 | `brief_text.py` | A JSON brief as readable text, for the CLI |
@@ -67,9 +67,14 @@ Sticky sessions are enabled on the ALB target group. Nothing here depends on the
 | `authdep.py` | `X-Auth-Email` request dependency and the admin check |
 | `settings.py` | Environment configuration |
 | `errors.py` | Errors whose message is safe to show to a partner |
-| `research_loop.py` | The research conversation: the clock, the turn limit, and the rule that research with nothing citable is an error |
+| `research_loop.py` | The research conversation: the clock, the turn limit, the spending ceiling, sending the model back to an uncovered floor, and the rule that research with nothing citable is an error |
 | `research_tools.py` | The search, page-read and record-evidence tools, run against Tavily under the search and page budgets |
-| `evidence.py` | Recorded facts, which pages were opened, and the fenced evidence the writer reads |
+| `research_floor.py` | What research must have tried before it may stop, and what is still open |
+| `quotes.py` | Checks that the quote behind a recorded fact is on the page it cites |
+| `evidence.py` | Recorded facts, which pages were opened, whether a source is first-hand, second-hand or a last resort, and the fenced evidence the writer reads |
+| `angle_rules.py` | What an evidence line and an angle must be to stay in a brief: no risk language, no headcount, a dated fact, network technology for a network angle |
+| `fit_score.py` | The score ceiling worked out from the type and date of the sources each angle cites |
+| `company_name.py` | What may be typed as a company name: a name, never a web address or markup |
 | `case_studies.py` | The customer-story table in the knowledge base, read as data |
 | `llm.py` | The model, the request settings shared by both stages, and the cost estimate |
 | `generate.py` | Research, then the judge-and-write call, then the rules |
