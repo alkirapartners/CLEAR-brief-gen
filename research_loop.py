@@ -47,6 +47,10 @@ LAST_TURN_TIMEOUT_SECONDS = 60
 RESEARCH_CEILING_SECONDS = HARD_DEADLINE_SECONDS + LAST_TURN_TIMEOUT_SECONDS
 MAX_TURNS = 40
 MAX_FAILURES_IN_A_ROW = 5
+# What one brief's research may cost, tokens and web calls together. A normal
+# run costs well under a dollar. Checked before every turn, so a run can pass
+# it by one turn at most; the writer then works with what was gathered.
+MAX_RESEARCH_COST_DOLLARS = 1.50
 
 FINISHED = "finished"
 BUDGET_SPENT = "budget"
@@ -55,6 +59,7 @@ TURN_CAP = "turn_cap"
 TRUNCATED = "truncated"
 WEB_FAILED = "web_failed"
 MODEL_FAILED = "model_failed"
+COST_CAP = "cost_cap"
 # Stops the writer is told about, with the words it is told in.
 EARLY_STOPS: dict[str, str] = {
     DEADLINE: "its time ran out",
@@ -62,6 +67,7 @@ EARLY_STOPS: dict[str, str] = {
     TRUNCATED: "a reply was cut off",
     WEB_FAILED: "the web search service kept failing",
     MODEL_FAILED: "a request to the model failed",
+    COST_CAP: "it reached its spending limit",
 }
 # What the log says when one of these stops leaves nothing to cite.
 _FAILURES: dict[str, str] = {
@@ -85,6 +91,20 @@ class ResearchResult:
     seconds: float
     stopped_by: str
     usage: llm.Usage
+
+
+def research_cost(usage: llm.Usage, ledger: Ledger) -> float:
+    """Estimated US dollars spent on this research so far."""
+    return llm.token_cost(usage) + llm.web_cost(ledger.searches, len(ledger.pages))
+
+
+def _stop_before_turn(elapsed: float, usage: llm.Usage, ledger: Ledger) -> str | None:
+    """Why no further model turn may start, or None when one may."""
+    if elapsed >= HARD_DEADLINE_SECONDS:
+        return DEADLINE
+    if research_cost(usage, ledger) >= MAX_RESEARCH_COST_DOLLARS:
+        return COST_CAP
+    return None
 
 
 def turn_limits(elapsed: float) -> tuple[float, int]:
@@ -182,8 +202,9 @@ def research(
     cause: BaseException | None = None
     for _turn in range(MAX_TURNS):
         elapsed = clock() - started
-        if elapsed >= HARD_DEADLINE_SECONDS:
-            stopped_by = DEADLINE
+        halted = _stop_before_turn(elapsed, usage, ledger)
+        if halted is not None:
+            stopped_by = halted
             break
         try:
             response = _ask(client, messages, elapsed)

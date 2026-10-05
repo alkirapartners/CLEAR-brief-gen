@@ -236,7 +236,9 @@ def test_a_cut_off_reply_ends_research_without_running_its_tool_calls():
 
 
 def test_only_abnormal_stops_are_worded_for_the_writer():
-    assert set(research_loop.EARLY_STOPS) == {"deadline", "turn_cap", "truncated", "web_failed", "model_failed"}
+    assert set(research_loop.EARLY_STOPS) == {
+        "deadline", "turn_cap", "truncated", "web_failed", "model_failed", "cost_cap",
+    }
     assert "finished" not in research_loop.EARLY_STOPS and "budget" not in research_loop.EARLY_STOPS
 
 
@@ -290,3 +292,34 @@ def test_pages_read_just_before_the_web_closes_are_still_recorded():
     assert web.extracts[0][1]["timeout"] <= tools.TAVILY_TIMEOUT_SECONDS
     assert len(result.sources) == 1 and result.stopped_by == "finished"
     assert result.seconds < research_loop.HARD_DEADLINE_SECONDS
+
+
+# ── A ceiling on what one brief's research may cost ──────────────
+
+def _costly(call_id):
+    """A turn that bills about 36 cents: a long conversation re-read and a long reply."""
+    return reply(
+        tool_use(call_id, "web_search", {"query": call_id, "site": "", "recent_news": False}),
+        used=usage(input_tokens=100_000, output_tokens=16_000),
+    )
+
+
+def test_research_stops_at_the_spending_ceiling_and_keeps_what_it_gathered():
+    turns = [READ, RECORD, *[_costly(f"c{i}") for i in range(30)]]
+    result, client, _ = _run(turns)
+    assert result.stopped_by == "cost_cap"
+    assert len(result.sources) == 1
+    spent = llm.token_cost(result.usage) + llm.web_cost(result.searches, result.pages_opened)
+    one_turn = llm.token_cost(llm.add_usage(llm.Usage(), _costly("x").usage))
+    assert research_loop.MAX_RESEARCH_COST_DOLLARS <= spent < research_loop.MAX_RESEARCH_COST_DOLLARS + one_turn
+    assert len(client.requests) < 10
+
+
+def test_the_spending_ceiling_is_far_below_what_an_unchecked_run_could_cost():
+    assert 1.0 <= research_loop.MAX_RESEARCH_COST_DOLLARS <= 2.0
+
+
+def test_ordinary_research_is_nowhere_near_the_ceiling():
+    result, _, _ = _run()
+    assert research_loop.research_cost(result.usage, tools.Ledger(searches=1, pages=(None,))) < 0.05
+    assert result.stopped_by == "finished"
