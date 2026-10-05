@@ -11,7 +11,7 @@ already gathered, so a brief that was nearly paid for is still written.
 
 import logging
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date
 from typing import Any, Callable
 
@@ -19,10 +19,12 @@ import anthropic
 
 import llm
 import prompts
+import research_floor
 from errors import UserFacingError
 from evidence import Source, build_sources, new_fence
 from research_tools import (
-    MAX_PAGES, MAX_SEARCHES, TAVILY_TIMEOUT_SECONDS, TOOLS, Ledger, ToolCall, WebClient, run_calls,
+    MAX_PAGES, MAX_SEARCHES, TAVILY_TIMEOUT_SECONDS, TOOLS, Ledger, ToolCall, WebClient,
+    budget_line, open_items, run_calls,
 )
 
 logger = logging.getLogger(__name__)
@@ -110,6 +112,18 @@ class ResearchResult:
     seconds: float
     stopped_by: str
     usage: llm.Usage
+    # What the research floor asked for and the run never got to, by name.
+    not_covered: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class _Run:
+    """Where a research run stands between turns."""
+
+    messages: tuple[dict[str, Any], ...]
+    ledger: Ledger = Ledger()
+    usage: llm.Usage = llm.Usage()
+    nudges: int = 0
 
 
 def research_cost(usage: llm.Usage, ledger: Ledger) -> float:
@@ -181,22 +195,102 @@ def _nothing_citable(company: str, ledger: Ledger, reason: str) -> ResearchError
 
 
 def _result(
-    company: str, ledger: Ledger, usage: llm.Usage, seconds: float, stopped_by: str,
-    cause: BaseException | None = None,
+    company: str, run: _Run, seconds: float, stopped_by: str, cause: BaseException | None = None,
 ) -> ResearchResult:
     """What research gathered, or an error when there is nothing to cite."""
+    ledger = run.ledger
     sources = build_sources(ledger.evidence, ledger.pages)
     spent = ledger.searches >= MAX_SEARCHES or ledger.page_reads >= MAX_PAGES
     reason = BUDGET_SPENT if stopped_by == FINISHED and spent else stopped_by
+    # Depth is a count, not a topic: the writer is told what was never looked for.
+    not_covered = research_floor.names(
+        [item for item in open_items(ledger) if item != research_floor.DEPTH]
+    )
     logger.info(
-        "research company=%s searches=%d reads=%d opened=%d sources=%d seconds=%.0f stopped_by=%s",
-        company, ledger.searches, ledger.page_reads, len(ledger.pages), len(sources), seconds, reason,
+        "research company=%s searches=%d reads=%d opened=%d sources=%d seconds=%.0f "
+        "stopped_by=%s nudges=%d not_covered=%s",
+        company, ledger.searches, ledger.page_reads, len(ledger.pages), len(sources), seconds,
+        reason, run.nudges, "; ".join(not_covered) or "-",
     )
     if not sources:
         raise _nothing_citable(company, ledger, reason) from cause
     return ResearchResult(
-        sources, ledger.searches, ledger.page_reads, len(ledger.pages), seconds, reason, usage,
+        sources, ledger.searches, ledger.page_reads, len(ledger.pages), seconds, reason,
+        run.usage, not_covered,
     )
+
+
+def _nudge(run: _Run, elapsed: float) -> str | None:
+    """What to tell a model that says it is done, or None when it may stop.
+
+    It is sent back while the floor has open items, it has been sent back
+    fewer than the allowed times, and there is still time and search budget
+    to act on what it is told.
+    """
+    still_open = open_items(run.ledger)
+    if not still_open or run.nudges >= research_floor.MAX_NUDGES:
+        return None
+    if elapsed >= SOFT_DEADLINE_SECONDS or run.ledger.searches >= MAX_SEARCHES:
+        return None
+    todo = research_floor.instructions(still_open, run.ledger.searches, len(run.ledger.pages))
+    return prompts.build_floor_nudge(todo, budget_line(run.ledger))
+
+
+def _after(run: _Run, response: Any, reply: Any) -> tuple[dict[str, Any], ...]:
+    """The conversation with the model's turn and the answer to it added."""
+    return (
+        *run.messages,
+        {"role": "assistant", "content": response.content},
+        {"role": "user", "content": reply},
+    )
+
+
+@dataclass(frozen=True)
+class _Session:
+    """What every turn of one research run shares."""
+
+    company: str
+    client: Any
+    web: WebClient
+    fence: str
+    started: float
+    clock: Clock
+
+    def elapsed(self) -> float:
+        return self.clock() - self.started
+
+
+Step = tuple[_Run, str | None, BaseException | None]
+
+
+def _turn(run: _Run, session: _Session) -> Step:
+    """One model turn and its tool calls: the new state, and why research ends if it does."""
+    elapsed = session.elapsed()
+    halted = _stop_before_turn(elapsed, run.usage, run.ledger)
+    if halted is not None:
+        return run, halted, None
+    try:
+        response = _ask(session.client, list(run.messages), elapsed)
+    except anthropic.APIError as exc:
+        logger.warning("research request failed for %s: %s: %s", session.company, type(exc).__name__, exc)
+        return run, MODEL_FAILED, exc
+    run = replace(run, usage=llm.add_usage(run.usage, response.usage))
+    calls = _tool_calls(response)
+    ending = _ending(response, calls, session.company)
+    if ending == FINISHED:
+        nudge = _nudge(run, session.elapsed())
+        if nudge is None:
+            return run, FINISHED, None
+        return replace(run, messages=_after(run, response, nudge), nudges=run.nudges + 1), None, None
+    if ending is not None:
+        return run, ending, None
+    results, ledger = run_calls(
+        calls, run.ledger, session.web, session.fence,
+        accepting=session.elapsed() < SOFT_DEADLINE_SECONDS,
+        time_left=lambda: session.started + WEB_DEADLINE_SECONDS - session.clock(),
+    )
+    run = replace(run, ledger=ledger, messages=_after(run, response, results))
+    return run, WEB_FAILED if ledger.failures_in_a_row >= MAX_FAILURES_IN_A_ROW else None, None
 
 
 def research(
@@ -212,45 +306,19 @@ def research(
     ``client`` is an Anthropic client and ``web`` a Tavily client. Raises
     ``ResearchError`` when the model declined or nothing citable was found.
     A web service or a model request that fails after something citable was
-    gathered ends the research early instead.
+    gathered ends the research early instead. A model that says it is done
+    before the research floor is covered is sent back to it.
     """
     status_callback("research")
-    fence, started = new_fence(), clock()
+    session = _Session(company, client, web, new_fence(), clock(), clock)
     opening = prompts.build_research_message(
-        company, fence, today or date.today(), MAX_SEARCHES, MAX_PAGES, BUDGET_MINUTES,
+        company, session.fence, today or date.today(), MAX_SEARCHES, MAX_PAGES, BUDGET_MINUTES,
     )
-    messages: list[dict[str, Any]] = [{"role": "user", "content": opening}]
-    ledger, usage, stopped_by = Ledger(), llm.Usage(), TURN_CAP
-    cause: BaseException | None = None
-    for _turn in range(MAX_TURNS):
-        elapsed = clock() - started
-        halted = _stop_before_turn(elapsed, usage, ledger)
-        if halted is not None:
-            stopped_by = halted
-            break
-        try:
-            response = _ask(client, messages, elapsed)
-        except anthropic.APIError as exc:
-            logger.warning("research request failed for %s: %s: %s", company, type(exc).__name__, exc)
-            stopped_by, cause = MODEL_FAILED, exc
-            break
-        usage = llm.add_usage(usage, response.usage)
-        calls = _tool_calls(response)
-        ending = _ending(response, calls, company)
+    run = _Run(messages=({"role": "user", "content": opening},))
+    stopped_by, cause = TURN_CAP, None
+    for _turn_number in range(MAX_TURNS):
+        run, ending, cause = _turn(run, session)
         if ending is not None:
             stopped_by = ending
             break
-        accepting = clock() - started < SOFT_DEADLINE_SECONDS
-        results, ledger = run_calls(
-            calls, ledger, web, fence, accepting,
-            time_left=lambda: started + WEB_DEADLINE_SECONDS - clock(),
-        )
-        if ledger.failures_in_a_row >= MAX_FAILURES_IN_A_ROW:
-            stopped_by = WEB_FAILED
-            break
-        messages = [
-            *messages,
-            {"role": "assistant", "content": response.content},
-            {"role": "user", "content": results},
-        ]
-    return _result(company, ledger, usage, clock() - started, stopped_by, cause)
+    return _result(company, run, session.elapsed(), stopped_by, cause)

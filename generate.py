@@ -66,7 +66,7 @@ def _write(
     fence = evidence.new_fence()
     content = prompts.build_writer_message(
         company, fence, evidence.format_payload(found.sources, fence), today, language,
-        research_loop.EARLY_STOPS.get(found.stopped_by, ""),
+        research_loop.EARLY_STOPS.get(found.stopped_by, ""), "; ".join(found.not_covered),
     )
     composing, started = False, clock()
     bounded = client.with_options(timeout=WRITER_STALL_SECONDS, max_retries=WRITER_RETRIES)

@@ -10,6 +10,7 @@ import brief_doc
 import generate
 import llm
 import prompts
+import research_floor
 import research_loop
 from errors import GENERIC_ERROR
 from dataclasses import replace
@@ -21,6 +22,12 @@ from tests.test_research_loop import FOUND_SOMETHING, Clock
 from tests.test_research_tools import JOB, FakeWeb
 
 TODAY = date(2026, 10, 5)
+
+
+@pytest.fixture(autouse=True)
+def no_floor(monkeypatch):
+    """The fake research is three turns long. The floor is tested with the research loop."""
+    monkeypatch.setattr(research_floor, "MAX_NUDGES", 0)
 
 
 def _output(**changes):
@@ -69,6 +76,13 @@ def test_a_writer_that_runs_past_its_deadline_is_stopped_and_its_stream_closed()
     with pytest.raises(RuntimeError, match="Writing the brief for 'Northwind' ran past"):
         _generate(client=client, clock=clock)
     assert client.stream.closed
+
+
+def test_the_writer_is_told_what_the_research_never_got_to():
+    _, client, _ = _generate()
+    content = client.writer_requests[0]["messages"][0]["content"]
+    assert "The research did not get to: " in content and "latest annual filing" in content
+    assert content.index("did not get to") < content.index("The evidence follows.")
 
 
 # ── What comes back ──────────────────────────────────────────────

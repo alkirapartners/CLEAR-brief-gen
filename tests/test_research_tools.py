@@ -7,6 +7,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+import research_floor as floor
 import research_tools as tools
 from evidence import Page, canonical_url
 from research_tools import Ledger, ToolCall
@@ -119,7 +120,7 @@ def test_a_search_returns_fenced_leads_and_spends_one_search():
     text = results[0]["content"]
     assert f"<web-{FENCE}>\n1. Network Engineer\n   URL: {JOB}\n   Date: 2026-09-23\n   Summary: Azure networking role.\n</web-{FENCE}>" in text
     assert "leads, never evidence" in text
-    assert text.endswith("Budget left: 24 searches, 20 page reads.")
+    assert "\n\nBudget left: 24 searches, 20 page reads. Not covered yet: " in text
     assert after.searches == 1 and after.pages == ()
     query, options = web.searches[0]
     assert query == "acme network engineer"
@@ -444,7 +445,7 @@ def test_a_turn_that_crosses_the_limit_runs_only_what_is_left_in_order():
     assert [r["tool_use_id"] for r in results] == ["s0", "s1", "s2", "s3"]
     assert sorted(q for q, _ in web.searches) == ["q0", "q1"]
     assert after.searches == tools.MAX_SEARCHES
-    assert results[0]["content"].endswith("Budget left: 0 searches, 20 page reads.")
+    assert "Budget left: 0 searches, 20 page reads." in results[0]["content"]
 
 
 def test_once_time_is_up_the_web_is_closed_but_evidence_is_still_recorded():
@@ -521,3 +522,41 @@ def test_a_call_that_waited_for_a_free_slot_still_gets_a_short_limit_never_none(
     assert tools.web_timeout(lambda: 0.5) == tools.MIN_WEB_TIMEOUT_SECONDS
     assert tools.web_timeout(lambda: -30.0) == tools.MIN_WEB_TIMEOUT_SECONDS
     assert tools.web_timeout(None) == tools.TAVILY_TIMEOUT_SECONDS
+
+
+# ── The research floor ───────────────────────────────────────────
+
+def test_every_result_ends_with_what_the_floor_still_asks_for():
+    results, after, _ = _run([_search("acme careers network engineer SD-WAN")])
+    last_line = results[0]["content"].splitlines()[-1]
+    assert last_line.startswith("Budget left: 24 searches, 20 page reads. Not covered yet: careers site and job postings;")
+    assert "WAN" not in last_line.split("Not covered yet:")[1]  # that search was aimed at it
+    assert {floor.CAREERS_SITE, "wan"} <= after.attempts
+
+
+def test_a_call_that_was_refused_is_no_attempt():
+    spent = Ledger(searches=tools.MAX_SEARCHES)
+    _, after, _ = _run([_search("acme 10-K annual report")], ledger=spent)
+    assert after.attempts == frozenset()
+
+
+def test_attempts_add_up_across_turns_and_a_recorded_fact_covers_its_line():
+    _, first, _ = _run([_search("acme 10-K", site="sec.gov")])
+    _, second, _ = _run([_read()], ledger=first)
+    results, third, _ = _run([_record([_fact(category="security")])], ledger=second)
+    assert floor.FILING in third.attempts and floor.CAREERS_SITE in third.attempts
+    still = tools.open_items(third)
+    assert floor.FILING not in still and "firewalls" not in still and "clouds" in still
+    assert "firewalls" not in results[0]["content"].splitlines()[-1]
+
+
+def test_once_time_is_up_the_floor_is_not_mentioned():
+    results, _, _ = _run([_record([_fact()])], ledger=_opened(), accepting=False)
+    assert results[0]["content"].endswith(tools.TIME_UP)
+
+
+def test_cloud_connectivity_is_a_category_of_its_own():
+    assert "cloud_connectivity" in tools.CATEGORIES
+    described = tools.TOOLS[2]["input_schema"]["properties"]["items"]["items"]["properties"]["category"]["description"]
+    for word in ("cloud_connectivity", "ExpressRoute", "plant_network", "industrial control"):
+        assert word in described

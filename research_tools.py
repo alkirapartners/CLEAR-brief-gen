@@ -13,6 +13,7 @@ from typing import Any, Callable, Mapping, Protocol, Sequence
 from urllib.parse import urlsplit
 
 import quotes
+import research_floor
 from evidence import (
     CATEGORIES, DECLARABLE_SOURCE_TYPES, EvidenceItem, Page, canonical_url, clean_date,
     is_fetchable_url, mark_opened, one_line, safe_url,
@@ -98,7 +99,17 @@ _EVIDENCE_ITEM = {
                 "a fact whose quote is not there is thrown away."
             ),
         },
-        "category": {"type": "string", "enum": list(CATEGORIES)},
+        "category": {
+            "type": "string",
+            "enum": list(CATEGORIES),
+            "description": (
+                "What the fact is about. For the technical snapshot: cloud (which clouds), "
+                "cloud_connectivity (ExpressRoute, Direct Connect, Transit Gateway, Virtual WAN, "
+                "interconnects), network (WAN, SD-WAN, MPLS, LAN), security (firewalls and security "
+                "services), data_center, plant_network (industrial control systems only). "
+                "sites is for stores, plants and branches opening or closing."
+            ),
+        },
         "source_url": {"type": "string", "description": "The exact URL you opened."},
         "source_title": {"type": "string", "description": "A short name for the page."},
         "source_type": {
@@ -186,6 +197,8 @@ class Ledger:
     # The full text of each opened page, by canonical URL, so reading another
     # part of a long document costs no second fetch and no budget.
     texts: Mapping[str, str] = field(default_factory=dict)
+    # What the searches and page reads so far were aimed at (research_floor.py).
+    attempts: frozenset[str] = frozenset()
 
 
 @dataclass(frozen=True)
@@ -206,6 +219,18 @@ def budget_line(ledger: Ledger, accepting: bool = True) -> str:
     searches = max(0, MAX_SEARCHES - ledger.searches)
     pages = max(0, MAX_PAGES - ledger.page_reads)
     return f"Budget left: {searches} searches, {pages} page reads."
+
+
+def open_items(ledger: Ledger) -> tuple[str, ...]:
+    """What the research floor still asks for."""
+    return research_floor.open_items(ledger.attempts, ledger.pages, ledger.evidence, ledger.searches)
+
+
+def _footer(ledger: Ledger, accepting: bool) -> str:
+    """The last line of every tool result: what is left, and what is not covered yet."""
+    if not accepting:
+        return TIME_UP
+    return f"{budget_line(ledger)} {research_floor.summary(open_items(ledger))}"
 
 
 def web_timeout(time_left: TimeLeft | None) -> float:
@@ -476,8 +501,8 @@ def _execute(
         )
 
 
-def _settle(ledger: Ledger, outcomes: Sequence[Outcome]) -> Ledger:
-    """The ledger after a turn: new pages, new evidence, and the failure streak."""
+def _settle(ledger: Ledger, outcomes: Sequence[Outcome], aimed: frozenset[str]) -> Ledger:
+    """The ledger after a turn: new pages, new evidence, attempts, and the failure streak."""
     streak = ledger.failures_in_a_row
     for outcome in outcomes:
         if outcome.web_failed is not None:
@@ -488,7 +513,7 @@ def _settle(ledger: Ledger, outcomes: Sequence[Outcome]) -> Ledger:
     gathered = ledger.evidence + tuple(item for o in outcomes for item in o.evidence)
     return replace(
         ledger, pages=pages, texts=texts, evidence=gathered[:MAX_EVIDENCE_ITEMS],
-        failures_in_a_row=streak,
+        failures_in_a_row=streak, attempts=ledger.attempts | aimed,
     )
 
 
@@ -521,6 +546,10 @@ def run_calls(
 
     with futures.ThreadPoolExecutor(max_workers=MAX_PARALLEL_CALLS) as pool:
         outcomes = list(pool.map(work, zip(calls, refusals)))
-    settled = _settle(admitted, outcomes)
-    footer = budget_line(settled, accepting)
+    aimed = frozenset().union(*(
+        research_floor.attempted(call.name, call.input)
+        for call, refusal in zip(calls, refusals) if refusal is None
+    ))
+    settled = _settle(admitted, outcomes, aimed)
+    footer = _footer(settled, accepting)
     return [_result_block(outcome, footer) for outcome in outcomes], settled

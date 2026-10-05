@@ -56,6 +56,26 @@ evidence into a brief, and the writer sees only what you record.
 3. **Record as you go.** After you read a page, call `record_evidence` with
    what it states before you do anything else. Whatever is not recorded
    when the budget runs out is lost.
+4. **Cover the checklist before you stop.** The research is not finished
+   until you have done all of these:
+   - Opened the company's careers pages and its network, cloud and security
+     job postings. Many companies host their postings on another site:
+     search with `site` set to myworkdayjobs.com, greenhouse.io, lever.co or
+     icims.com. If the postings cannot be reached, having tried both the
+     careers site and a hosted job site is enough.
+   - Looked for the latest annual filing or annual report, opened it, and
+     used `find` for acquisitions, divestitures, sites, data centers,
+     network and technology.
+   - Sourced, or searched for, each line of the technical snapshot: clouds,
+     cloud connectivity, WAN, firewalls and data centers. Add plant
+     networks when the company runs plants, refineries, mines or factories.
+   - Run at least 10 searches and opened at least 8 pages. Most of the
+     budget is there to be used: the tenth page often holds what the
+     first five did not.
+   Every tool result ends with what is not covered yet. If you say you are
+   done while something is open and budget is left, you are sent back to
+   it. Trying counts: when a search finds nothing, move on, and the brief
+   will say it was not found.
 
 ## Tools
 
@@ -273,6 +293,11 @@ story `id`, company names, product and vendor names, people's names, and
 technical terms such as ExpressRoute, Virtual WAN, SD-WAN, BGP and MPLS.
 """
 
+_NOT_COVERED_NOTE = (
+    "The research did not get to: {items}. Nothing was looked for there, so "
+    "the evidence being silent means nothing: list each under `unconfirmed`.\n\n"
+)
+
 _STOPPED_EARLY_NOTE = (
     "The research stopped before it ran out of leads ({reason}). Absence of "
     "evidence is weaker than usual: say what was not checked in `unconfirmed`.\n\n"
@@ -326,19 +351,32 @@ def build_research_message(
     )
 
 
+def build_floor_nudge(open_instructions: str, budget: str) -> str:
+    """What a researcher is told when it says it is done with the checklist still open."""
+    return (
+        "The research is not finished. These are still open:\n"
+        f"{open_instructions}\n\n"
+        f"{budget} Work on them now, several in one turn where you can. Record what "
+        "you read. When each is sourced, or searched for and not found, say the "
+        "research is complete."
+    )
+
+
 def build_writer_message(
     company: str, fence: str, payload: str, today: date, language: str = "en",
-    stopped_early: str = "",
+    stopped_early: str = "", not_covered: str = "",
 ) -> str:
     """Per-brief content for the judge-and-write call.
 
     ``fence`` is the random tag that delimits the typed name. ``language``
     selects the prose language. It belongs here and never in the cached
     prefix: a language-dependent prefix would fork the cache.
-    ``stopped_early`` is why research was cut short, or empty when it was not.
+    ``stopped_early`` is why research was cut short, or empty when it was
+    not. ``not_covered`` names what the research never looked for.
     """
     directive = f"{_SPANISH_WRITER_DIRECTIVE}\n" if i18n.normalize(language) == "es" else ""
     note = _STOPPED_EARLY_NOTE.format(reason=stopped_early) if stopped_early else ""
+    note += _NOT_COVERED_NOTE.format(items=not_covered) if not_covered else ""
     return (
         f"{_typed_name(company, fence)}"
         f"Today's date: {today.isoformat()}\n\n"

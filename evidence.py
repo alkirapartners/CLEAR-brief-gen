@@ -18,9 +18,9 @@ from brief_doc import Reference
 # cannot predict, so it cannot close the fence and pose as instructions.
 FENCE_BYTES = 8
 CATEGORIES: tuple[str, ...] = (
-    "identity", "basics", "cloud", "network", "security", "data_center",
-    "plant_network", "china", "m_and_a", "modernization", "sites", "partners",
-    "people", "supporting",
+    "identity", "basics", "cloud", "cloud_connectivity", "network", "security",
+    "data_center", "plant_network", "china", "m_and_a", "modernization", "sites",
+    "partners", "people", "supporting",
 )
 # Profiles compiled from other sources. Usable as a last resort, always labelled.
 DATA_BROKER_DOMAINS: tuple[str, ...] = (
@@ -41,14 +41,17 @@ JOB_BOARD_DOMAINS: tuple[str, ...] = (
     "salary.com", "levels.fyi", "comparably.com", "bebee.com", "jobzmall.com",
     "wellfound.com", "themuse.com", "snagajob.com", "jobs2careers.com", "whatjobs.com",
 )
-# Where a company's own words are published: its filings, and the hosted
-# sites that carry its own job postings and press releases.
-FIRST_HAND_DOMAINS: tuple[str, ...] = (
-    "sec.gov", "myworkdayjobs.com", "myworkdaysite.com", "greenhouse.io", "lever.co",
-    "icims.com", "smartrecruiters.com", "jobvite.com", "ashbyhq.com", "successfactors.com",
+# Applicant sites that host a company's own job postings.
+HOSTED_JOB_SITES: tuple[str, ...] = (
+    "myworkdayjobs.com", "myworkdaysite.com", "greenhouse.io", "lever.co", "icims.com",
+    "smartrecruiters.com", "jobvite.com", "ashbyhq.com", "successfactors.com",
     "successfactors.eu", "taleo.net", "oraclecloud.com", "workable.com", "bamboohr.com",
     "eightfold.ai", "avature.net", "ultipro.com", "ukg.com", "paylocity.com",
-    "prnewswire.com", "businesswire.com", "globenewswire.com",
+)
+# Where a company's own words are published: its filings, its postings on a
+# hosted job site, and its press releases on a newswire.
+FIRST_HAND_DOMAINS: tuple[str, ...] = (
+    "sec.gov", *HOSTED_JOB_SITES, "prnewswire.com", "businesswire.com", "globenewswire.com",
 )
 FIRST_HAND = "first_hand"
 SECOND_HAND = "second_hand"
@@ -169,13 +172,14 @@ def is_fetchable_url(url: str) -> bool:
     return safe_url(url) is not None
 
 
-def _on(url: str, domains: Iterable[str]) -> bool:
+def is_on(url: str, domains: Iterable[str]) -> bool:
+    """True when the address is on one of the domains, or on a subdomain of one."""
     host = _host(url)
     return any(host == domain or host.endswith("." + domain) for domain in domains)
 
 
 def is_data_broker(url: str) -> bool:
-    return _on(url, DATA_BROKER_DOMAINS)
+    return is_on(url, DATA_BROKER_DOMAINS)
 
 
 def source_type(url: str, declared: str) -> str:
@@ -187,11 +191,11 @@ def source_type(url: str, declared: str) -> str:
     Anywhere else the researcher's word is taken, and no word means
     second-hand.
     """
-    if _on(url, DATA_BROKER_DOMAINS) or _on(url, ENCYCLOPEDIA_DOMAINS):
+    if is_on(url, DATA_BROKER_DOMAINS) or is_on(url, ENCYCLOPEDIA_DOMAINS):
         return LAST_RESORT
-    if _on(url, JOB_BOARD_DOMAINS):
+    if is_on(url, JOB_BOARD_DOMAINS):
         return SECOND_HAND
-    if _on(url, FIRST_HAND_DOMAINS):
+    if is_on(url, FIRST_HAND_DOMAINS):
         return FIRST_HAND
     return FIRST_HAND if declared == FIRST_HAND else SECOND_HAND
 

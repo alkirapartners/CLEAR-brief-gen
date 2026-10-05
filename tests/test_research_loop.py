@@ -7,6 +7,7 @@ import pytest
 
 import llm
 import prompts
+import research_floor
 import research_loop
 import research_tools as tools
 from errors import UserFacingError
@@ -24,6 +25,12 @@ SEARCH = reply(thinking(), tool_use("s1", "web_search", {"query": "acme careers 
 READ = reply(tool_use("r1", "read_page", {"url": JOB, "find": ""}))
 RECORD = reply(tool_use("e1", "record_evidence", {"items": [FACT]}))
 FOUND_SOMETHING = [SEARCH, READ, RECORD]
+
+
+@pytest.fixture(autouse=True)
+def no_floor(monkeypatch):
+    """These tests script a few turns. The floor has its own tests at the end."""
+    monkeypatch.setattr(research_floor, "MAX_NUDGES", 0)
 
 
 class Clock:
@@ -342,3 +349,72 @@ def test_ordinary_research_is_nowhere_near_the_ceiling():
     result, _, _ = _run()
     assert research_loop.research_cost(result.usage, tools.Ledger(searches=1, pages=(None,))) < 0.05
     assert result.stopped_by == "finished"
+
+
+# ── The model may not stop until the floor is covered ────────────
+
+DONE = reply(text("Research complete."))
+
+
+def _aimed(call_id, query, site=""):
+    return reply(tool_use(call_id, "web_search", {"query": query, "site": site, "recent_news": False}))
+
+
+def test_a_model_that_stops_early_is_sent_back_with_what_is_still_open(monkeypatch):
+    monkeypatch.setattr(research_floor, "MAX_NUDGES", 2)
+    result, client, _ = _run([READ, RECORD, DONE, _aimed("s9", "acme 10-K annual report", "sec.gov"), DONE])
+    sent_back = client.requests[3]["messages"][-1]
+    assert sent_back["role"] == "user" and client.requests[3]["messages"][-2]["content"] is DONE.content
+    told = sent_back["content"]
+    assert told.startswith("The research is not finished.")
+    assert "- Latest annual filing:" in told and "- Careers site and job postings:" in told
+    assert "Budget left: 25 searches, 19 page reads." in told
+    second = client.requests[5]["messages"][-1]["content"]
+    assert "- Latest annual filing:" not in second  # it was tried in between
+    assert result.stopped_by == "finished"
+    assert len(client.requests) == 6  # sent back twice, then let go
+
+
+def test_what_was_never_covered_is_reported_with_the_result(monkeypatch):
+    monkeypatch.setattr(research_floor, "MAX_NUDGES", 1)
+    result, _, _ = _run([READ, RECORD, DONE, DONE])
+    assert "latest annual filing" in result.not_covered and "careers site and job postings" in result.not_covered
+
+
+def test_a_model_that_covered_the_floor_is_let_go_at_once(monkeypatch):
+    monkeypatch.setattr(research_floor, "MAX_NUDGES", 2)
+    monkeypatch.setattr(research_floor, "MIN_SEARCHES", 2)
+    monkeypatch.setattr(research_floor, "MIN_PAGES_OPENED", 1)
+    turns = [
+        _aimed("s1", "acme careers network engineer SD-WAN firewall data center AWS ExpressRoute", "myworkdayjobs.com"),
+        _aimed("s2", "acme 10-K annual report", "sec.gov"),
+        READ, RECORD, DONE,
+    ]
+    result, client, _ = _run(turns)
+    assert len(client.requests) == 5 and result.not_covered == ()
+
+
+def test_nobody_is_sent_back_once_the_web_is_closed_or_the_searches_are_spent(monkeypatch):
+    monkeypatch.setattr(research_floor, "MAX_NUDGES", 2)
+    clock = Clock()
+
+    def tick(request_number):
+        if request_number == 3:
+            clock.now += research_loop.SOFT_DEADLINE_SECONDS
+
+    _, client, _ = _run([READ, RECORD, DONE], clock=clock, on_request=tick)
+    assert len(client.requests) == 3
+    searches = [
+        reply(*[tool_use(f"s{b}-{i}", "web_search", {"query": f"q{b}{i}", "site": "", "recent_news": False}) for i in range(5)])
+        for b in range(5)
+    ]
+    _, client, _ = _run([READ, RECORD, *searches, DONE])
+    assert len(client.requests) == 8
+
+
+def test_the_instructions_name_the_floor_the_code_enforces():
+    prefix = prompts.build_research_prefix()
+    assert "**Cover the checklist before you stop.**" in prefix
+    assert f"at least {research_floor.MIN_SEARCHES} searches" in prefix
+    assert f"at least {research_floor.MIN_PAGES_OPENED} pages" in prefix
+    assert "myworkdayjobs.com" in prefix
