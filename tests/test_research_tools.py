@@ -14,8 +14,8 @@ from research_tools import Ledger, ToolCall
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 FENCE = "f00dfeedf00dfeed"
-PAGE_TEXT = "Senior Network Engineer. ExpressRoute, Virtual WAN hub-and-spoke, BGP. " * 6
-JOB = "https://careers.example.com/job/1"
+PAGE_TEXT = "Senior Network Engineer. Posted 23 September 2026. ExpressRoute, Virtual WAN hub-and-spoke, BGP. " * 6
+JOB = "https://careers.acme-northwind.example/job/1"
 # Words the fake page really holds, for facts recorded from it.
 QUOTE = "ExpressRoute, Virtual WAN hub-and-spoke, BGP"
 
@@ -65,10 +65,9 @@ def _record(items, call_id="e1"):
     return ToolCall(call_id, tools.RECORD, {"items": items})
 
 
-def _fact(url=JOB, fact="Runs ExpressRoute and Virtual WAN.", category="cloud", quote=QUOTE,
-          source_type="first_hand", date="2026-09-23"):
+def _fact(url=JOB, fact="Runs ExpressRoute and Virtual WAN.", category="cloud", quote=QUOTE, date="2026-09-23"):
     return {
-        "fact": fact, "category": category, "quote": quote, "source_type": source_type,
+        "fact": fact, "category": category, "quote": quote,
         "source_url": url, "source_title": "Network Engineer", "source_date": date,
     }
 
@@ -141,10 +140,10 @@ def test_results_that_cannot_be_opened_are_left_out():
 
 
 def test_a_result_address_is_rebuilt_before_the_model_sees_it():
-    hits = [{"title": "Job", "url": "https://Careers.Example.com/job/1#frag", "content": "x"},
+    hits = [{"title": "Job", "url": "https://Careers.Acme-Northwind.Example/job/1#frag", "content": "x"},
             {"title": "Internal", "url": "http://127.1/admin", "content": "y"}]
     results, _, _ = _run([_search()], web=FakeWeb(hits=hits))
-    assert "URL: https://careers.example.com/job/1\n" in results[0]["content"]
+    assert "URL: https://careers.acme-northwind.example/job/1\n" in results[0]["content"]
     assert "127.1" not in results[0]["content"]
 
 
@@ -167,7 +166,7 @@ def test_reading_a_page_opens_it():
     assert f"{JOB} is opened. Record what it states" in results[0]["content"]
     assert after.pages == (Page(JOB, len(PAGE_TEXT.strip())),) and after.page_reads == 1
     assert web.extracts == [([JOB], {"extract_depth": "advanced", "timeout": 30})]
-    assert after.texts == {"careers.example.com/job/1": PAGE_TEXT.strip()}
+    assert after.texts == {"careers.acme-northwind.example/job/1": PAGE_TEXT.strip()}
 
 
 REPORT = "https://example.com/annual-report.pdf"
@@ -181,10 +180,10 @@ REPORT_TEXT = (
 
 
 def test_the_address_fetched_and_recorded_is_the_rebuilt_one():
-    web = FakeWeb(pages={"https://careers.example.com/job/1": PAGE_TEXT})
-    results, after, _ = _run([_read("https://user:pw@Careers.Example.com/job/1#apply")], web=web)
-    assert web.extracts[0][0] == ["https://careers.example.com/job/1"]
-    assert after.pages[0].url == "https://careers.example.com/job/1"
+    web = FakeWeb(pages={"https://careers.acme-northwind.example/job/1": PAGE_TEXT})
+    results, after, _ = _run([_read("https://user:pw@Careers.Acme-Northwind.Example/job/1#apply")], web=web)
+    assert web.extracts[0][0] == ["https://careers.acme-northwind.example/job/1"]
+    assert after.pages[0].url == "https://careers.acme-northwind.example/job/1"
     assert "user:pw" not in results[0]["content"]
 
 
@@ -277,15 +276,26 @@ def test_a_fact_from_an_opened_page_is_kept():
 
 # ── Each fact says what kind of source it is and when it is dated ──
 
-def test_every_recorded_fact_must_say_whether_its_source_is_first_or_second_hand():
+def test_the_model_is_not_asked_what_kind_of_source_a_page_is():
+    """The address decides that. Nothing the model says about a page can make it first-hand."""
     item = tools.TOOLS[2]["input_schema"]["properties"]["items"]["items"]
-    assert "source_type" in item["required"]
-    assert item["properties"]["source_type"]["enum"] == ["first_hand", "second_hand"]
+    assert "source_type" not in item["properties"]
+    _, after, _ = _run([_record([{**_fact(), "source_type": "first_hand"}])], ledger=_opened())
+    assert not hasattr(after.evidence[0], "source_type")
 
 
-def test_the_declared_source_type_and_a_well_formed_date_are_kept_with_the_fact():
-    _, after, _ = _run([_record([_fact(source_type="second_hand", date="2026-09")])], ledger=_opened())
-    assert (after.evidence[0].source_type, after.evidence[0].source_date) == ("second_hand", "2026-09")
+def test_a_date_is_kept_when_the_page_prints_its_year():
+    _, after, _ = _run([_record([_fact(date="2026-09-23"), _fact(date="2026-09")])], ledger=_opened())
+    assert [item.source_date for item in after.evidence] == ["2026-09-23", "2026-09"]
+
+
+def test_a_date_whose_year_the_page_never_prints_leaves_the_fact_undated():
+    """A date worked out from "posted 3 days ago", or made up, is not the page's date."""
+    undated_page = "Senior Network Engineer. Posted 3 days ago. ExpressRoute, Virtual WAN hub-and-spoke, BGP. " * 6
+    _, after, _ = _run([_record([_fact(date="2026-10-02")])], ledger=_opened(text=undated_page))
+    assert [item.source_date for item in after.evidence] == [""]
+    _, after, _ = _run([_record([_fact(date="2019-05-01")])], ledger=_opened())
+    assert [item.source_date for item in after.evidence] == [""]
 
 
 def test_a_date_that_is_not_a_date_is_left_empty_and_the_fact_is_still_kept():
@@ -353,9 +363,9 @@ def test_a_quote_that_is_on_the_page_but_does_not_state_the_fact_supports_nothin
 
 
 def test_the_company_s_name_and_the_page_address_do_not_have_to_be_in_the_quote():
-    named = _fact(fact="Acme Corp's posting on careers.example.com asks for ExpressRoute and BGP.")
+    named = _fact(fact="Zenith Corp's posting on Northwind asks for ExpressRoute and BGP.")
     _, without, _ = _run([_record([named])], ledger=_opened())
-    _, with_name, _ = _run([_record([named])], ledger=_opened(), company="Acme Corp")
+    _, with_name, _ = _run([_record([named])], ledger=_opened(), company="Zenith Corp")
     assert without.evidence == () and len(with_name.evidence) == 1
 
 

@@ -20,7 +20,7 @@ from tests.test_research_tools import JOB, FakeWeb
 TODAY = date(2026, 10, 5)
 FACT = {
     "fact": "Runs ExpressRoute and a Virtual WAN hub-and-spoke.", "category": "cloud",
-    "quote": "ExpressRoute, Virtual WAN hub-and-spoke, BGP", "source_type": "first_hand",
+    "quote": "ExpressRoute, Virtual WAN hub-and-spoke, BGP",
     "source_url": JOB, "source_title": "Senior Network Engineer", "source_date": "2026-09-23",
 }
 SEARCH = reply(thinking(), tool_use("s1", "web_search", {"query": "acme careers network", "site": "", "recent_news": False}))
@@ -127,6 +127,12 @@ def test_the_result_says_how_many_facts_were_kept_and_how_many_refused():
     both = reply(tool_use("e1", "record_evidence", {"items": [FACT, invented]}))
     result, _, _ = _run([READ, both])
     assert (result.facts_kept, result.facts_refused) == (1, 1)
+
+
+def test_a_page_on_the_company_s_own_domain_is_first_hand_and_the_same_page_for_another_company_is_not():
+    own, _, _ = _run(company="Acme")  # the fake posting is on careers.acme-northwind.example
+    other, _, _ = _run(company="Zenith Holdings")
+    assert own.sources[0].source_type == "first_hand" and other.sources[0].source_type == "second_hand"
 
 
 # ── Research that finds nothing is an error, never a brief ───────

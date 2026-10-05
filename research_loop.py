@@ -21,7 +21,7 @@ import llm
 import prompts
 import research_floor
 from errors import UserFacingError
-from evidence import Source, build_sources, new_fence
+from evidence import Source, build_sources, new_fence, own_keys
 from research_tools import (
     MAX_PAGES, MAX_SEARCHES, TAVILY_TIMEOUT_SECONDS, TOOLS, Ledger, ToolCall, WebClient,
     budget_line, open_items, run_calls,
@@ -221,7 +221,9 @@ def _result(
 ) -> ResearchResult:
     """What research gathered, or an error when there is nothing to cite."""
     ledger = run.ledger
-    sources = build_sources(ledger.evidence, ledger.pages)
+    # The typed name is all that is known of the company here. The brief's
+    # rules look again once the legal name and the ticker are resolved.
+    sources = build_sources(ledger.evidence, ledger.pages, own_keys(company))
     spent = ledger.searches >= MAX_SEARCHES or ledger.page_reads >= MAX_PAGES
     reason = BUDGET_SPENT if stopped_by == FINISHED and spent else stopped_by
     # Depth is a count, not a topic: the writer is told what was never looked for.

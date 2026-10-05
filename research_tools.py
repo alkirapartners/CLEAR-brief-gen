@@ -15,7 +15,7 @@ from urllib.parse import urlsplit
 import quotes
 import research_floor
 from evidence import (
-    CATEGORIES, DECLARABLE_SOURCE_TYPES, EvidenceItem, Page, canonical_url, clean_date,
+    CATEGORIES, EvidenceItem, Page, canonical_url, clean_date,
     is_fetchable_url, mark_opened, one_line, safe_url,
 )
 
@@ -113,27 +113,15 @@ _EVIDENCE_ITEM = {
         },
         "source_url": {"type": "string", "description": "The exact URL you opened."},
         "source_title": {"type": "string", "description": "A short name for the page."},
-        "source_type": {
-            "type": "string",
-            "enum": list(DECLARABLE_SOURCE_TYPES),
-            "description": (
-                "first_hand: the company's own website, careers site or job posting, its filings "
-                "and annual report, its press releases, a cloud vendor's case study about it, or an "
-                "executive's own words. second_hand: news and trade press, analysts, a job board's "
-                "copy of a posting, an encyclopedia, a data broker, anyone writing about the company."
-            ),
-        },
         "source_date": {
             "type": "string",
             "description": (
-                "The date the page gives for itself, as YYYY-MM-DD, YYYY-MM or YYYY. For 'posted 3 "
-                "days ago', work it out from today's date. Empty when the page gives no date: never guess."
+                "The date printed on the page, as YYYY-MM-DD, YYYY-MM or YYYY. It is kept only when "
+                "its year is on the page. Empty when the page prints no date: never work one out."
             ),
         },
     },
-    "required": [
-        "fact", "quote", "category", "source_url", "source_title", "source_type", "source_date",
-    ],
+    "required": ["fact", "quote", "category", "source_url", "source_title", "source_date"],
     "additionalProperties": False,
 }
 
@@ -430,7 +418,6 @@ def _evidence_item(raw: Any) -> EvidenceItem | None:
         return None
     if not fact.strip() or not url.strip():
         return None
-    declared = raw.get("source_type")
     return EvidenceItem(
         fact=one_line(fact)[:MAX_FACT_CHARS],
         category=raw["category"],
@@ -438,7 +425,6 @@ def _evidence_item(raw: Any) -> EvidenceItem | None:
         source_title=one_line(str(raw.get("source_title") or ""))[:MAX_TITLE_CHARS],
         source_date=clean_date(str(raw.get("source_date") or "")[:MAX_DATE_CHARS]),
         quote=one_line(str(raw.get("quote") or ""))[:MAX_QUOTE_CHARS],
-        source_type=declared if declared in DECLARABLE_SOURCE_TYPES else "",
     )
 
 
@@ -466,8 +452,13 @@ def _sort_by_quote(
         if lacking:
             unstated.append((item, lacking))
         else:
-            proven.append(item)
+            proven.append(replace(item, source_date=_date_on_page(item.source_date, texts.get(key, ""))))
     return proven, off_page, unstated
+
+
+def _date_on_page(stated: str, page_text: str) -> str:
+    """The date, or nothing unless the page prints its year. A source with no date is undated."""
+    return stated if stated and stated[:4] in page_text else ""
 
 
 def _echo(items: Sequence[EvidenceItem]) -> str:

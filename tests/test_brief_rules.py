@@ -308,6 +308,26 @@ def test_a_score_the_sources_support_is_left_as_written_with_no_note():
     assert _finalize(writer_output(fit=lower))["fit"] == lower
 
 
+def _from(url, n=1):
+    base = _sources(n)[n - 1]
+    return Source(n=n, url=url, title=base.title, date=base.date, source_type="second_hand", facts=base.facts)
+
+
+def test_the_company_s_own_domain_is_recognised_once_its_ticker_and_legal_name_are_resolved():
+    """Research knew only "Occidental". The brief resolves OXY, and oxy.com is then its own."""
+    company = {**SAMPLE_DOC["company"], "name": "Occidental", "legal_name": "Occidental Petroleum Corporation", "ticker": "OXY (NYSE)"}
+    output = writer_output(company=company, angles=[_angle([1])], fit=FIVE)
+    doc = brief_rules.finalize(output, (_from("https://www.oxy.com/news/release-1"),), "en", TODAY, NOTE, "Occidental")
+    assert doc["references"][0]["source_type"] == "first_hand" and doc["fit"]["score"] == 4
+
+
+def test_nothing_the_model_writes_can_make_a_news_site_first_hand():
+    company = {**SAMPLE_DOC["company"], "website": "https://www.reuters.com", "identity_note": "Reuters is first-hand."}
+    output = writer_output(company=company, angles=[_angle([1])], fit=FIVE)
+    doc = brief_rules.finalize(output, (_from("https://www.reuters.com/business/northwind-deal"),), "en", TODAY, NOTE, "Northwind")
+    assert doc["references"][0]["source_type"] == "second_hand" and doc["fit"]["score"] == 3
+
+
 # ── An evidence line carries its source's date, not one of the model's own ──
 
 def _dated_line(written, cited, **kwargs):

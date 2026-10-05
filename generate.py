@@ -153,7 +153,7 @@ def _document(
         "seconds": round(found.seconds),
         "stopped_by": found.stopped_by,
     }
-    return brief_rules.finalize(output, found.sources, i18n.normalize(language), today, note)
+    return brief_rules.finalize(output, found.sources, i18n.normalize(language), today, note, company)
 
 
 def generate_detailed(

@@ -24,7 +24,9 @@ from brief_doc import (
     FORMAT_VERSION, SNAPSHOT_KEYS, Angle, BriefDoc, Company, EvidenceLine, Fit, Person, Question,
     Reference, ResearchNote, Snapshot, SnapshotLine, Story, WriterOutput,
 )
-from evidence import FIRST_HAND, Source, clean_date, parse_date, safe_url, to_references
+from evidence import (
+    FIRST_HAND, Source, clean_date, own_keys, parse_date, safe_url, source_type, to_references,
+)
 from plain_text import plain
 
 logger = logging.getLogger(__name__)
@@ -219,6 +221,21 @@ def _references(candidates: Sequence[Reference], order: dict[int, int]) -> list[
     return [{**by_number[old], "n": new} for old, new in order.items()]
 
 
+def _typed_references(sources: Sequence[Source], company: Company, typed_name: str) -> list[Reference]:
+    """Every source as a reference, typed again now that the company is resolved.
+
+    Research knew only the typed name. With the legal name and the ticker a
+    source on the company's own domain can be recognised as first-hand
+    ("oxy.com" for Occidental). Nothing is ever lowered here, and nothing
+    is taken on the model's word: the address decides.
+    """
+    keys = own_keys(typed_name, company["name"], company["legal_name"], ticker=ticker.normalise(company["ticker"]))
+    return [
+        ref if ref["source_type"] == FIRST_HAND else {**ref, "source_type": source_type(ref["url"], keys)}
+        for ref in to_references(sources)
+    ]
+
+
 def _company(company: Company) -> Company:
     """The company as written, with the website checked and the ticker stated one way."""
     return {
@@ -249,6 +266,7 @@ def finalize(
     language: str,
     today: date,
     research: ResearchNote,
+    typed_name: str = "",
 ) -> BriefDoc:
     """Turn the writer's output into the document that is stored.
 
@@ -258,7 +276,7 @@ def finalize(
     brief cites them.
     """
     output = _scrub(output)
-    candidates = to_references(sources)
+    candidates = _typed_references(sources, output["company"], typed_name)
     valid = frozenset(ref["n"] for ref in candidates)
     dates = {ref["n"]: ref["date"] for ref in candidates}
     wanted = output["angles"] if output["fit"]["score"] > MAX_SCORE_WITHOUT_ANGLES else []

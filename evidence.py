@@ -42,23 +42,37 @@ JOB_BOARD_DOMAINS: tuple[str, ...] = (
     "salary.com", "levels.fyi", "comparably.com", "bebee.com", "jobzmall.com",
     "wellfound.com", "themuse.com", "snagajob.com", "jobs2careers.com", "whatjobs.com",
 )
-# Applicant sites that host a company's own job postings.
+# Applicant sites that host a company's own job postings. A posting there is
+# the company's only when its name is in the address.
 HOSTED_JOB_SITES: tuple[str, ...] = (
     "myworkdayjobs.com", "myworkdaysite.com", "greenhouse.io", "lever.co", "icims.com",
     "smartrecruiters.com", "jobvite.com", "ashbyhq.com", "successfactors.com",
     "successfactors.eu", "taleo.net", "oraclecloud.com", "workable.com", "bamboohr.com",
     "eightfold.ai", "avature.net", "ultipro.com", "ukg.com", "paylocity.com",
 )
-# Where a company's own words are published: its filings, its postings on a
-# hosted job site, and its press releases on a newswire.
-FIRST_HAND_DOMAINS: tuple[str, ...] = (
-    "sec.gov", *HOSTED_JOB_SITES, "prnewswire.com", "businesswire.com", "globenewswire.com",
+# Where regulators and exchanges publish what companies file.
+REGULATOR_DOMAINS: tuple[str, ...] = (
+    "sec.gov", "sedarplus.ca", "sedar.com", "hkexnews.hk", "hkex.com.hk", "cninfo.com.cn",
+    "sse.com.cn", "szse.cn", "londonstockexchange.com", "asx.com.au", "companieshouse.gov.uk",
+    "service.gov.uk", "edinet-fsa.go.jp", "bseindia.com", "nseindia.com",
 )
+# Cloud vendors' own sites, where they publish case studies written with the customer.
+CASE_STUDY_HOSTS: tuple[str, ...] = (
+    "aws.amazon.com", "cloud.google.com", "customers.microsoft.com", "azure.microsoft.com",
+    "microsoft.com", "oracle.com",
+)
+_CASE_STUDY_PATH = re.compile(r"case-stud|customer|success-stor|partners/success", re.IGNORECASE)
 FIRST_HAND = "first_hand"
 SECOND_HAND = "second_hand"
 LAST_RESORT = "last_resort"
-# What the researcher may declare. Last resort is decided by the address alone.
-DECLARABLE_SOURCE_TYPES: tuple[str, ...] = (FIRST_HAND, SECOND_HAND)
+# Words in a company name that are not part of what it is called.
+_NAME_SUFFIXES = frozenset(
+    "inc incorporated corp corporation co company llc ltd limited plc lp llp sa ag nv gmbh the".split()
+)
+# A shorter name, ticker or acronym is too likely to be someone else's.
+MIN_OWN_KEY_CHARS = 3
+_NAME_WORD = re.compile(r"[a-z0-9]+")
+_ADDRESS_TOKEN = re.compile(r"[a-z0-9]+")
 # A date is a year, a year and month, or a full day, and not from another century.
 _DATE = re.compile(r"^(\d{4})(?:-(\d{2}))?(?:-(\d{2}))?$")
 EARLIEST_YEAR = 1990
@@ -81,8 +95,6 @@ class EvidenceItem:
     opened: bool = False
     # A passage of the page, word for word, that states the fact.
     quote: str = ""
-    # What the researcher said the page is: first_hand or second_hand.
-    source_type: str = ""
 
 
 @dataclass(frozen=True)
@@ -183,22 +195,61 @@ def is_data_broker(url: str) -> bool:
     return is_on(url, DATA_BROKER_DOMAINS)
 
 
-def source_type(url: str, declared: str) -> str:
+def _name_keys(name: str) -> set[str]:
+    """How a company's name can appear as one word in an address."""
+    words = [w for w in _NAME_WORD.findall(name.casefold().replace("'", "").replace("\u2019", "")) if w not in _NAME_SUFFIXES]
+    if not words:
+        return set()
+    keys = {"".join(words), "".join(words[:2])}
+    if len(words) >= 3:
+        keys.add("".join(word[0] for word in words))
+    return keys
+
+
+def own_keys(*names: str, ticker: str = "") -> frozenset[str]:
+    """The words that mark an address as the company's own.
+
+    From each name: all its words run together ("hfsinclair"), its first two
+    ("unitedparcel"), and its initials when there are three or more
+    ("sgws"). From the ticker: the symbol ("oxy"). Anything shorter than
+    three characters is left out.
+    """
+    keys = set().union(*(_name_keys(name) for name in names)) if names else set()
+    symbol = ticker.rpartition(":")[2].split("(")[0].strip().casefold()
+    return frozenset(key for key in keys | {symbol} if len(key) >= MIN_OWN_KEY_CHARS)
+
+
+def _address_tokens(url: str, with_path: bool) -> set[str]:
+    """The words of a host (without its top-level domain), and of the path when asked."""
+    parts = urlsplit(url)
+    labels = (parts.hostname or "").casefold().split(".")[:-1]
+    tokens = {token for label in labels for token in _ADDRESS_TOKEN.findall(label)}
+    if with_path:
+        tokens |= set(_ADDRESS_TOKEN.findall(parts.path.casefold()))
+    return tokens
+
+
+def source_type(url: str, keys: frozenset[str] = frozenset()) -> str:
     """What kind of source a page is: first_hand, second_hand or last_resort.
 
-    Where the address settles it, the address wins: a data broker or an
-    encyclopedia is a last resort, a job board's copy is second-hand, and a
-    filing or a posting on the company's hosted job site is first-hand.
-    Anywhere else the researcher's word is taken, and no word means
-    second-hand.
+    The address alone decides, with the company's own names (``own_keys``).
+    First-hand is the company speaking: its own domain and the careers and
+    investor sites under it, a regulator's filing system, its own postings
+    on a hosted job site, and a cloud vendor's case study. A data broker or
+    an encyclopedia is a last resort. Everything else, a newswire and a job
+    board's copy included, is second-hand, whatever anyone says of it.
     """
     if is_on(url, DATA_BROKER_DOMAINS) or is_on(url, ENCYCLOPEDIA_DOMAINS):
         return LAST_RESORT
     if is_on(url, JOB_BOARD_DOMAINS):
         return SECOND_HAND
-    if is_on(url, FIRST_HAND_DOMAINS):
+    if is_on(url, REGULATOR_DOMAINS):
         return FIRST_HAND
-    return FIRST_HAND if declared == FIRST_HAND else SECOND_HAND
+    if is_on(url, HOSTED_JOB_SITES):
+        return FIRST_HAND if keys & _address_tokens(url, with_path=True) else SECOND_HAND
+    if is_on(url, CASE_STUDY_HOSTS) and _CASE_STUDY_PATH.search(urlsplit(url).path):
+        return FIRST_HAND
+    return FIRST_HAND if keys & _address_tokens(url, with_path=False) else SECOND_HAND
 
 
 def parse_date(text: str) -> date | None:
@@ -235,11 +286,14 @@ def _first(values: Iterable[str]) -> str:
     return next((value for value in values if value.strip()), "")
 
 
-def build_sources(items: Sequence[EvidenceItem], pages: Sequence[Page]) -> tuple[Source, ...]:
+def build_sources(
+    items: Sequence[EvidenceItem], pages: Sequence[Page], keys: frozenset[str] = frozenset(),
+) -> tuple[Source, ...]:
     """Opened pages that have usable facts, numbered in the order they were opened.
 
     ``items`` carry the opened flag they were given when recorded. Facts
-    without it are discarded here.
+    without it are discarded here. ``keys`` are the company's own names
+    (``own_keys``), which decide whether a page is first-hand.
     """
     usable = opened_only(items)
     sources: list[Source] = []
@@ -255,16 +309,10 @@ def build_sources(items: Sequence[EvidenceItem], pages: Sequence[Page]) -> tuple
             url=page.url,
             title=plain(_first(f.source_title for f in facts)) or _host(page.url),
             date=clean_date(_first(f.source_date for f in facts)),
-            source_type=source_type(page.url, _declared_type(facts)),
+            source_type=source_type(page.url, keys),
             facts=facts,
         ))
     return tuple(sources)
-
-
-def _declared_type(facts: Sequence[EvidenceItem]) -> str:
-    """First-hand only when every fact from the page that says anything says so."""
-    declared = {fact.source_type for fact in facts if fact.source_type in DECLARABLE_SOURCE_TYPES}
-    return FIRST_HAND if declared == {FIRST_HAND} else SECOND_HAND
 
 
 def to_references(sources: Iterable[Source]) -> list[Reference]:

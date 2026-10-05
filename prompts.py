@@ -117,16 +117,20 @@ outstanding and stop.
   elsewhere.
 - One fact per item, specific and short. Keep the page's own technical
   terms: ExpressRoute, Virtual WAN, Transit Gateway, BGP, Palo Alto.
-- Give the date the page gives for itself: a job posting's posted date, a
-  filing's period, a press release's date. For "posted 3 days ago", work
-  the date out from today's date. When the page gives no date, leave it
-  empty: an undated page is labelled undated, and a guessed date is worse.
-- Say what each page is. `first_hand` is the company speaking: its own
-  site, careers pages and job postings, its filings, its press releases, a
-  cloud vendor's case study about it, an executive's own interview.
-  `second_hand` is anyone else writing about it: news, trade press,
-  analysts, a job board's copy of a posting. The fit score depends on this,
-  so do not call a page first-hand unless the company published it.
+- Give the date the page prints for itself: a job posting's posted date, a
+  filing's period, a press release's date. A date is kept only when its
+  year is on the page, so never work one out from "posted 3 days ago".
+  When the page prints no date, leave it empty: the source is then labelled
+  undated, and an undated source cannot carry a high score. If a posting
+  shows no date, look for the same fact on a page that does.
+- What counts as first-hand is decided from the page's address, never from
+  what anyone says about it: the company's own domain and the careers and
+  investor sites under it, a regulator's filing system such as sec.gov,
+  the company's own postings on a hosted job site, and a cloud vendor's
+  case study. A newswire, a news article, a job board's copy and a data
+  broker are not. So open the company's own page for a fact whenever one
+  exists: the press release on its investor site, the posting on its
+  careers site.
 - People: record a name only when a first-hand source gives it (the
   company's own site, a filing, a press release, the person's own
   interview). Otherwise record the role.
@@ -189,8 +193,8 @@ before or after it.
 - Each fact is the researcher's summary with the page's own wording under
   it. Where the two differ, the page's wording wins.
 - Each source is marked first-hand, second-hand or last resort, and gives
-  its date or says it is undated. Score from those marks, by the scoring
-  table. The score is checked against the sources afterwards and lowered
+  its date or says it is undated. The marks come from the page's address.
+  Score from those marks, by the scoring table. The score is checked against the sources afterwards and lowered
   when they do not support it, so a generous score gains nothing.
 - "The research did not find it" is different from "it is not there". What
   was looked for and not found goes in `unconfirmed`.

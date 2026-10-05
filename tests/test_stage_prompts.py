@@ -96,8 +96,8 @@ def test_the_research_prefix_carries_the_checklist_and_fit_rules_only():
         "**Never fit evidence.**",
         "do\n  not record them",
         '"Network" must mean the IT network.',
-        "Say what each page is.",
-        "a guessed date is worse",
+        "decided from the page's address",
+        "never work one out",
     ):
         assert expected in prefix, f"missing from the research prefix: {expected!r}"
     assert "20Large (20L)" not in prefix  # pricing is no use to a researcher
