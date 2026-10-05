@@ -4779,7 +4779,7 @@ git commit -m "feat: add budgeted research tools on Tavily"
 
 The client timeout rises from 180 to 300 seconds. No single request runs for minutes (research is many short requests and the writer streams), so this only bounds a stalled connection. The length of a run is bounded by the budgets in Tasks 11 and 14.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `tests/test_llm.py`:
 
@@ -4870,12 +4870,12 @@ def test_web_cost_counts_searches_and_opened_pages():
     assert llm.web_cost(25, 20) == pytest.approx((25 * 2 + 20 * 0.4) * 0.008)
 ```
 
-- [ ] **Step 2: Run it and confirm it fails**
+- [x] **Step 2: Run it and confirm it fails**
 
 Run: `.venv/bin/python -m pytest tests/test_llm.py -q`
 Expected: `1 error`, with `ModuleNotFoundError: No module named 'llm'`.
 
-- [ ] **Step 3: Write the module**
+- [x] **Step 3: Write the module**
 
 Create `llm.py`:
 
@@ -5011,7 +5011,7 @@ def web_cost(searches: int, pages_opened: int) -> float:
     return credits * TAVILY_PRICE_PER_CREDIT
 ```
 
-- [ ] **Step 4: Apply the probe result**
+- [x] **Step 4: Apply the probe result**
 
 Look at the `refusal_fallback` value recorded in Task 1, Step 7.
 
@@ -5026,7 +5026,7 @@ def test_the_refusal_fallback_is_off_because_the_production_key_does_not_accept_
 
 With the fallback off, a declined request is still handled: research raises `ResearchError` and the writer raises `RuntimeError` (Tasks 14 and 15).
 
-- [ ] **Step 5: Run the tests**
+- [x] **Step 5: Run the tests**
 
 Run: `.venv/bin/python -m pytest tests/test_llm.py -q`
 Expected: `11 passed`.
@@ -5034,7 +5034,7 @@ Expected: `11 passed`.
 Run: `.venv/bin/python -m pytest -q`
 Expected: `477 passed, 2 skipped`.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add llm.py tests/test_llm.py
