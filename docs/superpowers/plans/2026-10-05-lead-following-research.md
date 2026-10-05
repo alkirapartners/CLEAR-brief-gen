@@ -34,7 +34,7 @@
 - Local Python is 3.11 and the servers run 3.14: no syntax newer than 3.11, and `TypedDict` comes from `typing_extensions` (Pydantic requires it below 3.12).
 - New packages go in `requirements.txt`. Merging deploys with `pip install -r requirements.txt`, nothing else.
 - Commits use `<type>: <description>` with no attribution or co-author lines. On this machine a hook blocks `git commit` when the same shell command contains `-n` anywhere (it reads `sed -n` or `grep -n` as `--no-verify`): run every commit as its own command.
-- This repository is public. Never commit a brief about a real company, probe output, or anything from a server. Evaluation output is saved outside the repository.
+- This repository is public. Never commit a brief about a real company, probe output, or anything from a server. Evaluation output is never committed: it is kept outside the repository, or in `eval-output/`, which `.git/info/exclude` keeps out of git.
 - Never print, copy or move an API key. Server work happens only in a scratch directory under `~/brief-eval` on server A. Nothing under `/var/www/briefgen` is written and `pm2` is not touched.
 - If a test fails in code a task did not change, stop and report it. Do not work around it.
 
@@ -7202,6 +7202,7 @@ git commit -m "docs: describe lead-following research in README and SETUP"
 **Files:**
 - Modify: `SETUP.md` (one sentence, with measured numbers)
 - Nothing else in the repository. Output is saved under `~/Work/Projects/brief-eval/2026-10-05/`, outside it.
+- As run on 2026-10-05: Blake reads the briefs himself and can only open files inside the repository folder, so the output was copied to `eval-output/2026-10-05/<company>/` and `eval-output/` was added to `.git/info/exclude`. It is not in `.gitignore` and cannot be committed.
 
 **Interfaces:**
 - Consumes: `generate_brief.py --save-dir` (Task 16); the scratch directory layout from Task 1.
@@ -7209,7 +7210,7 @@ git commit -m "docs: describe lead-following research in README and SETUP"
 
 This task uses SSH to server A and the production keys there, and costs about ten dollars for eight briefs. Blake approved evaluation runs in a scratch checkout on 2026-10-05; ask him to confirm in this session before the first command. Do not write anything under `/var/www/briefgen` and do not run `pm2`.
 
-- [ ] **Step 1: Put the finished code on server A and run its tests there**
+- [x] **Step 1: Put the finished code on server A and run its tests there**
 
 ```bash
 KEY="$HOME/Work/_Keys/Alkira Channel (3).pem"
@@ -7224,7 +7225,7 @@ ssh -i "$KEY" "$A" "cd ~/brief-eval/$REV && python3 -m venv .venv && .venv/bin/p
 
 Expected: `git status --short` prints nothing (everything is committed), then the server's Python version (3.14), then `461 passed` with two or fewer skipped. `KEY`, `A`, `REV` and `OUT` are used in the steps that follow: if your shell does not keep variables between commands, repeat the first four lines of this block at the top of each later block. This is the first run of the suite on the servers' Python and on freshly installed packages. If a test fails here that passes locally, stop and report it: it would fail the same way after a merge.
 
-- [ ] **Step 2: Generate the eight briefs**
+- [x] **Step 2: Generate the eight briefs**
 
 The loop runs the companies one after another and takes about forty minutes in all, three to six minutes each. Run it in the background, or run the loop body once per company with a ten-minute timeout. Never run two companies at the same time: it distorts the timing.
 
@@ -7240,7 +7241,7 @@ Expected: `exit: 0` for each. A company for which research finds nothing citable
 
 If the first company fails with an API error instead (a 400 naming `output_config`, `tools` or `betas`), stop. That is a defect in Task 5, 11 or 12 to fix test-first in the repository, not something to patch on the server.
 
-- [ ] **Step 3: Bring the output back and summarise it**
+- [x] **Step 3: Bring the output back and summarise it**
 
 ```bash
 scp -q -i "$KEY" -r "$A:~/brief-eval/$REV/out" "$OUT/"
@@ -7266,7 +7267,7 @@ PY
 
 Expected: three files per company in `$OUT/out` (`.json`, `.md`, `.pdf`) and `metrics.jsonl`, then a table with one row per company and a final sentence beginning `Measured over`.
 
-- [ ] **Step 4: Check the output against what the spec's test runs found**
+- [x] **Step 4: Check the output against what the spec's test runs found**
 
 Read each `.md` file and note, without changing any code:
 
@@ -7279,7 +7280,7 @@ Read each `.md` file and note, without changing any code:
 
 Write down anything that does not hold. Do not tune prompts or budgets in this task: that is a decision for Blake after he has compared the briefs.
 
-- [ ] **Step 5: Record the measured time and cost**
+- [x] **Step 5: Record the measured time and cost**
 
 In `SETUP.md`, replace the sentence
 
@@ -7300,7 +7301,7 @@ git add SETUP.md
 git commit -m "docs: record measured time and cost per brief"
 ```
 
-- [ ] **Step 6: Hand over to Blake**
+- [x] **Step 6: Hand over to Blake**
 
 Tell Blake, in plain language:
 
@@ -7308,6 +7309,8 @@ Tell Blake, in plain language:
 2. The table and the `Measured over` sentence from Step 3.
 3. What Step 4 found, company by company.
 4. That nothing has been pushed, merged or changed on a server, and the steps below are waiting for his word.
+
+Recorded 2026-10-05: all eight ran on server A at commit `2009274` (suite there: 461 passed, 2 skipped, Python 3.14.4) and every brief was a valid document. Median 94 seconds and $0.39 per brief; worst 138 seconds and $0.51. Research stopped on its own after 6 to 13 searches and 4 to 11 opened pages each, well inside the allowance, so neither Workday careers site was reached for Occidental or Kemper. No code was changed. Scores: Anker 3, HF Sinclair 5, Occidental 5, Global Payments 5, Kemper 3, UPS 3, Advance Auto Parts 5, Southern Glazer's 5.
 
 ---
 

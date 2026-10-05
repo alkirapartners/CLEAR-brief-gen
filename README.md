@@ -17,7 +17,7 @@ This repo holds the Brief API, the sign-in service and the sign-in pages. The sc
 5. The brief is saved and opened on its own page. It has one to three angles, never padded
 6. Partner can download it as PDF, update it (re-research), or delete it
 
-A brief takes about three minutes and costs about a dollar. If research finds nothing it can cite, the partner gets an error and no brief is written.
+A brief took one and a half to two and a half minutes and cost about 40 cents when measured on eight companies; at the full research allowance it can take about five minutes and cost about a dollar. If research finds nothing it can cite, the partner gets an error and no brief is written.
 
 A brief for a company already researched in the last 14 days is reused from Supabase without a model call. **Update brief** always re-researches and never consults that cache.
 

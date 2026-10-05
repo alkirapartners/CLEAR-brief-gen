@@ -9,7 +9,7 @@ The API behind the Brief Generator: partners type a company name and get a score
 3. `prompts.py` builds two system prefixes, one per stage (instructions plus skill files). Each is byte-stable and prompt-cached with a 1-hour TTL; everything per-brief lives in the user message.
 4. `brief_service.py` saves the brief; `brief_view.py` turns it into the fields the front end shows. Briefs from before this pipeline are markdown and are read by `briefparse.py`.
 
-The loop runs in this process, not in a hosted agent. A brief takes about three minutes.
+The loop runs in this process, not in a hosted agent. A brief took between one and a half and two and a half minutes when measured, and can take about five at the full research allowance.
 
 ## Prerequisites
 
@@ -101,6 +101,6 @@ Edit the files under `skills/` (brief template and scoring rubric, Alkira proof 
 | Judge-and-write tokens (cached prefix, ~6K output) | ~$0.07–0.13 |
 | **Total** | **~$0.70–1.35 per brief (estimate)** |
 
-These are estimates from published prices. `generate_brief.py` prints the measured time, tokens and cost of every run.
+The table is the estimate at the full research allowance. Measured over 8 companies on 2026-10-05: median 94 seconds and $0.39 per brief (range 82 to 138 seconds, $0.32 to $0.51). Those runs stopped on their own after 6 to 13 of the 25 searches and 4 to 11 of the 20 page reads. `generate_brief.py` prints the measured time, tokens and cost of every run.
 
 Each stage's system prefix is prompt-cached for 1 hour. Repeat briefs within that window read the cache instead of paying full input rate. Separately, a brief for a company already researched in the last 14 days is served from Supabase without any model call at all. The daily cap is 10 paid briefs per person.
