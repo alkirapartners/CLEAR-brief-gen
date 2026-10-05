@@ -155,7 +155,9 @@ before or after it.
   it does not. `identity_note` says which entity this is and names any
   look-alike that was ruled out. Leave it empty when the name was never in
   doubt.
-- `stats`: short values, empty when not found. `cloud_network` is a
+- `stats`: short values, empty when not found. Copy the headquarters and
+  the revenue and employee figures as the evidence gives them: a place or a
+  figure that is not in the evidence is removed. `cloud_network` is a
   one-line headline of the cloud and network estate.
 - `fit.score`: 1 to 5 from the scoring table. `fit.verdict`: one sentence
   giving the use case and how fresh its evidence is. `fit.lead`: one or two
@@ -178,7 +180,8 @@ before or after it.
   `text` and `sources` empty. Never guess a line.
 - `people`: who to talk to. Give a `name` only when the evidence names the
   person from a first-hand source. Otherwise leave it empty and give the
-  `role`. `note` says why this person.
+  `role`. `note` says why this person, and is kept only when the person has
+  a source.
 - `questions`: three or four when there are several angles, one or two for
   a one-angle brief. Each names a specific fact, fits in one sentence, and
   comes with `listen_for` and `alkira_angle`. Technical vocabulary is

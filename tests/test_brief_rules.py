@@ -6,23 +6,32 @@ from datetime import date
 import brief_doc
 import brief_rules
 import case_studies
+from evidence import EvidenceItem, Source
 from tests.brief_fixtures import SAMPLE_DOC, writer_output
 
 TODAY = date(2026, 10, 5)
 NOTE = {"searches": 21, "pages": 17, "seconds": 203, "stopped_by": "finished"}
 
 
-def _candidates(count=4):
-    return [
-        {"n": n, "title": f"Page {n}", "url": f"https://example.com/{n}", "date": "", "data_broker": False}
+# What the opened pages state about the sample company's basics.
+STATED = "Northwind Energy Corporation is headquartered in Dallas, Texas. Revenue was $28B. It has 5,200 employees."
+
+
+def _sources(count=4, stated=STATED):
+    """The opened pages, numbered as the writer saw them, each stating the same basics."""
+    return tuple(
+        Source(
+            n=n, url=f"https://example.com/{n}", title=f"Page {n}", date="", data_broker=False,
+            facts=(EvidenceItem("Company basics.", "basics", f"https://example.com/{n}", opened=True, quote=stated),),
+        )
         for n in range(1, count + 1)
-    ]
+    )
 
 
-def _finalize(output=None, candidates=None, language="en"):
+def _finalize(output=None, sources=None, language="en"):
     return brief_rules.finalize(
         output if output is not None else writer_output(),
-        candidates if candidates is not None else _candidates(),
+        sources if sources is not None else _sources(),
         language, TODAY, NOTE,
     )
 
@@ -102,6 +111,60 @@ def test_a_name_without_a_source_is_reduced_to_the_role():
     ])
     people = _finalize(output)["people"]
     assert [(p["name"], p["role"]) for p in people] == [("", "VP Infrastructure"), ("Dana Ruiz", "CIO")]
+
+
+def test_what_is_said_about_a_person_needs_a_source_too():
+    output = writer_output(people=[
+        {"name": "Pat Lee", "role": "VP Infrastructure", "note": "Signed the MPLS contract.", "sources": [99]},
+        {"name": "Dana Ruiz", "role": "CIO", "note": "Named in the annual report.", "sources": [2]},
+    ])
+    people = _finalize(output)["people"]
+    assert people[0] == {"name": "", "role": "VP Infrastructure", "note": "", "sources": []}
+    assert people[1]["note"] == "Named in the annual report."
+
+
+# ── Headquarters, revenue and headcount come from the evidence or stay empty ──
+
+def _stats(**changes):
+    return _finalize(writer_output(stats={**SAMPLE_DOC["stats"], **changes}))["stats"]
+
+
+def test_basics_the_evidence_states_are_kept_as_written():
+    stats = _stats()
+    assert (stats["hq"], stats["revenue"], stats["employees"]) == ("Dallas, TX", "$28B", "5,200")
+
+
+def test_a_figure_that_is_not_in_the_evidence_is_left_empty():
+    assert _stats(revenue="$31.4B")["revenue"] == ""
+    assert _stats(employees="About 9,000")["employees"] == ""
+    assert _stats(revenue="$28B in FY24, up from $26B")["revenue"] == ""  # one figure of the two is not there
+
+
+def test_a_value_with_no_figure_in_it_is_left_empty():
+    assert _stats(revenue="Not disclosed")["revenue"] == ""
+    assert _stats(employees="A large workforce")["employees"] == ""
+
+
+def test_the_same_figure_written_another_way_is_still_the_evidence_s_figure():
+    assert _stats(employees="5200 employees")["employees"] == "5200 employees"
+    assert _stats(revenue="Revenue $28B")["revenue"] == "Revenue $28B"
+
+
+def test_a_headquarters_the_evidence_never_mentions_is_left_empty():
+    assert _stats(hq="Houston, TX")["hq"] == ""
+    assert _stats(hq="dallas, texas")["hq"] == "dallas, texas"
+    assert _stats(hq="TX")["hq"] == ""  # too little to check
+
+
+def test_the_other_basics_are_the_writer_s_summary_and_are_left_alone():
+    stats = _stats()
+    assert stats["industry"] == "Refining" and stats["ownership"] == "Public"
+    assert stats["cloud_network"].startswith("Azure, ExpressRoute")
+
+
+def test_with_no_evidence_about_the_basics_all_three_are_empty():
+    doc = _finalize(sources=_sources(stated="A posting lists ExpressRoute and Virtual WAN."))
+    assert (doc["stats"]["hq"], doc["stats"]["revenue"], doc["stats"]["employees"]) == ("", "", "")
 
 
 # ── Angles are never padded, and the score follows them ──────────

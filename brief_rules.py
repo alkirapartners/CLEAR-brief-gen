@@ -14,9 +14,9 @@ from typing import Any, Iterable, Sequence
 import case_studies
 from brief_doc import (
     FORMAT_VERSION, SNAPSHOT_KEYS, Angle, BriefDoc, EvidenceLine, Person, Question,
-    Reference, ResearchNote, Snapshot, SnapshotLine, Story, WriterOutput,
+    Reference, ResearchNote, Snapshot, SnapshotLine, Stats, Story, WriterOutput,
 )
-from evidence import safe_url
+from evidence import Source, safe_url, to_references
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +27,10 @@ MAX_SCORE_WITHOUT_ANGLES = 2
 MAX_SCORE_WITH_ONE_ANGLE = 4
 # The language the story table is written in.
 TABLE_LANGUAGE = "en"
+# Basics that are figures: every figure in them has to be in the evidence.
+FIGURE_STATS: tuple[str, ...] = ("revenue", "employees")
+# A place name is checked by its words of at least this many letters.
+MIN_PLACE_WORD_CHARS = 3
 
 
 # The brief shows no links of the model's own making. Sources are cited by
@@ -119,14 +123,52 @@ def _snapshot(snapshot: Snapshot, valid: frozenset[int]) -> Snapshot:
 
 
 def _people(people: Sequence[Person], valid: frozenset[int]) -> list[Person]:
-    """A name needs a source. Without one the person is listed by role only."""
+    """A name, and anything said about the person, needs a source.
+
+    Without one the person is listed by role only.
+    """
     checked: list[Person] = []
     for person in people:
         sources = _known(person["sources"], valid)
         name = person["name"].strip() if sources else ""
+        note = person["note"].strip() if sources else ""
         if name or person["role"].strip():
-            checked.append({**person, "name": name, "sources": sources})
+            checked.append({**person, "name": name, "note": note, "sources": sources})
     return checked
+
+
+_WORD = re.compile(r"[^\W\d_]+")
+
+
+def _words(text: str) -> frozenset[str]:
+    return frozenset(word.casefold() for word in _WORD.findall(text))
+
+
+def _stated(sources: Sequence[Source]) -> str:
+    """Everything the evidence says: each fact and the page wording under it."""
+    return "\n".join(f"{fact.fact}\n{fact.quote}" for source in sources for fact in source.facts)
+
+
+def _traced_figure(value: str, figures: frozenset[str]) -> str:
+    """The value, or nothing unless every figure in it is a figure in the evidence."""
+    wanted = _numbers(value)
+    return value if wanted and wanted <= figures else ""
+
+
+def _traced_place(value: str, words: frozenset[str]) -> str:
+    """The value, or nothing unless the evidence names the place before its first comma."""
+    place = [w for w in _words(value.split(",")[0]) if len(w) >= MIN_PLACE_WORD_CHARS]
+    return value if place and all(word in words for word in place) else ""
+
+
+def _stats(stats: Stats, stated: str) -> Stats:
+    """Headquarters, revenue and headcount as the evidence gives them, or empty.
+
+    The other basics are the writer's own summary of the evidence.
+    """
+    figures = _numbers(stated)
+    traced = {key: _traced_figure(stats[key].strip(), figures) for key in FIGURE_STATS}
+    return {**stats, **traced, "hq": _traced_place(stats["hq"].strip(), _words(stated))}
 
 
 def _questions(questions: Sequence[Question]) -> list[Question]:
@@ -158,45 +200,52 @@ def _references(candidates: Sequence[Reference], order: dict[int, int]) -> list[
     return [{**by_number[old], "n": new} for old, new in order.items()]
 
 
+def _renumbered_angle(angle: Angle, order: dict[int, int]) -> Angle:
+    lines = [{**line, "sources": _renumber(line["sources"], order)} for line in angle["evidence"]]
+    return {**angle, "evidence": lines}
+
+
+def _log_adjustment(output: WriterOutput, angles: Sequence[Angle], score: int) -> None:
+    if len(angles) == len(output["angles"]) and score == output["fit"]["score"]:
+        return
+    logger.warning(
+        "Brief for %s adjusted: angles %d -> %d, score %d -> %d",
+        output["company"]["name"], len(output["angles"]), len(angles),
+        output["fit"]["score"], score,
+    )
+
+
 def finalize(
     output: WriterOutput,
-    candidates: Sequence[Reference],
+    sources: Sequence[Source],
     language: str,
     today: date,
     research: ResearchNote,
 ) -> BriefDoc:
     """Turn the writer's output into the document that is stored.
 
-    ``candidates`` are the pages that were opened, numbered as the writer
-    saw them. Only the ones the brief cites become its references, and they
-    are renumbered from 1 in the order the brief cites them.
+    ``sources`` are the pages that were opened, numbered as the writer saw
+    them, with the facts recorded from each. Only the ones the brief cites
+    become its references, and they are renumbered from 1 in the order the
+    brief cites them.
     """
     output = _scrub(output)
+    candidates = to_references(sources)
     valid = frozenset(ref["n"] for ref in candidates)
     angles = _angles(output["angles"], valid, language)
     snapshot = _snapshot(output["snapshot"], valid)
     people = _people(output["people"], valid)
     score = _score(output["fit"]["score"], len(angles))
-    if len(angles) != len(output["angles"]) or score != output["fit"]["score"]:
-        logger.warning(
-            "Brief for %s adjusted: angles %d -> %d, score %d -> %d",
-            output["company"]["name"], len(output["angles"]), len(angles),
-            output["fit"]["score"], score,
-        )
+    _log_adjustment(output, angles, score)
     order = {old: new for new, old in enumerate(_cited(angles, snapshot, people), start=1)}
     return {
         "format": FORMAT_VERSION,
         "language": language,
         "generated": today.isoformat(),
         "company": {**output["company"], "website": safe_url(output["company"]["website"]) or ""},
-        "stats": output["stats"],
+        "stats": _stats(output["stats"], _stated(sources)),
         "fit": {**output["fit"], "score": score},
-        "angles": [
-            {**angle, "evidence": [
-                {**line, "sources": _renumber(line["sources"], order)} for line in angle["evidence"]
-            ]}
-            for angle in angles
-        ],
+        "angles": [_renumbered_angle(angle, order) for angle in angles],
         "snapshot": {
             key: {**snapshot[key], "sources": _renumber(snapshot[key]["sources"], order)}
             for key in SNAPSHOT_KEYS
