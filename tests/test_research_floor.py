@@ -24,7 +24,10 @@ def _fact(category):
     return EvidenceItem("A fact.", category, "https://careers.acme.com/job/123", opened=True)
 
 
-def _open(attempts=frozenset(), pages=(), evidence=(), searches=floor.MIN_SEARCHES):
+def _open(attempts=frozenset(), pages=(), evidence=None, searches=floor.MIN_SEARCHES):
+    """Open items. Unless told otherwise, every opened page gave one recorded fact."""
+    if evidence is None:
+        evidence = [EvidenceItem("A fact.", "people", page.url, opened=True) for page in pages]
     return floor.open_items(frozenset(attempts), pages, evidence, searches)
 
 
@@ -70,6 +73,13 @@ def test_at_the_start_everything_is_open():
 def test_two_job_pages_opened_answer_for_careers():
     assert floor.CAREERS not in _open(pages=CAREERS_PAGES)
     assert floor.CAREERS in _open(pages=CAREERS_PAGES[:1])
+
+
+def test_a_job_page_that_gave_no_fact_was_not_really_read():
+    """A posting that came back as a title and a cookie notice does not count as reached."""
+    one_real = [EvidenceItem("Lists SD-WAN.", "network", CAREERS_PAGES[0].url, opened=True)]
+    assert floor.CAREERS in _open(pages=CAREERS_PAGES, evidence=one_real)
+    assert floor.CAREERS in _open(pages=CAREERS_PAGES, evidence=[])
 
 
 def test_careers_is_also_answered_by_trying_both_the_site_and_a_hosted_job_site():

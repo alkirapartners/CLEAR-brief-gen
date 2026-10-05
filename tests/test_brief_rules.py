@@ -117,6 +117,16 @@ def test_a_name_without_a_source_is_reduced_to_the_role():
     assert [(p["name"], p["role"]) for p in people] == [("", "VP Infrastructure"), ("Dana Ruiz", "CIO")]
 
 
+def test_a_name_from_trade_press_or_a_data_broker_is_reduced_to_the_role():
+    """A person is named only when the company itself names them."""
+    output = writer_output(people=[{"name": "Dana Ruiz", "role": "CIO", "note": "Runs IT.", "sources": [2]}])
+    for kind in ("second_hand", "last_resort"):
+        (person,) = _finalize(output, sources=_sources(source_type=kind))["people"]
+        assert (person["name"], person["role"], person["note"]) == ("", "CIO", "Runs IT.")
+    (named,) = _finalize(output)["people"]
+    assert named["name"] == "Dana Ruiz"
+
+
 def test_what_is_said_about_a_person_needs_a_source_too():
     output = writer_output(people=[
         {"name": "Pat Lee", "role": "VP Infrastructure", "note": "Signed the MPLS contract.", "sources": [99]},

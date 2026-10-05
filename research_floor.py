@@ -13,10 +13,11 @@ the brief says what was not found.
 import re
 from typing import Any, Mapping, Sequence
 
-from evidence import HOSTED_JOB_SITES, EvidenceItem, Page, is_on
+from evidence import HOSTED_JOB_SITES, EvidenceItem, Page, canonical_url, is_on
 
 # ── The floor ────────────────────────────────────────────────────
-# Job or careers pages opened. With this many read, the postings were reached.
+# Job or careers pages read, each with a fact recorded from it. With this
+# many, the postings were reached.
 MIN_CAREERS_PAGES = 2
 # Searches run and pages opened before research may call itself done.
 MIN_SEARCHES = 10
@@ -149,8 +150,18 @@ def attempted(call_name: str, call_input: Mapping[str, Any]) -> frozenset[str]:
     return frozenset()
 
 
-def _careers_pages(pages: Sequence[Page]) -> int:
-    return sum(1 for page in pages if is_on(page.url, HOSTED_JOB_SITES) or _is_careers_address(page.url))
+def _careers_pages(pages: Sequence[Page], evidence: Sequence[EvidenceItem]) -> int:
+    """Job and careers pages that were read: opened, and a fact recorded from them.
+
+    A posting that comes back as a title and a cookie notice yields no fact,
+    so it does not count as reached.
+    """
+    gave_facts = {canonical_url(item.source_url) for item in evidence}
+    return sum(
+        1 for page in pages
+        if canonical_url(page.url) in gave_facts
+        and (is_on(page.url, HOSTED_JOB_SITES) or _is_careers_address(page.url))
+    )
 
 
 def open_items(
@@ -159,7 +170,7 @@ def open_items(
     """What the floor still asks for, in the order to work on it."""
     still: list[str] = []
     tried_both = CAREERS_SITE in attempts and HOSTED_JOBS in attempts
-    if _careers_pages(pages) < MIN_CAREERS_PAGES and not tried_both:
+    if _careers_pages(pages, evidence) < MIN_CAREERS_PAGES and not tried_both:
         still.append(CAREERS)
     if FILING not in attempts:
         still.append(FILING)

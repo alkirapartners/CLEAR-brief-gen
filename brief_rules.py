@@ -22,7 +22,7 @@ from brief_doc import (
     FORMAT_VERSION, SNAPSHOT_KEYS, Angle, BriefDoc, EvidenceLine, Fit, Person, Question,
     Reference, ResearchNote, Snapshot, SnapshotLine, Stats, Story, WriterOutput,
 )
-from evidence import Source, clean_date, parse_date, safe_url, to_references
+from evidence import FIRST_HAND, Source, clean_date, parse_date, safe_url, to_references
 
 logger = logging.getLogger(__name__)
 
@@ -169,15 +169,15 @@ def _snapshot(snapshot: Snapshot, valid: frozenset[int]) -> Snapshot:
     return lines
 
 
-def _people(people: Sequence[Person], valid: frozenset[int]) -> list[Person]:
-    """A name, and anything said about the person, needs a source.
+def _people(people: Sequence[Person], valid: frozenset[int], first_hand: frozenset[int]) -> list[Person]:
+    """A name needs a first-hand source, and anything said about the person needs a source.
 
-    Without one the person is listed by role only.
+    A person named only by trade press or a data broker is listed by role.
     """
     checked: list[Person] = []
     for person in people:
         sources = _known(person["sources"], valid)
-        name = person["name"].strip() if sources else ""
+        name = person["name"].strip() if first_hand.intersection(sources) else ""
         note = person["note"].strip() if sources else ""
         if name or person["role"].strip():
             checked.append({**person, "name": name, "note": note, "sources": sources})
@@ -283,7 +283,8 @@ def finalize(
     wanted = output["angles"] if output["fit"]["score"] > MAX_SCORE_WITHOUT_ANGLES else []
     angles = _angles(wanted, dates, language, today)
     snapshot = _snapshot(output["snapshot"], valid)
-    people = _people(output["people"], valid)
+    first_hand = frozenset(ref["n"] for ref in candidates if ref["source_type"] == FIRST_HAND)
+    people = _people(output["people"], valid, first_hand)
     fit = _fit(output["fit"], fit_score.ceiling(angles, candidates, today), language)
     _log_adjustment(output, angles, fit["score"])
     order = {old: new for new, old in enumerate(_cited(angles, snapshot, people), start=1)}

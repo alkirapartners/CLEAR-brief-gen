@@ -195,8 +195,10 @@ before or after it.
   doubt.
 - `stats`: short values, empty when not found. Copy the headquarters and
   the revenue and employee figures as the evidence gives them: a place or a
-  figure that is not in the evidence is removed. `cloud_network` is a
-  one-line headline of the cloud and network estate.
+  figure that is not in the evidence is removed. When a basic comes only
+  from a last-resort source, say so in the value, as in "About $26B (per
+  Wikipedia)". `cloud_network` is a one-line headline of the cloud and
+  network estate.
 - `fit.score`: 1 to 5 from the scoring table. `fit.verdict`: one sentence
   giving the use case and how fresh its evidence is. `fit.lead`: one or two
   sentences saying what to open with and whom to call.
@@ -228,8 +230,9 @@ before or after it.
   for industrial control systems only.
 - `people`: who to talk to. Give a `name` only when the evidence names the
   person from a first-hand source. Otherwise leave it empty and give the
-  `role`. `note` says why this person, and is kept only when the person has
-  a source.
+  `role`. A name that rests only on a second-hand or last-resort source is
+  removed. `note` says why this person, and is kept only when the person
+  has a source.
 - `questions`: three or four when there are several angles, one or two for
   a one-angle brief. Each names a specific fact, fits in one sentence, and
   comes with `listen_for` and `alkira_angle`. Technical vocabulary is
