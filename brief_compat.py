@@ -14,6 +14,7 @@ lines with their markers, the full stats line, people, stories).
 import re
 
 import i18n
+import proof_points
 import ticker
 from brief_doc import Angle, BriefDoc, EvidenceLine, Person, Question, SnapshotLine, Story
 
@@ -65,6 +66,11 @@ def snapshot_text(line: SnapshotLine, labels: Labels) -> str:
     if not line["text"]:
         return labels["not_found"]
     return f"{line['text']}{cite(line['sources'])}"
+
+
+def is_proof_point(story: Story) -> bool:
+    """True for a knowledge-base figure standing in where no customer story fits."""
+    return story["id"] == proof_points.METRIC
 
 
 def proof_text(story: Story) -> str:
@@ -175,25 +181,31 @@ def signals(doc: BriefDoc, labels: Labels) -> list[str]:
 def entry_points(doc: BriefDoc, labels: Labels) -> list[dict[str, str]]:
     """One entry point per angle: as many as the brief has, never padded.
 
-    The signal is the angle's evidence other than the fact already shown
-    under Signals & Timing, so nothing is printed twice. An angle with a
-    single fact has an empty signal and the page leaves that row out.
+    Every entry point has all three rows, because the page drops the row
+    labels from a card that has only one. The signal is the angle's
+    evidence other than the fact already shown under Signals & Timing, so
+    nothing is printed twice; an angle with a single fact repeats it. The
+    proof is the angle's story, or the headline figure for its use case
+    when it has none.
     """
+    language = i18n.normalize(doc["language"])
     points: list[dict[str, str]] = []
     for angle in doc["angles"]:
         trigger = _trigger(angle)
-        rest = [line for line in angle["evidence"] if line is not trigger]
+        rest = [line for line in angle["evidence"] if line is not trigger] or angle["evidence"]
+        proof = proof_text(angle["story"]) or proof_points.fallback(angle["use_case"], language)["result"]
         points.append({
             "heading": angle["title"],
             "signal": " ".join(_page_sentence(line, labels, doc["language"]) for line in rest),
             "solution": angle["alkira"],
-            "proof": proof_text(angle["story"]),
+            "proof": proof,
         })
     return points
 
 
-# Between stakeholders. A comma would not do: a role can hold one.
-STAKEHOLDER_SEPARATOR = " · "
+# Between stakeholders. A comma would not do: a role can hold one. The
+# space before the dot does not break, so the dot never starts a line.
+STAKEHOLDER_SEPARATOR = "\u00a0· "
 # The older briefs asked for two or three things to validate early.
 MAX_VALIDATE_EARLY = 3
 

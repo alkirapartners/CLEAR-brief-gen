@@ -19,6 +19,7 @@ import case_studies
 import deal_rules
 import fit_score
 import i18n
+import proof_points
 import stat_tracing
 import ticker
 from brief_doc import (
@@ -105,14 +106,12 @@ def _numbers(text: str) -> frozenset[str]:
     return frozenset(re.sub(r"[.,]", "", number) for number in _NUMBER.findall(text))
 
 
-_NO_STORY: Story = {"id": case_studies.NO_STORY, "customer": "", "result": ""}
-
-
 def _story(story: Story, use_case: str, told: frozenset[str], language: str) -> Story:
     """The story as the knowledge base has it. Proof is never the model's own.
 
     A story is kept only when the table tags it with the angle's use case
-    and no earlier angle in this brief has told it. The customer name always
+    and no earlier angle in this brief has told it. Otherwise the angle
+    shows a proof point: a figure from the knowledge base, with no customer. The customer name always
     comes from the story table. So does the result for a brief in English.
     In another language the model's translation of the result is kept only
     when the table's result has figures and the translation carries exactly
@@ -120,7 +119,8 @@ def _story(story: Story, use_case: str, told: frozenset[str], language: str) -> 
     """
     known = case_studies.story_by_id(story["id"])
     if known is None or use_case not in known.situations or known.id in told:
-        return {**_NO_STORY}
+        # No story fits: the knowledge base's headline figure for the use case stands in.
+        return proof_points.fallback(use_case, language)
     translated = story["result"].strip() if language != TABLE_LANGUAGE else ""
     figures = _numbers(known.result)
     if not figures or _numbers(translated) != figures:
@@ -177,7 +177,7 @@ def _angles(standing: Sequence[Placed], language: str) -> list[Placed]:
     told: frozenset[str] = frozenset()
     for place, angle in ordered:
         story = _story(angle["story"], angle["use_case"], told, language)
-        told = told | ({story["id"]} - {case_studies.NO_STORY})
+        told = told | ({story["id"]} - {proof_points.METRIC})
         kept.append((place, {**angle, "story": story}))
     return kept
 

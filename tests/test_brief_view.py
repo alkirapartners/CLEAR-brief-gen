@@ -146,10 +146,19 @@ def test_the_entry_point_signal_holds_the_rest_of_the_evidence_and_never_repeats
     assert point["proof"].startswith("Koch Industries: Significant reduction")
 
 
-def test_an_angle_with_a_single_fact_shows_it_once_under_signals_and_timing():
+def test_an_angle_with_a_single_fact_repeats_it_as_its_signal_so_the_card_keeps_its_rows():
+    """The page drops the row labels from a card with one row. A repeated fact is better than that."""
     data = _detail()
-    assert data["signals"][0] == "A network engineer posting lists ExpressRoute and a Virtual WAN hub-and-spoke (source dated 23 Sep 2026)."
-    assert [point["signal"] for point in data["entryPoints"]] == ["", ""]
+    fact = "A network engineer posting lists ExpressRoute and a Virtual WAN hub-and-spoke (source dated 23 Sep 2026)."
+    assert data["signals"][0] == fact and data["entryPoints"][0]["signal"] == fact
+
+
+def test_every_entry_point_has_a_signal_a_solution_and_a_proof():
+    angles = make_doc()["angles"]
+    angles[1]["story"] = {"id": "none", "customer": "", "result": ""}
+    for language in ("en", "es"):
+        for point in _detail(angles=angles, language=language)["entryPoints"]:
+            assert point["signal"] and point["solution"] and point["proof"]
 
 
 def test_no_citation_marker_or_undated_marker_reaches_the_page_text():
@@ -181,7 +190,7 @@ def test_dates_are_written_the_spanish_way_in_a_spanish_brief():
 
 def test_starters_hold_people_the_first_question_pointer_and_the_questions():
     lines = _detail()["startersMd"].splitlines()
-    assert lines[0] == "**Stakeholders:** Director of Network Engineering · Chief Information Officer (Dana Ruiz)"
+    assert lines[0] == "**Stakeholders:** Director of Network Engineering\u00a0· Chief Information Officer (Dana Ruiz)"
     assert lines[1] == "**Best First Question:** Lead with question 1."
     assert '1. "Who builds a new Virtual WAN hub today, and how long does one take?"' in lines
     assert "Open with the Azure hub build" not in "\n".join(lines)  # the lead is in the score rationale, once
@@ -203,7 +212,8 @@ def test_a_role_with_a_comma_in_it_cannot_be_mistaken_for_two_people():
         {"name": "", "role": "Head of network engineering", "note": "", "sources": []},
     ]
     first = _detail(people=people)["startersMd"].splitlines()[0]
-    assert first == "**Stakeholders:** EVP, Chief Digital and Technology Officer · Head of network engineering"
+    assert first == "**Stakeholders:** EVP, Chief Digital and Technology Officer\u00a0· Head of network engineering"
+    assert " ·" not in first  # the dot never starts a line: the space before it does not break
 
 
 def test_what_could_not_be_confirmed_becomes_the_validate_early_bullets():
@@ -274,10 +284,19 @@ def test_a_brief_with_no_angles_has_no_entry_points_and_still_renders():
     assert data["startersMd"] == ""
 
 
-def test_a_story_of_none_leaves_the_proof_empty():
+def test_an_angle_stored_with_no_story_shows_the_headline_metric_for_its_use_case():
     angles = _one_angle()
     angles[0]["story"] = {"id": "none", "customer": "", "result": ""}
-    assert _detail(angles=angles)["entryPoints"][0]["proof"] == ""
+    assert _detail(angles=angles)["entryPoints"][0]["proof"] == "Cloud connection time reduction: 96%."
+
+
+def test_a_proof_point_is_shown_without_a_customer_and_labelled_as_one_in_the_text():
+    import brief_text
+    angles = _one_angle()
+    angles[0]["story"] = {"id": "metric", "customer": "", "result": "Cloud connection time reduction: 96%."}
+    assert _detail(angles=angles)["entryPoints"][0]["proof"] == "Cloud connection time reduction: 96%."
+    text = brief_text.render(make_doc(angles=angles))
+    assert "Proof point: Cloud connection time reduction: 96%." in text and "Customer story" not in text
 
 
 # ── The new fields, alongside ────────────────────────────────────

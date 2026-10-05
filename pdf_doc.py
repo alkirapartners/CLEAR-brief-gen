@@ -98,7 +98,8 @@ def _angle(pdf: _BriefPDF, number: int, angle: Angle) -> None:
     _text(pdf, f"{labels['alkira_answer']}: {angle['alkira']}", size=9)
     proof = brief_compat.proof_text(angle["story"])
     if proof:
-        _text(pdf, f"{labels['customer_story']}: {proof}", size=9, color=ALKIRA_MUTED)
+        label = "proof_point" if brief_compat.is_proof_point(angle["story"]) else "customer_story"
+        _text(pdf, f"{labels[label]}: {proof}", size=9, color=ALKIRA_MUTED)
 
 
 def _angles(pdf: _BriefPDF, doc: BriefDoc) -> None:

@@ -539,7 +539,11 @@ def test_a_question_about_no_angle_stays_and_one_about_a_removed_angle_goes():
 
 # ── A story fits its angle's situation, and is told once ─────────
 
-NO_STORY = {"id": "none", "customer": "", "result": ""}
+def _metric(use_case):
+    import proof_points
+    return proof_points.fallback(use_case, "en")
+
+
 THREE = {"score": 3, "verdict": "v", "lead": "l"}
 
 
@@ -550,7 +554,7 @@ def _stories(*angles):
 def test_a_story_about_another_situation_is_removed_from_the_angle():
     """The M&A story is not proof for a network-modernization angle."""
     (story,) = _stories(_angle([1], story_id="nemertes-4", use_case="network_modernization"))
-    assert story == NO_STORY
+    assert story == _metric("network_modernization")
     (kept,) = _stories(_angle([1], story_id="nemertes-4", use_case="m_and_a"))
     assert kept["id"] == "nemertes-4"
 
@@ -567,7 +571,7 @@ def test_a_story_is_told_once_in_a_brief():
         _angle([1], story_id="michaels", use_case="network_modernization"),
         _angle([2], title="Second", story_id="michaels", use_case="site_rollout"),
     )
-    assert first["id"] == "michaels" and second == NO_STORY
+    assert first["id"] == "michaels" and second == _metric("site_rollout")
 
 
 def test_a_story_on_an_angle_that_was_removed_is_still_free_for_the_next_angle():
@@ -578,14 +582,19 @@ def test_a_story_on_an_angle_that_was_removed_is_still_free_for_the_next_angle()
     assert story["id"] == "michaels"
 
 
-def test_an_angle_may_go_without_a_story():
-    first, second = _stories(_angle([1], story_id="none"), _angle([2], title="Second", story_id="none"))
-    assert first == NO_STORY and second == NO_STORY
+def test_an_angle_with_no_story_is_given_the_headline_metric_for_its_use_case():
+    """A named story that does not fit is worse than none. A knowledge-base figure is better than nothing."""
+    first, second = _stories(
+        _angle([1], story_id="none"),
+        _angle([2], title="Second", story_id="none", use_case="site_rollout"),
+    )
+    assert first == {"id": "metric", "customer": "", "result": "Cloud connection time reduction: 96%."}
+    assert second == {"id": "metric", "customer": "", "result": "Network provisioning speed improvement: 80%."}
 
 
 def test_a_story_that_is_not_in_the_knowledge_base_is_dropped():
     doc = _finalize(writer_output(angles=[_angle([1], story_id="globex")]))
-    assert doc["angles"][0]["story"] == {"id": "none", "customer": "", "result": ""}
+    assert doc["angles"][0]["story"] == _metric("multi_cloud")
 
 
 def test_a_translated_proof_whose_numbers_differ_from_the_knowledge_base_is_replaced():

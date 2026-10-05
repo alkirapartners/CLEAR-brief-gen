@@ -22,7 +22,8 @@ def _angles(doc: BriefDoc, labels: dict[str, str]) -> list[str]:
         lines += [f"{labels['alkira_answer']}: {angle['alkira']}"]
         proof = brief_compat.proof_text(angle["story"])
         if proof:
-            lines += [f"{labels['customer_story']}: {proof}"]
+            label = "proof_point" if brief_compat.is_proof_point(angle["story"]) else "customer_story"
+            lines += [f"{labels[label]}: {proof}"]
         lines += [""]
     return lines[:-1]
 

@@ -249,7 +249,8 @@ before or after it.
   once in a brief. Give the story's `id`. Leave `customer` and `result`
   empty: both are filled in from the table, unless the user message asks
   for a translated result. When nothing matches, use the id `none`: no
-  story is better than the wrong one. Any other proof you cite must be a
+  story is better than the wrong one, and the angle is then given the
+  knowledge base's headline figure for its use case in your place. Any other proof you cite must be a
   metric from the knowledge base.
 - `snapshot`: one line each for `clouds`, `cloud_connectivity`, `wan`,
   `firewalls`, `data_centers` and `plant_networks`, in the evidence's own
