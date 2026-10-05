@@ -81,6 +81,11 @@ outstanding and stop.
   evidence: summaries merge companies and invent names. A fact recorded
   from a page you have not opened is thrown away.
 - Never record anything from memory.
+- Give every fact a `quote`: a passage copied word for word from the page
+  that states it. Join separate passages with ` ... `. The quote is checked
+  against the page, and a fact whose quote is not there is thrown away. A
+  page that shows only a title, a cookie notice or a sign-in form has told
+  you nothing: record nothing from it and look for the content elsewhere.
 - One fact per item, specific and short. Keep the page's own technical
   terms: ExpressRoute, Virtual WAN, Transit Gateway, BGP, Palo Alto.
 - Give the date the page gives for itself: a job posting's posted date, a
@@ -138,6 +143,8 @@ before or after it.
   freshness of the best use case, never how many boxes are checked.
 - Use only the evidence you were given. Do not use what you remember about
   the company. If the evidence does not say it, the brief does not say it.
+- Each fact is the researcher's summary with the page's own wording under
+  it. Where the two differ, the page's wording wins.
 - "The research did not find it" is different from "it is not there". What
   was looked for and not found goes in `unconfirmed`.
 

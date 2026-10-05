@@ -3,12 +3,14 @@
 import json
 
 import research_tools as tools
-from evidence import Page
+from evidence import Page, canonical_url
 from research_tools import Ledger, ToolCall
 
 FENCE = "f00dfeedf00dfeed"
 PAGE_TEXT = "Senior Network Engineer. ExpressRoute, Virtual WAN hub-and-spoke, BGP. " * 6
 JOB = "https://careers.example.com/job/1"
+# Words the fake page really holds, for facts recorded from it.
+QUOTE = "ExpressRoute, Virtual WAN hub-and-spoke, BGP"
 
 
 class FakeWeb:
@@ -56,8 +58,16 @@ def _record(items, call_id="e1"):
     return ToolCall(call_id, tools.RECORD, {"items": items})
 
 
-def _fact(url=JOB, fact="Runs ExpressRoute and Virtual WAN.", category="cloud"):
-    return {"fact": fact, "category": category, "source_url": url, "source_title": "Network Engineer", "source_date": "2026-09-23"}
+def _fact(url=JOB, fact="Runs ExpressRoute and Virtual WAN.", category="cloud", quote=QUOTE):
+    return {
+        "fact": fact, "category": category, "quote": quote,
+        "source_url": url, "source_title": "Network Engineer", "source_date": "2026-09-23",
+    }
+
+
+def _opened(url=JOB, text=PAGE_TEXT, **more):
+    """A ledger in which one page has already been opened and read."""
+    return Ledger(pages=(Page(url, len(text)),), texts={canonical_url(url): text}, **more)
 
 
 def _run(calls, ledger=None, web=None, accepting=True, time_left=None):
@@ -236,11 +246,70 @@ def test_an_address_that_is_not_public_is_refused_without_reaching_the_web():
 # ── Recording evidence ───────────────────────────────────────────
 
 def test_a_fact_from_an_opened_page_is_kept():
-    opened = Ledger(pages=(Page(JOB, 900),), page_reads=1)
+    opened = _opened(page_reads=1)
     results, after, _ = _run([_record([_fact()])], ledger=opened)
     assert results[0]["content"].startswith("Recorded 1 fact(s).")
     (item,) = after.evidence
     assert item.opened is True and item.category == "cloud" and item.source_date == "2026-09-23"
+    assert item.quote == QUOTE
+
+
+# ── A fact needs a quote the page really holds ───────────────────
+
+def test_every_recorded_fact_must_come_with_a_quote():
+    item = tools.TOOLS[2]["input_schema"]["properties"]["items"]["items"]
+    assert "quote" in item["required"] and "word for word" in item["properties"]["quote"]["description"]
+
+
+def test_a_fact_whose_quote_is_not_on_the_page_is_thrown_away_and_reported():
+    invented = _fact(fact="Runs 14 data centers on a Cisco ACI fabric.", quote="We operate 14 data centers on a Cisco ACI fabric")
+    results, after, _ = _run([_record([_fact(), invented])], ledger=_opened())
+    text = results[0]["content"]
+    assert text.startswith("Recorded 1 fact(s).")
+    assert 'Not kept: 1 fact(s) whose quote is not on the page word for word ("Runs 14 data centers on a Cisco ACI fabric.")' in text
+    assert "Copy a passage exactly as the page has it" in text
+    assert [item.fact for item in after.evidence] == ["Runs ExpressRoute and Virtual WAN."]
+
+
+def test_layout_and_case_do_not_decide_whether_a_quote_matches():
+    loose = _fact(quote="expressroute,   virtual WAN\nhub-and-spoke, **BGP**")
+    _, after, _ = _run([_record([loose])], ledger=_opened())
+    assert len(after.evidence) == 1
+
+
+def test_a_fact_with_no_quote_or_a_one_word_quote_is_not_kept():
+    _, after, _ = _run([_record([_fact(quote=""), _fact(quote="BGP")])], ledger=_opened())
+    assert after.evidence == ()
+
+
+def test_a_quote_from_another_opened_page_does_not_support_the_fact():
+    other = "https://example.com/annual-report"
+    both = Ledger(
+        pages=(Page(JOB, 400), Page(other, 400)),
+        texts={canonical_url(JOB): PAGE_TEXT, canonical_url(other): "The lubricants business will be separated by year end. " * 5},
+    )
+    crossed = _fact(url=JOB, fact="Separating lubricants.", quote="The lubricants business will be separated by year end.")
+    results, after, _ = _run([_record([crossed])], ledger=both)
+    assert after.evidence == () and "whose quote is not on the page" in results[0]["content"]
+
+
+def test_a_page_that_showed_only_its_title_cannot_support_a_detailed_fact():
+    """A posting that did not render holds a title and a cookie notice, so that is all it can prove."""
+    shell = (
+        "Senior Cisco ACI Engineer | Careers at Example Payments\n"
+        "We use cookies to improve your experience. By continuing to browse you agree to our use of cookies. "
+        "Accept all. Manage preferences. Skip to main content. Sign in. Search jobs. Loading, please wait."
+    )
+    posting = "https://jobs.example.com/r0070519"
+    ledger = _opened(url=posting, text=shell)
+    detailed = _fact(
+        url=posting, fact="The role needs Cisco ACI, BGP and Palo Alto firewalls across two data centers.",
+        quote="5+ years of Cisco ACI, BGP and Palo Alto firewall experience across our two data centers",
+    )
+    titled = _fact(url=posting, fact="A Senior Cisco ACI Engineer role is listed.", quote="Senior Cisco ACI Engineer | Careers at Example Payments")
+    results, after, _ = _run([_record([detailed, titled])], ledger=ledger)
+    assert [item.fact for item in after.evidence] == ["A Senior Cisco ACI Engineer role is listed."]
+    assert "Not kept: 1 fact(s) whose quote is not on the page" in results[0]["content"]
 
 
 def test_a_fact_from_a_page_that_was_never_opened_is_flagged_and_reported():
@@ -264,7 +333,7 @@ def test_a_fact_recorded_in_the_same_turn_as_the_read_is_not_kept():
 
 
 def test_unusable_entries_are_skipped_and_text_is_tidied():
-    opened = Ledger(pages=(Page(JOB, 900),))
+    opened = _opened()
     entries = [
         _fact(fact="Line one.\nLine two.   " + "x" * 900),
         {"fact": "No url", "category": "cloud"},
@@ -283,7 +352,7 @@ def test_recording_nothing_usable_is_answered_not_raised():
 
 
 def test_the_evidence_list_cannot_grow_without_limit():
-    full = Ledger(pages=(Page(JOB, 900),), evidence=tuple(
+    full = _opened(evidence=tuple(
         tools.EvidenceItem("f", "cloud", JOB, opened=True) for _ in range(tools.MAX_EVIDENCE_ITEMS)
     ))
     _, after, _ = _run([_record([_fact()])], ledger=full)
@@ -318,7 +387,7 @@ def test_a_turn_that_crosses_the_limit_runs_only_what_is_left_in_order():
 
 
 def test_once_time_is_up_the_web_is_closed_but_evidence_is_still_recorded():
-    opened = Ledger(pages=(Page(JOB, 900),))
+    opened = _opened()
     results, after, web = _run([_search(), _read(), _record([_fact()])], ledger=opened, accepting=False)
     assert results[0]["content"].startswith(tools.TIME_UP) and results[1]["content"].startswith(tools.TIME_UP)
     assert web.searches == [] and web.extracts == []

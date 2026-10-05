@@ -12,6 +12,7 @@ from dataclasses import dataclass, field, replace
 from typing import Any, Callable, Mapping, Protocol, Sequence
 from urllib.parse import urlsplit
 
+import quotes
 from evidence import (
     CATEGORIES, EvidenceItem, Page, canonical_url, is_fetchable_url, mark_opened, one_line,
     safe_url,
@@ -37,6 +38,11 @@ PASSAGE_BREAK = "\n[...]\n"
 MIN_PAGE_CHARS = 200
 MAX_QUERY_CHARS = 400
 MAX_FACT_CHARS = 500
+MAX_QUOTE_CHARS = 400
+# How many refused facts a result names, and how much of each, so the model
+# can record them again properly.
+MAX_ECHOED_FACTS = 5
+ECHOED_FACT_CHARS = 80
 MAX_TITLE_CHARS = 160
 MAX_DATE_CHARS = 20
 MAX_SOURCE_URL_CHARS = 500
@@ -83,6 +89,14 @@ _EVIDENCE_ITEM = {
     "type": "object",
     "properties": {
         "fact": {"type": "string", "description": "One specific fact, in the page's own terms."},
+        "quote": {
+            "type": "string",
+            "description": (
+                "A passage copied word for word from the page that states this fact, one or two "
+                "sentences. Join separate passages with ' ... '. It is checked against the page: "
+                "a fact whose quote is not there is thrown away."
+            ),
+        },
         "category": {"type": "string", "enum": list(CATEGORIES)},
         "source_url": {"type": "string", "description": "The exact URL you opened."},
         "source_title": {"type": "string", "description": "A short name for the page."},
@@ -91,7 +105,7 @@ _EVIDENCE_ITEM = {
             "description": "The date the page gives for itself, YYYY-MM-DD or YYYY-MM. Empty if none.",
         },
     },
-    "required": ["fact", "category", "source_url", "source_title", "source_date"],
+    "required": ["fact", "quote", "category", "source_url", "source_title", "source_date"],
     "additionalProperties": False,
 }
 
@@ -116,7 +130,10 @@ TOOLS: tuple[dict[str, Any], ...] = (
             ),
         },
     }),
-    _tool(RECORD, "Record facts you read on pages you opened. Call it straight after reading a page.", {
+    _tool(RECORD, (
+        "Record facts you read on pages you opened, each with the passage of the page that "
+        "states it. Call it straight after reading a page."
+    ), {
         "items": {"type": "array", "items": _EVIDENCE_ITEM},
     }),
 )
@@ -364,22 +381,49 @@ def _evidence_item(raw: Any) -> EvidenceItem | None:
         source_url=one_line(url)[:MAX_SOURCE_URL_CHARS],
         source_title=one_line(str(raw.get("source_title") or ""))[:MAX_TITLE_CHARS],
         source_date=one_line(str(raw.get("source_date") or ""))[:MAX_DATE_CHARS],
+        quote=one_line(str(raw.get("quote") or ""))[:MAX_QUOTE_CHARS],
     )
 
 
-def _record(call: ToolCall, opened_before: Sequence[Page]) -> Outcome:
-    """Keep facts whose page was opened before this turn. Say which were not."""
+def _split_by_quote(
+    items: Sequence[EvidenceItem], texts: Mapping[str, str],
+) -> tuple[list[EvidenceItem], list[EvidenceItem]]:
+    """Facts whose quote is on the page they cite, and facts whose quote is not."""
+    bare_pages: dict[str, str] = {}
+    proven: list[EvidenceItem] = []
+    unproven: list[EvidenceItem] = []
+    for item in items:
+        key = canonical_url(item.source_url)
+        if key not in bare_pages:
+            bare_pages[key] = quotes.bare(texts.get(key, ""))
+        (proven if quotes.is_in(item.quote, bare_pages[key]) else unproven).append(item)
+    return proven, unproven
+
+
+def _echo(items: Sequence[EvidenceItem]) -> str:
+    return ", ".join(f'"{item.fact[:ECHOED_FACT_CHARS]}"' for item in items[:MAX_ECHOED_FACTS])
+
+
+def _record(call: ToolCall, before: Ledger) -> Outcome:
+    """Keep facts quoted from a page opened before this turn. Say which were not kept."""
     raw_items = call.input.get("items")
     parsed = [_evidence_item(raw) for raw in raw_items] if isinstance(raw_items, list) else []
-    marked = mark_opened([item for item in parsed if item is not None], opened_before)
-    unopened = sorted({item.source_url for item in marked if not item.opened})
-    text = f"Recorded {sum(item.opened for item in marked)} fact(s)."
-    if unopened:
+    marked = mark_opened([item for item in parsed if item is not None], before.pages)
+    proven, unproven = _split_by_quote([item for item in marked if item.opened], before.texts)
+    unopened = [item for item in marked if not item.opened]
+    text = f"Recorded {len(proven)} fact(s)."
+    if unproven:
         text += (
-            f" Not kept: facts from pages you have not opened ({', '.join(unopened)})."
+            f" Not kept: {len(unproven)} fact(s) whose quote is not on the page word for word"
+            f" ({_echo(unproven)}). Copy a passage exactly as the page has it, then record them again."
+        )
+    if unopened:
+        addresses = ", ".join(sorted({item.source_url for item in unopened}))
+        text += (
+            f" Not kept: facts from pages you have not opened ({addresses})."
             f" Open a page with {READ} first, then record what it states."
         )
-    return Outcome(call.id, text, evidence=marked)
+    return Outcome(call.id, text, evidence=(*proven, *unopened))
 
 
 def _execute(
@@ -390,7 +434,7 @@ def _execute(
     if refusal is not None:
         return Outcome(call.id, refusal, is_error=True)
     if call.name == RECORD:
-        return _record(call, before.pages)
+        return _record(call, before)
     try:
         if call.name == SEARCH:
             return _search(call, web, fence, web_timeout(time_left))

@@ -45,6 +45,8 @@ class EvidenceItem:
     source_title: str = ""
     source_date: str = ""
     opened: bool = False
+    # A passage of the page, word for word, that states the fact.
+    quote: str = ""
 
 
 @dataclass(frozen=True)
@@ -191,10 +193,16 @@ def to_references(sources: Iterable[Source]) -> list[Reference]:
     ]
 
 
+def _fact_lines(fact: EvidenceItem) -> str:
+    """A fact in the researcher's words, with the page's own words under it."""
+    line = f"- [{fact.category}] {one_line(fact.fact)}"
+    return f'{line}\n  Page wording: "{one_line(fact.quote)}"' if fact.quote.strip() else line
+
+
 def _source_block(source: Source, tag: str) -> str:
     broker = " (data broker: last-resort source)" if source.data_broker else ""
     dated = f"\nDate: {source.date}" if source.date else ""
-    facts = "\n".join(f"- [{fact.category}] {one_line(fact.fact)}" for fact in source.facts)
+    facts = "\n".join(_fact_lines(fact) for fact in source.facts)
     return (
         f"<source-{tag}>\n[{source.n}] {source.title}{broker}\nURL: {one_line(source.url)}{dated}\n"
         f"{facts}\n</source-{tag}>"
