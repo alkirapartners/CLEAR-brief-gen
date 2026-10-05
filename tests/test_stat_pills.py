@@ -68,6 +68,7 @@ def test_employees_is_the_count_and_nothing_after_it(written, shown):
     ("Insurance (property and casualty, life)", "Insurance"),
     ("Automotive aftermarket parts retail", "Automotive aftermarket parts retail"),
     ("Refining", "Refining"),
+    ("Automotive parts retail and distribution", "Automotive parts retail..."),  # never cut on "and"
 ])
 def test_industry_is_a_few_words(written, shown):
     assert stat_pills.industry(written) == shown

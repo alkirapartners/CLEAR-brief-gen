@@ -50,6 +50,8 @@ _HEADCOUNT = re.compile(
     r"(?P<number>\d[\d,]*\d|\d)\+?(?:\s+(?P<kind>full-time|part-time))?",
     re.IGNORECASE,
 )
+# A cut never ends on a word that only joins what was cut off.
+_DANGLING_WORD = re.compile(r"\s+(?:and|or|of|the|with|for|in|to|a|an|&|y|de|del|la|el|con|en)$", re.IGNORECASE)
 _FIRST_PHRASE = re.compile(r"[:;,(]|\s[-–]\s")
 
 
@@ -59,7 +61,8 @@ def _short(text: str) -> str:
     if len(clean) <= MAX_PILL_CHARS:
         return clean
     room = MAX_PILL_CHARS - len(CUT_MARK)
-    return clean[:room].rsplit(" ", 1)[0].rstrip(" ,;:/-") + CUT_MARK
+    kept = clean[:room].rsplit(" ", 1)[0].rstrip(" ,;:/-")
+    return _DANGLING_WORD.sub("", kept) + CUT_MARK
 
 
 def headquarters(text: str) -> str:
