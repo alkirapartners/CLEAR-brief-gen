@@ -7424,3 +7424,32 @@ What still looks wrong on a sceptical read:
 - Advance Auto Parts at 3 is strict: its network posting is first-hand and live, and loses a point only because the page gives no date.
 - Basics the research did not record are now empty where round one filled them in (UPS has no entity or headquarters line, Occidental and Southern Glazer's no revenue). Empty is honest, and it reads thinner.
 
+### Third pass: the page mapping, a second review, and round three
+
+**The current page.** A render check of three round-two briefs in the existing front end led to changes in `brief_compat.py`, with `stat_pills.py` and `ticker.py` beside it. The page now gets five short stat pills (headquarters, revenue, employees, industry, ownership with the ticker once; the document has no "markets" value), one dated fact per angle under Signals & Timing, the rest of an angle's evidence as its entry-point signal, dates in words, no citation markers, four infrastructure cells written as sentences, question notes that end in a full stop, stakeholders joined with " · ", and the first three unconfirmed items as "Validate early". "What would raise the score" stays in the document only.
+
+**Second review.** Eleven findings, all applied:
+
+| Finding | Change |
+|---|---|
+| A quote proves only that it is on the page | `quotes.missing_from_quote`: the fact's figures and names must be in its quote. Dates and labels such as "FY2025" are not figures. The company's name and the page's address need not be quoted. |
+| First-hand and the date were the model's word | `evidence.source_type(url, own_keys)` decides from the address alone. The tool no longer asks. A date is kept only when the page prints its year. `finalize` types sources again once the legal name and ticker are known, and never lowers one. |
+| Verdict kept the old claim under a lowered score | The verdict is replaced with the code's label for the new score and the reason. The lead goes when no angle is left. |
+| Stats matched against all evidence; `10.0` read as `100` | `stat_tracing.py`: each figure must come from a fact about that basic, and numbers are read correctly. |
+| Spanish story results with no figures | The table's wording is always used when it has no figure to check a translation by. |
+| SDK slept for `Retry-After` | SDK retries are off. The loop and the writer retry once themselves, inside their deadlines. |
+| Quadratic link pattern | Bounded and made linear, with a timing test on two hostile shapes. |
+| Reference titles, `ftp://`, `mailto:`, scheme-less links | `plain_text.py` covers them, and titles go through it. |
+| Disguised addresses as a company name | NFKC folding, numeric hosts, a host with a spaced or punycode path. |
+| A test that asserted a constant | Replaced with one that measures spend against an unchecked run. |
+
+**Round three.** Three companies were run again on server A at commit `7e5b68d` (suite: 937 passed, 2 skipped).
+
+| Company | Round two | Round three | Angles | Searches / pages | Seconds | Cost | Facts kept / refused |
+|---|---|---|---|---|---|---|---|
+| HF Sinclair | 5 | 4 | 3 | 13 / 10 | 129 | $0.59 | 10 / 4 |
+| UPS | 5 | 5 | 3 | 17 / 10 | 180 | $0.74 | 15 / 11 |
+| Advance Auto Parts | 3 | 3 | 1 | 12 / 10 | 106 | $0.52 | 13 / 8 |
+
+The stricter quote check refused 23 of 61 recorded facts, against 11 of 110 in round two. Some were real: HF Sinclair's headquarters and its Lubricants separation were refused because the quote did not hold "Dallas", and that brief lost its strongest dated trigger. A first pass at commit `8d6c60a` scored the same three 5, 4 and 4, so the score still moves by a point between runs.
+
