@@ -18,17 +18,12 @@ from starlette.responses import StreamingResponse
 
 import db
 import generate
-import i18n
 import pdf
+import stored_brief
 from authdep import is_admin, require_email
 from brief_service import BriefService, Clock, _utc_now
 from brief_view import to_detail, to_summary
-from briefparse import (
-    clean_brief,
-    clean_company_prefill,
-    extract_company_header,
-    extract_score,
-)
+from briefparse import clean_company_prefill
 from errors import GENERIC_ERROR, UserFacingError
 from settings import Settings, load_settings
 from streaming import Work, stream_job
@@ -126,11 +121,10 @@ def _install_pdf_route(app: FastAPI, repo: Any) -> None:
         row = repo.get_brief(str(brief_id), email)
         if row is None:
             raise HTTPException(status_code=404, detail=NOT_FOUND)
-        brief_md = clean_brief(row.get("brief_md") or "")
-        score, _ = extract_score(brief_md)
-        header_company, _ = extract_company_header(brief_md)
+        brief_md = stored_brief.normalise(row.get("brief_md") or "")
+        score, header_company = stored_brief.score_and_company(brief_md)
         company = header_company or row.get("company") or "Brief"
-        language = i18n.detect_language(brief_md)
+        language = stored_brief.language_of(brief_md)
         now = datetime.now()
         content = pdf.generate_brief_pdf(brief_md, company, score, now, language)
         filename = pdf.build_filename(company, now.strftime("%Y-%m"), language)

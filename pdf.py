@@ -11,6 +11,7 @@ from datetime import datetime
 
 from fpdf import FPDF
 
+import brief_doc
 import i18n
 
 # ── Brand palette (RGB tuples for fpdf2) ─────────────────────────
@@ -575,7 +576,7 @@ def _draw_conversation_starters(pdf: _BriefPDF, starters_md: str) -> None:
     pdf.set_y(y + actual_h + 4)
 
 
-# ── Public API (placeholder body — fleshed out in later tasks) ──
+# ── Public API ──────────────────────────────────────────────────
 
 def generate_brief_pdf(
     brief_md: str,
@@ -584,13 +585,26 @@ def generate_brief_pdf(
     generated_at: datetime | None = None,
     language: str = "en",
 ) -> bytes:
-    """Render brief markdown as a print-optimized PDF. Returns PDF bytes.
+    """Render a stored brief as a print-optimized PDF. Returns PDF bytes.
+
+    A brief stored as a JSON document goes to the renderer in ``pdf_doc.py``.
+    Legacy markdown is laid out by ``_legacy_pdf`` below.
+    """
+    when = generated_at or datetime.now()
+    doc = brief_doc.load(brief_md)
+    if doc is not None:
+        import pdf_doc  # imported here: pdf_doc builds on this module
+        return pdf_doc.render(doc, when, language)
+    return _legacy_pdf(brief_md, company, score, when, language)
+
+
+def _legacy_pdf(brief_md: str, company: str, score: int, when: datetime, language: str) -> bytes:
+    """Lay out a legacy markdown brief in the bento tiles.
 
     ``language`` selects the visible labels only. The markdown headings this
     function parses are English in every language by design, so the
     extractors in ``briefparse.py`` are language-independent.
     """
-    when = generated_at or datetime.now()
     pdf = _BriefPDF(generated_at=when, language=language)
     pdf.add_page()
 

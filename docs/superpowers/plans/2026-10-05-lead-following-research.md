@@ -3123,7 +3123,7 @@ git commit -m "feat: serve JSON briefs with every field the current page reads"
 
 The legacy renderer draws fixed tiles sized for three entry points. A JSON brief has one to three angles and sections of any length, so `pdf_doc` flows down the page and breaks pages as needed.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `tests/test_pdf_doc.py`. Its fixture swaps in an uncompressed PDF class so the page text can be read straight from the bytes.
 
@@ -3250,12 +3250,12 @@ def test_the_pdf_route_names_the_file_from_the_document():
     assert "AlkiraBrief_Northwind-Energy_" in disposition and disposition.endswith('_ES.pdf"')
 ```
 
-- [ ] **Step 2: Run it and confirm it fails**
+- [x] **Step 2: Run it and confirm it fails**
 
 Run: `.venv/bin/python -m pytest tests/test_pdf_doc.py -q`
 Expected: `1 error`, with `ModuleNotFoundError: No module named 'pdf_doc'`.
 
-- [ ] **Step 3: Write the renderer**
+- [x] **Step 3: Write the renderer**
 
 Create `pdf_doc.py`:
 
@@ -3436,7 +3436,7 @@ def render(doc: BriefDoc, generated_at: datetime, language: str | None = None) -
     return bytes(pdf.output())
 ```
 
-- [ ] **Step 4: Send JSON briefs to it**
+- [x] **Step 4: Send JSON briefs to it**
 
 Apply this change to `pdf.py`. `generate_brief_pdf` becomes a short dispatcher, and its existing body moves unchanged into `_legacy_pdf`.
 
@@ -3491,7 +3491,7 @@ Apply this change to `pdf.py`. `generate_brief_pdf` becomes a short dispatcher, 
  
 ```
 
-- [ ] **Step 5: Read either format in the PDF route**
+- [x] **Step 5: Read either format in the PDF route**
 
 Apply this change to `server.py`:
 
@@ -3535,7 +3535,7 @@ Apply this change to `server.py`:
          filename = pdf.build_filename(company, now.strftime("%Y-%m"), language)
 ```
 
-- [ ] **Step 6: Run the tests**
+- [x] **Step 6: Run the tests**
 
 Run: `.venv/bin/python -m pytest tests/test_pdf_doc.py -q`
 Expected: `10 passed`.
@@ -3543,7 +3543,7 @@ Expected: `10 passed`.
 Run: `.venv/bin/python -m pytest -q`
 Expected: `406 passed, 2 skipped`.
 
-- [ ] **Step 7: Read one PDF back**
+- [x] **Step 7: Read one PDF back**
 
 ```bash
 .venv/bin/python -c "
@@ -3557,7 +3557,7 @@ pdftotext -layout /tmp/brief-sample.pdf - | grep -c -E "Northwind Energy|5 / 5|W
 
 Expected: a count of `8` or more (every one of those lines is on the page). If `pdftotext` is not installed, open `/tmp/brief-sample.pdf` and check by eye: the company name, a blue tile reading `5 / 5` with the verdict beside it, two angles, a six-row technical snapshot with `Not found` on the data centers row, people, questions, the two lists, then references. Nothing overlaps and nothing runs off the page.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add pdf_doc.py pdf.py server.py tests/test_pdf_doc.py
