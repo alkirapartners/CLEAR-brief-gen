@@ -78,6 +78,8 @@ Running the loop ourselves also makes three of the spec's rules exact instead of
 
 Task 1 confirms this on the production keys. If the probe shows Anthropic's web fetch reading every careers site, the rule points the other way: stop and have the plan revised.
 
+**Probe result, 2026-10-05, production keys on server A:** `claude-sonnet-5-5`, strict tools, structured output and the refusal fallback all answered `ok`. Tavily search worked, Tavily extract read all five careers sites (20 job postings on each Workday list) and the 858,701-character PDF. Anthropic's web fetch read the three static careers sites and, on both Workday job lists, returned only the page description: 2,072 and 3,432 characters with no job in them. Verdict: `tavily`.
+
 ### Estimated cost and time per brief
 
 At the full budget (25 searches, 20 pages):
@@ -506,7 +508,7 @@ git add scripts/probe_research_tools.py tests/test_probe.py
 git commit -m "chore: add a probe for research tooling on the production keys"
 ```
 
-- [ ] **Step 6: Run the probe on server A**
+- [x] **Step 6: Run the probe on server A**
 
 This step uses SSH to a production server. Blake approved a scratch checkout on a server for evaluation on 2026-10-05; confirm with him in this session that it covers the probe before running anything. It costs a few cents. It writes only under `~/brief-eval` in the `ubuntu` home directory and reads `/var/www/briefgen/.env` through a symlink, so the keys never leave the server.
 
@@ -526,7 +528,7 @@ Expected: `ready`, then `probe exit: 0`, and a JSON report whose last two keys a
 
 If `python3 -m venv` fails on the server, stop and report. Do not install system packages.
 
-- [ ] **Step 7: Act on the verdict**
+- [x] **Step 7: Act on the verdict**
 
 | Report | What to do |
 |---|---|
@@ -536,6 +538,8 @@ If `python3 -m venv` fails on the server, stop and report. Do not install system
 | `refusal_fallback` is not `ok` (any verdict) | Continue, and in Task 12 set `USE_REFUSAL_FALLBACK = False` in `llm.py` as that task describes |
 
 Write the verdict and the `refusal_fallback` value into the checkbox line above, for the tasks that follow.
+
+Recorded 2026-10-05: verdict `tavily`, `refusal_fallback` is `ok`. Continue with Task 2, and leave `USE_REFUSAL_FALLBACK = True` in Task 12.
 
 ---
 
