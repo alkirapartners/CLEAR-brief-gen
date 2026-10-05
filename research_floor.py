@@ -2,8 +2,9 @@
 
 The model decides what to search for. This module keeps count of what it
 has aimed at and what it has found, and says what is still open: the
-company's careers site and job postings, its latest annual filing, each
-line of the technical snapshot, and a minimum amount of looking.
+company's careers site and job postings, its latest annual filing, the past
+year's news, each line of the technical snapshot, and a minimum amount of
+looking.
 
 Trying counts. A company with no public filing, or no job postings, is
 covered once the research has looked: the floor asks for the attempt, and
@@ -20,8 +21,8 @@ from evidence import HOSTED_JOB_SITES, EvidenceItem, Page, canonical_url, is_on
 # many, the postings were reached.
 MIN_CAREERS_PAGES = 2
 # Searches run and pages opened before research may call itself done.
-MIN_SEARCHES = 10
-MIN_PAGES_OPENED = 8
+MIN_SEARCHES = 12
+MIN_PAGES_OPENED = 10
 # How many times a model that says it is done is sent back to open items.
 MAX_NUDGES = 2
 
@@ -29,6 +30,8 @@ MAX_NUDGES = 2
 CAREERS_SITE = "careers_site"
 HOSTED_JOBS = "hosted_jobs"
 FILING = "filing"
+# The past year's news and press releases: where dated triggers come from.
+NEWS = "news"
 # ── What can be open ─────────────────────────────────────────────
 CAREERS = "careers"
 DEPTH = "depth"
@@ -58,6 +61,11 @@ _FILING_QUERY = re.compile(
     re.IGNORECASE,
 )
 _FILING_URL = re.compile(r"sec\.gov|10-?k|20-?f|annual[-_]?report|annualreport", re.IGNORECASE)
+_NEWS_QUERY = re.compile(
+    r"\b(?:press release|announc\w+|acqui\w+|divest\w+|merger|carve-?out|spin-?off)\b", re.IGNORECASE,
+)
+_NEWS_URL = re.compile(r"press-?releases?|news-?releases?|/newsroom|/news/", re.IGNORECASE)
+NEWSWIRES: tuple[str, ...] = ("prnewswire.com", "businesswire.com", "globenewswire.com")
 _TOPIC_QUERIES: dict[str, re.Pattern[str]] = {
     "clouds": re.compile(r"\b(?:AWS|Amazon Web Services|Azure|Google Cloud|GCP|Oracle Cloud|OCI|cloud)\b", re.IGNORECASE),
     "cloud_connectivity": re.compile(
@@ -78,6 +86,7 @@ _TOPIC_QUERIES: dict[str, re.Pattern[str]] = {
 _NAMES: dict[str, str] = {
     CAREERS: "careers site and job postings",
     FILING: "latest annual filing",
+    NEWS: "news from the past year",
     "clouds": "clouds",
     "cloud_connectivity": "cloud connectivity",
     "wan": "WAN",
@@ -94,8 +103,13 @@ _HOW: dict[str, str] = {
     ),
     FILING: (
         "Latest annual filing: find the newest 10-K or annual report (search with `site` set to "
-        "sec.gov, or the investor pages), open it, and use `find` for acquisitions, divestitures, "
-        "data centers, network and technology."
+        "sec.gov, or the investor pages), open it, and use `find` for revenue, employees, "
+        "acquisitions, divestitures, data centers, network and technology."
+    ),
+    NEWS: (
+        "News from the past year: search with `recent_news` set to true for acquisitions, "
+        "divestitures, sites opening or closing, and network or cloud programmes. Open the "
+        "company's own press release for anything you find: it carries the date."
     ),
     "clouds": "Clouds: which cloud providers the company runs on. Search for it.",
     "cloud_connectivity": (
@@ -127,6 +141,8 @@ def _search_aims(query: str, site: str) -> set[str]:
         aims.add(HOSTED_JOBS)
     if _FILING_QUERY.search(query) or "sec.gov" in site.lower():
         aims.add(FILING)
+    if _NEWS_QUERY.search(query):
+        aims.add(NEWS)
     return aims
 
 
@@ -138,13 +154,16 @@ def _read_aims(url: str) -> set[str]:
         aims.add(CAREERS_SITE)
     if _FILING_URL.search(url):
         aims.add(FILING)
+    if is_on(url, NEWSWIRES) or _NEWS_URL.search(url):
+        aims.add(NEWS)
     return aims
 
 
 def attempted(call_name: str, call_input: Mapping[str, Any]) -> frozenset[str]:
     """What a search or a page read was aimed at, of the things the floor asks for."""
     if call_name == "web_search":
-        return frozenset(_search_aims(_text(call_input, "query"), _text(call_input, "site").strip()))
+        aims = _search_aims(_text(call_input, "query"), _text(call_input, "site").strip())
+        return frozenset(aims | {NEWS} if call_input.get("recent_news") is True else aims)
     if call_name == "read_page":
         return frozenset(_read_aims(_text(call_input, "url").strip()))
     return frozenset()
@@ -172,8 +191,7 @@ def open_items(
     tried_both = CAREERS_SITE in attempts and HOSTED_JOBS in attempts
     if _careers_pages(pages, evidence) < MIN_CAREERS_PAGES and not tried_both:
         still.append(CAREERS)
-    if FILING not in attempts:
-        still.append(FILING)
+    still += [item for item in (FILING, NEWS) if item not in attempts]
     sourced = {item.category for item in evidence}
     still += [
         topic for topic in SNAPSHOT_TOPICS

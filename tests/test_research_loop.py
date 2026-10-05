@@ -395,10 +395,11 @@ def test_a_model_that_covered_the_floor_is_let_go_at_once(monkeypatch):
     turns = [
         _aimed("s1", "acme careers network engineer SD-WAN firewall data center AWS ExpressRoute", "myworkdayjobs.com"),
         _aimed("s2", "acme 10-K annual report", "sec.gov"),
+        _aimed("s3", "acme acquisition announced"),
         READ, RECORD, DONE,
     ]
     result, client, _ = _run(turns)
-    assert len(client.requests) == 5 and result.not_covered == ()
+    assert len(client.requests) == 6 and result.not_covered == ()
 
 
 def test_nobody_is_sent_back_once_the_web_is_closed_or_the_searches_are_spent(monkeypatch):
@@ -424,4 +425,5 @@ def test_the_instructions_name_the_floor_the_code_enforces():
     assert "**Cover the checklist before you stop.**" in prefix
     assert f"at least {research_floor.MIN_SEARCHES} searches" in prefix
     assert f"at least {research_floor.MIN_PAGES_OPENED} pages" in prefix
+    assert "`recent_news`" in prefix and "revenue, employees" in prefix
     assert "myworkdayjobs.com" in prefix

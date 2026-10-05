@@ -12,8 +12,8 @@ CAREERS_PAGES = (
 ALL_TOPICS = frozenset(floor.SNAPSHOT_TOPICS)
 
 
-def _search(query, site=""):
-    return floor.attempted("web_search", {"query": query, "site": site, "recent_news": False})
+def _search(query, site="", recent_news=False):
+    return floor.attempted("web_search", {"query": query, "site": site, "recent_news": recent_news})
 
 
 def _read(url):
@@ -52,6 +52,11 @@ def _open(attempts=frozenset(), pages=(), evidence=None, searches=floor.MIN_SEAR
     (_search("Acme Palo Alto firewall"), "firewalls"),
     (_search("Acme data center colocation"), "data_centers"),
     (_search("Acme SCADA OT network"), "plant_networks"),
+    (_search("Acme network", recent_news=True), floor.NEWS),
+    (_search("Acme acquisition completed press release"), floor.NEWS),
+    (_search("Acme announces divestiture"), floor.NEWS),
+    (_read("https://www.prnewswire.com/news-releases/acme-completes-acquisition-1.html"), floor.NEWS),
+    (_read("https://investors.acme.com/news/press-releases/detail/39/acme-and-google"), floor.NEWS),
 ])
 def test_a_call_counts_as_an_attempt_at_what_it_was_aimed_at(attempts, key):
     assert key in attempts
@@ -67,7 +72,12 @@ def test_a_call_about_something_else_is_no_attempt_at_the_floor():
 # ── What is still open ───────────────────────────────────────────
 
 def test_at_the_start_everything_is_open():
-    assert _open(searches=0) == (floor.CAREERS, floor.FILING, *floor.SNAPSHOT_TOPICS, floor.DEPTH)
+    assert _open(searches=0) == (floor.CAREERS, floor.FILING, floor.NEWS, *floor.SNAPSHOT_TOPICS, floor.DEPTH)
+
+
+def test_the_past_year_s_news_is_answered_once_it_has_been_searched():
+    assert floor.NEWS in _open()
+    assert floor.NEWS not in _open({floor.NEWS})
 
 
 def test_two_job_pages_opened_answer_for_careers():
@@ -109,7 +119,7 @@ def test_plant_networks_are_never_demanded_since_many_companies_have_none():
 
 
 def test_a_run_that_has_barely_looked_is_still_open_on_depth():
-    done = {floor.CAREERS_SITE, floor.HOSTED_JOBS, floor.FILING, *ALL_TOPICS}
+    done = {floor.CAREERS_SITE, floor.HOSTED_JOBS, floor.FILING, floor.NEWS, *ALL_TOPICS}
     eight = tuple(Page(f"https://acme.com/{i}", 900) for i in range(floor.MIN_PAGES_OPENED))
     assert _open(done, pages=eight[:3], searches=4) == (floor.DEPTH,)
     assert _open(done, pages=eight, searches=4) == (floor.DEPTH,)
@@ -125,11 +135,15 @@ def test_the_floor_is_half_the_budget_or_less_so_it_can_always_be_met():
 # ── Telling the model ────────────────────────────────────────────
 
 def test_open_items_are_named_in_one_line_and_explained_in_full():
-    open_now = (floor.CAREERS, floor.FILING, "wan", floor.DEPTH)
+    open_now = (floor.CAREERS, floor.FILING, floor.NEWS, "wan", floor.DEPTH)
     line = floor.summary(open_now)
-    assert line == "Not covered yet: careers site and job postings; latest annual filing; WAN; more searches and pages."
+    assert line == (
+        "Not covered yet: careers site and job postings; latest annual filing; "
+        "news from the past year; WAN; more searches and pages."
+    )
     assert floor.summary(()) == "The research checklist is covered."
     full = floor.instructions(open_now, searches=4, pages_opened=3)
     assert "myworkdayjobs.com" in full and "sec.gov" in full and "SD-WAN" in full
     assert "4 searches and 3 pages so far" in full
-    assert len(full.splitlines()) == 4 and all(line.startswith("- ") for line in full.splitlines())
+    assert "recent_news" in full and "revenue" in full
+    assert len(full.splitlines()) == 5 and all(line.startswith("- ") for line in full.splitlines())
