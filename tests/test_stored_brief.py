@@ -1,5 +1,8 @@
 """Saving, reusing and refreshing work for both stored formats."""
 
+import pytest
+
+import research_loop
 import stored_brief
 from tests.api_fakes import AUTH, SAMPLE_BRIEF, FakeRepo, events, make_client
 from tests.brief_fixtures import SAMPLE_JSON_BRIEF, stored
@@ -54,6 +57,38 @@ def test_a_damaged_document_reads_as_an_empty_legacy_brief():
     assert stored_brief.language_of(None) == "en"
 
 
+# ── What may be handed to another person ─────────────────────────
+
+def _stopped(stopped_by):
+    return stored(research={"searches": 9, "pages": 4, "seconds": 240, "stopped_by": stopped_by})
+
+
+@pytest.mark.parametrize("stopped_by", ["finished", "budget"])
+def test_research_that_ran_its_course_is_reusable(stopped_by):
+    assert stored_brief.is_reusable(_stopped(stopped_by))
+
+
+@pytest.mark.parametrize(
+    "stopped_by", ["deadline", "turn_cap", "truncated", "a-reason-added-later", ""],
+    ids=["deadline", "turn_cap", "truncated", "unknown", "blank"],
+)
+def test_research_that_stopped_early_is_not_reusable(stopped_by):
+    assert not stored_brief.is_reusable(_stopped(stopped_by))
+
+
+@pytest.mark.parametrize(
+    "text", [SAMPLE_BRIEF, SPANISH_LEGACY, '{"format": 2}', "", None],
+    ids=["legacy", "spanish-legacy", "damaged", "empty", "missing"],
+)
+def test_a_legacy_or_damaged_brief_is_never_reusable(text):
+    assert not stored_brief.is_reusable(text)
+
+
+def test_the_reusable_reasons_are_the_ones_the_research_loop_uses():
+    assert stored_brief.COMPLETE_RESEARCH == {research_loop.FINISHED, research_loop.BUDGET_SPENT}
+    assert not stored_brief.COMPLETE_RESEARCH & set(research_loop.EARLY_STOPS)
+
+
 # ── Through the API ──────────────────────────────────────────────
 
 def test_a_generated_json_brief_is_saved_with_its_score_and_resolved_name():
@@ -101,3 +136,16 @@ def test_refreshing_a_spanish_json_brief_stays_spanish():
     got = events(client.post(f"{GEN}/{row['id']}/refresh", json={}, headers=AUTH))
     assert got[-1]["type"] == "done"
     assert generator.seen == [("Northwind Energy", "es")]
+
+
+@pytest.mark.parametrize(
+    "weak", [SAMPLE_BRIEF, _stopped("deadline"), _stopped("turn_cap"), _stopped("truncated")],
+    ids=["legacy", "deadline", "turn_cap", "truncated"],
+)
+def test_a_legacy_or_early_stopped_brief_is_researched_again_instead_of_shared(weak):
+    repo = FakeRepo()
+    repo.seed("someone@else.com", company="Northwind Energy", brief_md=weak)
+    generator = _json_generator()
+    got = events(_post(make_client(repo, generator=generator), company="Northwind Energy"))
+    assert generator.seen == [("Northwind Energy", "en")]
+    assert got[-1]["reusedFrom"] is None

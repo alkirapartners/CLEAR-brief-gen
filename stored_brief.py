@@ -8,6 +8,10 @@ import brief_doc
 import i18n
 from briefparse import clean_brief, extract_company_header, extract_score
 
+# Research that ran its course. Any other ending stopped early, and a brief
+# written from it is kept for its owner but never handed to someone else.
+COMPLETE_RESEARCH = frozenset({"finished", "budget"})
+
 
 def normalise(raw: str) -> str:
     """The text to store: a JSON brief as it is, legacy markdown cleaned."""
@@ -32,3 +36,13 @@ def score_and_company(stored: str) -> tuple[int, str]:
     score, _ = extract_score(stored)
     company, _ = extract_company_header(stored)
     return score, company
+
+
+def is_reusable(stored: str | None) -> bool:
+    """Whether this research may be given to another person who asks for the company.
+
+    Only a JSON brief whose research ran its course. A legacy markdown brief
+    predates lead-following research, so it is researched again instead.
+    """
+    doc = brief_doc.load(stored)
+    return doc is not None and doc["research"]["stopped_by"] in COMPLETE_RESEARCH

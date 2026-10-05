@@ -12,8 +12,17 @@ from errors import GenerationInFlight
 from tests.api_fakes import (
     AUTH, OTHER, SAMPLE_BRIEF, TEST_SETTINGS, FakeRepo, events, fake_generator, make_client,
 )
+from tests.brief_fixtures import stored
 
 GEN = "/api/brief/briefs"
+
+
+def _named(name):
+    return {"name": name, "legal_name": "", "ticker": "", "website": "", "identity_note": ""}
+
+
+# Research another person finished, in the format that may be shared.
+SHARED = stored(company=_named("TestCo Holdings"))
 
 
 def _post(client, company="TestCo", language="en", headers=AUTH):
@@ -79,7 +88,7 @@ def test_generate_flattens_control_characters():
 def test_recent_research_is_reused_without_calling_the_model():
     original = "2026-10-01T09:00:00+00:00"
     repo = FakeRepo()
-    repo.seed("someone@else.com", company="TestCo Holdings", created_at=original)
+    repo.seed("someone@else.com", company="TestCo Holdings", brief_md=SHARED, created_at=original)
     calls = []
     def generator(*args, **kwargs):
         calls.append(args)
@@ -93,7 +102,7 @@ def test_recent_research_is_reused_without_calling_the_model():
 
 def test_a_brief_in_the_other_language_is_not_reused():
     repo = FakeRepo()
-    repo.seed("someone@else.com", company="TestCo Holdings")  # English
+    repo.seed("someone@else.com", company="TestCo Holdings", brief_md=SHARED)  # English
     seen = []
     def generator(api_key, tavily_key, company, status_callback, language="en", **kwargs):
         seen.append(language)
@@ -191,7 +200,7 @@ def test_a_generation_that_fails_after_starting_still_counts():
 
 def test_reused_research_is_free_and_never_blocked():
     repo = FakeRepo()
-    repo.seed("someone@else.com", company="Shared Co")
+    repo.seed("someone@else.com", company="Shared Co", brief_md=stored(company=_named("Shared Co")))
     client = _limited(repo, 1)
     assert events(_post(client, company="Shared Co"))[-1]["type"] == "done"  # free
     assert events(_post(client, company="Fresh Co"))[-1]["type"] == "done"   # the one paid generation
@@ -384,7 +393,7 @@ def test_refresh_researches_the_stored_name_cleaned_up():
 def test_reuse_does_not_duplicate_research_the_partner_already_has():
     original = "2026-10-01T09:00:00+00:00"
     repo = FakeRepo()
-    repo.seed("someone@else.com", company="TestCo Holdings", created_at=original)
+    repo.seed("someone@else.com", company="TestCo Holdings", brief_md=SHARED, created_at=original)
     client = make_client(repo)
     first = events(_post(client, company="TestCo Holdings"))[-1]
 
@@ -396,7 +405,10 @@ def test_reuse_does_not_duplicate_research_the_partner_already_has():
 
 def test_asking_again_for_my_own_recent_brief_opens_it_instead_of_copying_it():
     repo = FakeRepo()
-    mine = repo.seed("partner@example.com", company="TestCo Holdings", created_at="2026-10-02T09:00:00+00:00")
+    mine = repo.seed(
+        "partner@example.com", company="TestCo Holdings", brief_md=SHARED,
+        created_at="2026-10-02T09:00:00+00:00",
+    )
     calls = []
     def generator(*args, **kwargs):
         calls.append(args)

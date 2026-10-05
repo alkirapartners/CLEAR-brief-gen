@@ -155,9 +155,12 @@ class BriefService:
 
     def _reusable(self, company: str, language: str) -> dict | None:
         cached = self._repo.find_recent_brief_by_company(company)
-        # Stored briefs carry no language column, so read the brief itself.
-        # A mismatch only costs one regeneration.
-        if cached and stored_brief.language_of(cached.get("brief_md")) != language:
+        if not cached:
+            return None
+        # Stored briefs carry no language or quality column, so read the brief
+        # itself. A miss only costs one regeneration.
+        stored = cached.get("brief_md")
+        if not stored_brief.is_reusable(stored) or stored_brief.language_of(stored) != language:
             return None
         return cached
 
