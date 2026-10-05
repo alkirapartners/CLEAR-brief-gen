@@ -510,16 +510,16 @@ git commit -m "chore: add a probe for research tooling on the production keys"
 
 - [x] **Step 6: Run the probe on server A**
 
-This step uses SSH to a production server. Blake approved a scratch checkout on a server for evaluation on 2026-10-05; confirm with him in this session that it covers the probe before running anything. It costs a few cents. It writes only under `~/brief-eval` in the `ubuntu` home directory and reads `/var/www/briefgen/.env` through a symlink, so the keys never leave the server.
+This step uses SSH to a production server. Blake approved a scratch checkout on a server for evaluation on 2026-10-05; confirm with him in this session that it covers the probe before running anything. It costs a few cents. It writes only under `~/brief-eval` in the `ubuntu` home directory and reads the production environment file through a symlink, so the keys never leave the server.
 
 ```bash
-KEY="$HOME/Work/_Keys/Alkira Channel (3).pem"
+KEY="<the SSH key file Blake points you to>"
 A=ubuntu@35.166.223.217
 REV=$(git rev-parse --short HEAD)
 OUT="$HOME/Work/Projects/brief-eval/2026-10-05"
 mkdir -p "$OUT"
 git archive --format=tar HEAD | ssh -i "$KEY" "$A" "mkdir -p ~/brief-eval/$REV && tar -x -C ~/brief-eval/$REV"
-ssh -i "$KEY" "$A" "cd ~/brief-eval/$REV && python3 --version && python3 -m venv .venv && .venv/bin/pip install -q -r requirements.txt && ln -s /var/www/briefgen/.env .env && echo ready"
+ssh -i "$KEY" "$A" "cd ~/brief-eval/$REV && python3 --version && python3 -m venv .venv && .venv/bin/pip install -q -r requirements.txt && ln -s "<the production environment file>" .env && echo ready"
 ssh -i "$KEY" "$A" "cd ~/brief-eval/$REV && .venv/bin/python scripts/probe_research_tools.py" > "$OUT/probe.json"; echo "probe exit: $?"
 cat "$OUT/probe.json"
 ```
@@ -7213,14 +7213,14 @@ This task uses SSH to server A and the production keys there, and costs about te
 - [x] **Step 1: Put the finished code on server A and run its tests there**
 
 ```bash
-KEY="$HOME/Work/_Keys/Alkira Channel (3).pem"
+KEY="<the SSH key file Blake points you to>"
 A=ubuntu@35.166.223.217
 REV=$(git rev-parse --short HEAD)
 OUT="$HOME/Work/Projects/brief-eval/2026-10-05"
 mkdir -p "$OUT"
 git status --short
 git archive --format=tar HEAD | ssh -i "$KEY" "$A" "mkdir -p ~/brief-eval/$REV && tar -x -C ~/brief-eval/$REV"
-ssh -i "$KEY" "$A" "cd ~/brief-eval/$REV && python3 -m venv .venv && .venv/bin/pip install -q -r requirements.txt -r requirements-dev.txt && ln -s /var/www/briefgen/.env .env && .venv/bin/python --version && .venv/bin/python -m pytest -q 2>&1 | tail -1"
+ssh -i "$KEY" "$A" "cd ~/brief-eval/$REV && python3 -m venv .venv && .venv/bin/pip install -q -r requirements.txt -r requirements-dev.txt && ln -s "<the production environment file>" .env && .venv/bin/python --version && .venv/bin/python -m pytest -q 2>&1 | tail -1"
 ```
 
 Expected: `git status --short` prints nothing (everything is committed), then the server's Python version (3.14), then `461 passed` with two or fewer skipped. `KEY`, `A`, `REV` and `OUT` are used in the steps that follow: if your shell does not keep variables between commands, repeat the first four lines of this block at the top of each later block. This is the first run of the suite on the servers' Python and on freshly installed packages. If a test fails here that passes locally, stop and report it: it would fail the same way after a merge.
@@ -7318,7 +7318,7 @@ Recorded 2026-10-05: all eight ran on server A at commit `2009274` (suite there:
 
 Do none of these as part of executing the plan. List them for Blake when Task 18 is done, in this order.
 
-1. **Check the cap override.** On each server, see whether `BRIEF_DAILY_LIMIT` is set in `/var/www/briefgen/.env`: `grep -c '^BRIEF_DAILY_LIMIT=' /var/www/briefgen/.env` prints `0` or `1` and shows no value. If it is set, the new default of 10 has no effect there until the line is changed or removed, which is Blake's call.
+1. **Check the cap override.** On each server, see whether `BRIEF_DAILY_LIMIT` is set in the production environment file: `grep -c '^BRIEF_DAILY_LIMIT=' <that file>` prints `0` or `1` and shows no value. If it is set, the new default of 10 has no effect there until the line is changed or removed, which is Blake's call.
 2. **Raise the PM2 kill timeout.** `briefgen` is started with `--kill-timeout 240000`. A brief can now take up to about five and a half minutes, so a deploy that lands mid-brief would kill it. Raise it to `480000` on both servers before merging, then update the `--kill-timeout` line in `README.md`.
 3. **Check the Tavily plan.** A full-budget brief uses about 58 Tavily credits, up from about 28. Confirm the plan's monthly credits cover expected use at 10 briefs per person per day.
 4. **Push and open a pull request.** `git push -u origin feature/research-depth`, then a PR against `main` on `alkirapartners/CLEAR-brief-gen`. Never push to `upstream`.

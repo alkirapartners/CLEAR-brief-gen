@@ -91,7 +91,7 @@ A one-angle brief (Anker: China-to-global connectivity) uses the same layout wit
 ## Limits and safety
 
 - Anthropic client timeout rises from 180 seconds to cover the research budget. PM2 kill timeout for `briefgen` (240 seconds) must rise on both servers over SSH, with Blake's go-ahead.
-- Decided by Blake 2026-10-05: the daily cap default drops from 50 to 10 paid generations per person (`settings.DEFAULT_DAILY_LIMIT`; check `/var/www/briefgen/.env` on both servers for a `BRIEF_DAILY_LIMIT` override), and the reuse window rises from 7 to 14 days (`max_age_days` in `db.find_recent_brief_by_company` and any UI text that states it).
+- Decided by Blake 2026-10-05: the daily cap default drops from 50 to 10 paid generations per person (`settings.DEFAULT_DAILY_LIMIT`; check the environment file on both servers for a `BRIEF_DAILY_LIMIT` override), and the reuse window rises from 7 to 14 days (`max_age_days` in `db.find_recent_brief_by_company` and any UI text that states it).
 - Evaluation runs use the production keys in a scratch checkout on a server, so the keys never leave the box. Blake approved SSH access for this on 2026-10-05.
 - All fetched text stays inside the random source fence and is treated as data. Briefs are never rendered as HTML.
 - Research failure never produces an uncited brief; it returns an error.

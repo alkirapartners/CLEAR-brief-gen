@@ -47,7 +47,7 @@ Where that is enforced: `briefparse.py` (parsers), `brief_view.py` (API shape), 
 
 ## Constraints the new design has to fit
 
-- **Generator signature.** The API calls `generator(api_key, tavily_key, company, status_callback, language=...)` and expects the brief markdown back (`brief_service._run_generator`). `settings.py` only knows `ANTHROPIC_API_KEY` and `TAVILY_API_KEY`; a different search provider means a new setting there, a matching check in `brief_service._reserve_generation`, and the key added to `/var/www/briefgen/.env` on **both** servers by hand.
+- **Generator signature.** The API calls `generator(api_key, tavily_key, company, status_callback, language=...)` and expects the brief markdown back (`brief_service._run_generator`). `settings.py` only knows `ANTHROPIC_API_KEY` and `TAVILY_API_KEY`; a different search provider means a new setting there, a matching check in `brief_service._reserve_generation`, and the key added to the environment file on **both** servers by hand.
 - **Progress phases.** `status_callback` is called with `init`, `research`, `analyze`, `compose`, `done`. The front end maps exactly those four visible steps. More or different phases need changes in three places in `alkira-account-radar`: `web/lib/brief-types.ts` (`BriefPhase`), `web/components/brief/step-tracker.tsx`, `web/dev/mock-api.mjs`.
 - **Run time.** Long runs are fine for the connection: generation runs in a worker thread, the stream sends a heartbeat every 15 seconds, and a brief is saved even if the tab closes. Two limits to raise if research takes longer than a few minutes: the 180-second Anthropic client timeout in `generate.py`, and PM2's kill timeout on the `briefgen` process (currently 240 seconds; a deploy that lands mid-brief waits that long, then kills it).
 - **Cost controls already in place.** One generation at a time per person. A daily cap of 50 paid generations per person (`BRIEF_DAILY_LIMIT`), counted in `usage_ledger.py`. Research from the last 7 days is reused across all partners by exact company name, free; "Update brief" always re-researches. If a brief becomes several times more expensive, revisit the cap and the reuse window.
@@ -74,7 +74,7 @@ Tests: `.venv/bin/python -m pytest -q` (276 passing). No test calls the network.
 
 - Blake is a contributor (push, not admin) on `alkirapartners/CLEAR-brief-gen` and `alkirapartners/alkira-account-radar`. Work on a `feature/*` branch from `origin` and open a PR. Never push to the personal `upstream` remotes.
 - **Merging to `main` deploys to production on both servers within seconds**: pull, `pip install -r requirements.txt`, restart. The recipe cannot be changed, so new Python packages go in `requirements.txt`, and anything else (a new environment variable, a process setting) has to be done over SSH on both instances. Servers run Python 3.14; local is 3.11.
-- Instances: A `35.166.223.217`, B `32.184.242.60`, login `ubuntu@`, key `~/Work/_Keys/Alkira Channel (3).pem`. The API is PM2 process `briefgen` (`uvicorn server:app`, port 8501); logs with `pm2 logs briefgen`.
+- Instances: A `35.166.223.217`, B `32.184.242.60`. Blake holds the SSH key and says where it is. The API is PM2 process `briefgen` (`uvicorn server:app`, port 8501); logs with `pm2 logs briefgen`.
 - Get Blake's explicit go-ahead before merging or changing anything on a server. He is not a developer: report in plain language, and show him real output (a brief for a company he knows) rather than describing it.
 
 ## Before choosing an approach

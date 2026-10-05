@@ -1057,7 +1057,7 @@ gh pr create --title "Replace Managed Agent with Tavily research + single-call g
 - [ ] **Step 2: Deploy instance A** (`35.166.223.217`)
 
 ```bash
-ssh -i "/Users/blakehays/Downloads/Alkira Channel (3).pem" ubuntu@35.166.223.217
+ssh -i "<path-to-key>.pem" ubuntu@35.166.223.217
 git -C /var/www/briefgen pull
 /var/www/briefgen/venv/bin/pip install -r /var/www/briefgen/requirements.txt
 # edit /var/www/briefgen/.env: add TAVILY_API_KEY, remove ALKIRA_AGENT_ID and ALKIRA_ENV_ID
