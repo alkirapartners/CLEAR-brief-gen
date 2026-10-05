@@ -13,6 +13,7 @@ from typing import Iterable, Sequence
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from brief_doc import Reference
+from plain_text import plain
 
 # Bytes of randomness in a fence tag. Third-party text is wrapped in a tag it
 # cannot predict, so it cannot close the fence and pose as instructions.
@@ -252,7 +253,7 @@ def build_sources(items: Sequence[EvidenceItem], pages: Sequence[Page]) -> tuple
         sources.append(Source(
             n=len(sources) + 1,
             url=page.url,
-            title=one_line(_first(f.source_title for f in facts)) or _host(page.url),
+            title=plain(_first(f.source_title for f in facts)) or _host(page.url),
             date=clean_date(_first(f.source_date for f in facts)),
             source_type=source_type(page.url, _declared_type(facts)),
             facts=facts,
@@ -269,7 +270,7 @@ def _declared_type(facts: Sequence[EvidenceItem]) -> str:
 def to_references(sources: Iterable[Source]) -> list[Reference]:
     """Every source as a reference the brief may cite."""
     return [
-        {"n": s.n, "title": s.title, "url": s.url, "date": s.date, "source_type": s.source_type}
+        {"n": s.n, "title": plain(s.title), "url": s.url, "date": s.date, "source_type": s.source_type}
         for s in sources
     ]
 

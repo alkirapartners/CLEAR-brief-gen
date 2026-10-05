@@ -503,6 +503,29 @@ def test_links_and_addresses_are_removed_from_everything_the_model_wrote():
     assert "evil.example" not in everything and "](" not in everything
 
 
+def test_every_kind_of_address_is_removed_from_model_text_not_only_web_links():
+    output = writer_output()
+    output["fit"]["verdict"] = "Strong fit. Files at ftp://evil.example/x and mailto:ceo@evil.example today."
+    output["fit"]["lead"] = "Call the CIO, then sign in at evil.com/login or evil.co.uk/a?b=c now."
+    output["unconfirmed"] = ["The IT/OT split, 24/7 support and the U.S./Canada footprint. See Booking.com."]
+    doc = _finalize(output)
+    assert doc["fit"]["verdict"] == "Strong fit. Files at and today."
+    assert doc["fit"]["lead"] == "Call the CIO, then sign in at or now."
+    assert doc["unconfirmed"] == ["The IT/OT split, 24/7 support and the U.S./Canada footprint. See Booking.com."]
+
+
+def test_a_reference_title_is_plain_text_too():
+    """A page title is written by the model when it records a fact, so it gets the same scrub."""
+    hostile = Source(
+        n=1, url="https://example.com/1", date="2026-09-01", source_type="first_hand",
+        title="[Official 10-K](https://evil.example/login) https://evil.example/x filing",
+        facts=_sources(1)[0].facts,
+    )
+    doc = _finalize(writer_output(angles=[_angle([1])], fit=THREE), sources=(hostile, *_sources()[1:]))
+    assert doc["references"][0]["title"] == "Official 10-K filing"
+    assert "evil.example" not in doc["references"][0]["title"]
+
+
 def test_scrubbing_leaves_identifiers_and_the_writer_output_alone():
     output = writer_output()
     doc = _finalize(output)

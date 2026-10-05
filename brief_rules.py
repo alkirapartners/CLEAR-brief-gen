@@ -24,6 +24,7 @@ from brief_doc import (
     Reference, ResearchNote, Snapshot, SnapshotLine, Stats, Story, WriterOutput,
 )
 from evidence import FIRST_HAND, Source, clean_date, parse_date, safe_url, to_references
+from plain_text import plain
 
 logger = logging.getLogger(__name__)
 
@@ -41,23 +42,15 @@ FIGURE_STATS: tuple[str, ...] = ("revenue", "employees")
 MIN_PLACE_WORD_CHARS = 3
 
 
-# The brief shows no links of the model's own making. Sources are cited by
-# number and listed by the code; the website is checked on its own.
-_MARKDOWN_LINK = re.compile(r"!?\[([^\]]*)\]\([^)]*\)")
-_BARE_URL = re.compile(r"(?:https?://|www\.)\S+", re.IGNORECASE)
+# The brief shows no links of the model's own making (plain_text.py). The
+# website is checked on its own.
 _NOT_PROSE = frozenset({"website"})
-
-
-def _plain(text: str) -> str:
-    """Text with markdown links reduced to their words and web addresses removed."""
-    unlinked = _MARKDOWN_LINK.sub(r"\1", text)
-    return " ".join(_BARE_URL.sub("", unlinked).split())
 
 
 def _scrub(value: Any) -> Any:
     """A copy of the writer's output with every string made plain, at any depth."""
     if isinstance(value, str):
-        return _plain(value)
+        return plain(value)
     if isinstance(value, list):
         return [_scrub(item) for item in value]
     if isinstance(value, dict):
