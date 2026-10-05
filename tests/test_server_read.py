@@ -183,3 +183,20 @@ def test_a_rule_inside_running_text_is_left_alone():
     data = make_client(repo).get(f"/api/brief/briefs/{row['id']}", headers=AUTH).json()["data"]
 
     assert data["infra"]["complexity"] == "Forty sites --- all on MPLS."
+
+
+def test_the_date_line_is_never_shown_as_company_stats():
+    """When a brief has no stats line, the header reader picks up the date line instead."""
+    md = REAL_SHAPE_BRIEF.replace(
+        "## RuleCo\n\n**HQ:** Dallas, TX | **Revenue:** $1B\n", "## RuleCo\n*[October 2026]*\n"
+    )
+    repo = FakeRepo()
+    row = repo.seed("partner@example.com", company="RuleCo", brief_md=md, score=3)
+    data = make_client(repo).get(f"/api/brief/briefs/{row['id']}", headers=AUTH).json()["data"]
+
+    assert data["company"] == "RuleCo"
+    assert data["statsLine"] == ""
+
+
+def test_real_company_stats_are_kept():
+    assert _real_shape_detail()["statsLine"] == "HQ: Dallas, TX | Revenue: $1B"

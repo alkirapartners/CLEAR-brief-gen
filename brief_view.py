@@ -31,6 +31,22 @@ def _is_chrome(line: str) -> bool:
     return line.strip(_EMPHASIS_CHARS).casefold() in _CONFIDENTIAL_WORDS
 
 
+# "October 2026" / "Agosto 2026": one word and a year, once emphasis and brackets are removed.
+_DATE_LINE = re.compile(r"^[^\W\d_]+ \d{4}$")
+
+
+def _stats_line(raw: str) -> str:
+    """The company's stats line, or nothing if the header reader picked up the date line.
+
+    A brief written without a stats line has its date line (*[October 2026]*)
+    directly under the company heading, which is then read as the stats.
+    """
+    stats = (raw or "").replace("**", "").strip()
+    if _DATE_LINE.match(stats.strip("*_[] \t")):
+        return ""
+    return stats
+
+
 def _tidy(text: str) -> str:
     """Section text without the dividers and marker that trail it in the markdown.
 
@@ -67,7 +83,7 @@ def to_detail(row: dict) -> dict:
     return {
         "id": row["id"],
         "company": company or row.get("company") or "",
-        "statsLine": (stats_line or "").replace("**", "").strip(),
+        "statsLine": _stats_line(stats_line),
         "score": score,
         "scoreRationale": _tidy(rationale),
         "infra": {
