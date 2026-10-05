@@ -124,7 +124,8 @@ def test_the_writer_request_is_one_cached_structured_call_with_no_tools():
 def test_the_writer_sees_the_fenced_evidence_and_nothing_else_about_the_web():
     _, client, _ = _generate(company="Northwind")
     content = client.writer_requests[0]["messages"][0]["content"]
-    assert 'Company, as the partner typed it: "Northwind"' in content
+    fence = content.split("<source-")[1].split(">")[0]
+    assert f"<name-{fence}>Northwind</name-{fence}>" in content  # one random tag fences the name and the evidence
     assert "[1] Senior Network Engineer" in content and f"URL: {JOB}" in content
     assert "- [cloud] Runs ExpressRoute and a Virtual WAN hub-and-spoke." in content
     assert content.count("<source-") == 2  # the header and the one source

@@ -84,10 +84,11 @@ def test_the_conversation_only_ever_grows():
 def test_the_company_and_the_fence_are_in_the_first_message_never_in_the_system_prefix():
     _, client, _ = _run(company="Zebra Holdings")
     opening = client.requests[0]["messages"][0]["content"]
-    assert 'Company to research: "Zebra Holdings"' in opening and "Today's date: 2026-10-05" in opening
+    assert "Today's date: 2026-10-05" in opening
     assert "Budget: 25 searches, 20 page reads, about 4 minutes." in opening
     assert "Zebra Holdings" not in client.requests[0]["system"][0]["text"]
     fence = opening.split("<web-")[1].split(">")[0]
+    assert f"<name-{fence}>Zebra Holdings</name-{fence}>" in opening
     tool_result = client.requests[1]["messages"][2]["content"][0]["content"]
     assert f"<web-{fence}>" in tool_result
 

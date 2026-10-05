@@ -63,8 +63,9 @@ def _write(
 ) -> Any:
     """The judge-and-write call. Reports "analyze" while it thinks, "compose" once it writes."""
     status_callback("analyze")
+    fence = evidence.new_fence()
     content = prompts.build_writer_message(
-        company, evidence.format_payload(found.sources), today, language,
+        company, fence, evidence.format_payload(found.sources, fence), today, language,
         research_loop.EARLY_STOPS.get(found.stopped_by, ""),
     )
     composing, started = False, clock()
