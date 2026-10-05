@@ -146,7 +146,7 @@ Task order: the probe, the limits and the knowledge base first; then the documen
 - Consumes: nothing from this plan.
 - Produces: `probe.decide(report: dict[str, Any]) -> tuple[str, str]` returning a verdict (`"tavily"`, `"anthropic"` or `"blocked"`) and a reason; `probe.run(client: Any, web: Any) -> dict[str, Any]`. The report's `refusal_fallback` value is read again in Task 12.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `tests/test_probe.py`:
 
@@ -240,12 +240,12 @@ def test_run_builds_a_full_report_from_the_two_clients():
     assert report["verdict"] == "tavily"
 ```
 
-- [ ] **Step 2: Run it and confirm it fails**
+- [x] **Step 2: Run it and confirm it fails**
 
 Run: `.venv/bin/python -m pytest tests/test_probe.py -q`
 Expected: `1 error`, with `FileNotFoundError` for `scripts/probe_research_tools.py`.
 
-- [ ] **Step 3: Write the probe**
+- [x] **Step 3: Write the probe**
 
 Create `scripts/probe_research_tools.py`:
 
@@ -448,7 +448,7 @@ if __name__ == "__main__":
     main()
 ```
 
-- [ ] **Step 4: Run the tests**
+- [x] **Step 4: Run the tests**
 
 Run: `.venv/bin/python -m pytest tests/test_probe.py -q`
 Expected: `7 passed`.
@@ -456,7 +456,7 @@ Expected: `7 passed`.
 Run: `.venv/bin/python -m pytest -q`
 Expected: `283 passed, 2 skipped`.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add scripts/probe_research_tools.py tests/test_probe.py
