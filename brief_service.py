@@ -11,9 +11,8 @@ from datetime import datetime, timezone
 from typing import Any, Callable
 
 import i18n
-from briefparse import (
-    MAX_COMPANY_PREFILL_CHARS, clean_brief, extract_company_header, extract_score,
-)
+import stored_brief
+from briefparse import MAX_COMPANY_PREFILL_CHARS
 from errors import (
     BriefNotFound, DailyLimitReached, GenerationInFlight, NotConfigured, SaveFailed,
     UserFacingError,
@@ -124,7 +123,7 @@ class BriefService:
                 raise UserFacingError(NO_COMPANY_MESSAGE)
             target_language = (
                 i18n.normalize(language) if language
-                else i18n.detect_language(old.get("brief_md") or "")
+                else stored_brief.language_of(old.get("brief_md"))
             )
             self._reserve_generation(email)
         except BaseException:
@@ -158,7 +157,7 @@ class BriefService:
         cached = self._repo.find_recent_brief_by_company(company)
         # Stored briefs carry no language column, so read the brief itself.
         # A mismatch only costs one regeneration.
-        if cached and i18n.detect_language(cached.get("brief_md") or "") != language:
+        if cached and stored_brief.language_of(cached.get("brief_md")) != language:
             return None
         return cached
 
@@ -218,9 +217,8 @@ class BriefService:
         self, email: str, typed_company: str, raw: str,
         created_at: str | None, reused_from: str | None,
     ) -> dict:
-        brief_md = clean_brief(raw)
-        score, _ = extract_score(brief_md)
-        company, _ = extract_company_header(brief_md)
+        brief_md = stored_brief.normalise(raw)
+        score, company = stored_brief.score_and_company(brief_md)
         saved = None
         for _attempt in range(SAVE_ATTEMPTS):
             saved = self._repo.save_brief(

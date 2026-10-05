@@ -2288,7 +2288,7 @@ git commit -m "feat: enforce citation, angle and score rules on a brief"
   - `stored_brief.language_of(stored: str | None) -> str`.
   - `stored_brief.score_and_company(stored: str) -> tuple[int, str]`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `tests/test_stored_brief.py`:
 
@@ -2398,12 +2398,12 @@ def test_refreshing_a_spanish_json_brief_stays_spanish():
     assert generator.seen == [("Northwind Energy", "es")]
 ```
 
-- [ ] **Step 2: Run it and confirm it fails**
+- [x] **Step 2: Run it and confirm it fails**
 
 Run: `.venv/bin/python -m pytest tests/test_stored_brief.py -q`
 Expected: `1 error`, with `ModuleNotFoundError: No module named 'stored_brief'`.
 
-- [ ] **Step 3: Write the helper module**
+- [x] **Step 3: Write the helper module**
 
 Create `stored_brief.py`:
 
@@ -2444,7 +2444,7 @@ def score_and_company(stored: str) -> tuple[int, str]:
     return score, company
 ```
 
-- [ ] **Step 4: Use it in the service**
+- [x] **Step 4: Use it in the service**
 
 Apply this change to `brief_service.py`:
 
@@ -2495,7 +2495,7 @@ Apply this change to `brief_service.py`:
              saved = self._repo.save_brief(
 ```
 
-- [ ] **Step 5: Run the tests**
+- [x] **Step 5: Run the tests**
 
 Run: `.venv/bin/python -m pytest tests/test_stored_brief.py -q`
 Expected: `10 passed`.
@@ -2503,7 +2503,7 @@ Expected: `10 passed`.
 Run: `.venv/bin/python -m pytest -q`
 Expected: `377 passed, 2 skipped`.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add stored_brief.py brief_service.py tests/test_stored_brief.py
