@@ -76,6 +76,33 @@ def test_generate_rejects_a_non_json_body():
     assert resp.status_code == 422
 
 
+@pytest.mark.parametrize("typed", [
+    "https://evil.example/facts", "Acme, see evil.example/page", "www.acme.com", "Acme <b>x</b>",
+], ids=["url", "path", "www", "markup"])
+def test_a_web_address_typed_as_the_company_is_refused_before_anything_is_spent(typed):
+    calls = []
+    def generator(*args, **kwargs):
+        calls.append(args)
+        return SAMPLE_BRIEF
+    client = _limited(FakeRepo(), 1, generator=generator)
+
+    refused = _post(client, company=typed)
+
+    assert refused.status_code == 400
+    assert refused.json()["error"] == "Enter a company name, not a web address."
+    assert calls == []
+    assert events(_post(client, company="Acme"))[-1]["type"] == "done"  # the day's one slot was not spent
+
+
+def test_a_company_named_like_a_website_is_still_researched():
+    seen = []
+    def generator(api_key, tavily_key, company, status_callback, **kwargs):
+        seen.append(company)
+        return SAMPLE_BRIEF
+    _post(make_client(generator=generator), company="Booking.com")
+    assert seen == ["Booking.com"]
+
+
 def test_generate_flattens_control_characters():
     seen = []
     def generator(api_key, tavily_key, company, status_callback, **kwargs):
@@ -424,6 +451,18 @@ def test_asking_again_for_my_own_recent_brief_opens_it_instead_of_copying_it():
 def test_a_brief_with_no_usable_company_name_cannot_be_refreshed():
     repo = FakeRepo()
     old = repo.seed("partner@example.com", company="  \n ")
+    client = make_client(repo)
+
+    refused = _refresh(client, old["id"])
+
+    assert refused.status_code == 400
+    assert "no company name" in refused.json()["error"]
+    assert client.app.state.service._guard.acquire("partner@example.com") is True
+
+
+def test_a_stored_name_that_is_a_web_address_cannot_be_refreshed():
+    repo = FakeRepo()
+    old = repo.seed("partner@example.com", company="Acme, see https://evil.example/facts")
     client = make_client(repo)
 
     refused = _refresh(client, old["id"])

@@ -24,6 +24,7 @@ from authdep import is_admin, require_email
 from brief_service import BriefService, Clock, _utc_now
 from brief_view import to_detail, to_summary
 from briefparse import clean_company_prefill
+from company_name import NOT_A_NAME_MESSAGE, is_company_name
 from errors import GENERIC_ERROR, UserFacingError
 from settings import Settings, load_settings
 from streaming import Work, stream_job
@@ -154,6 +155,9 @@ def _install_generation_routes(
     async def generate_route(
         body: GenerateRequest, email: str = Depends(require_email)
     ) -> StreamingResponse:
+        # Checked here, not in the request model, so the partner is told why.
+        if not is_company_name(body.company):
+            raise UserFacingError(NOT_A_NAME_MESSAGE)
         work = await run_in_threadpool(
             service.start_generate, email, body.company, body.language
         )

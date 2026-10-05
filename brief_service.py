@@ -13,6 +13,7 @@ from typing import Any, Callable
 import i18n
 import stored_brief
 from briefparse import MAX_COMPANY_PREFILL_CHARS
+from company_name import is_company_name
 from errors import (
     BriefNotFound, DailyLimitReached, GenerationInFlight, NotConfigured, SaveFailed,
     UserFacingError,
@@ -119,7 +120,7 @@ class BriefService:
             if old is None:
                 raise BriefNotFound(NOT_FOUND_MESSAGE)
             company = _clean_stored_company(old.get("company"))
-            if not company:
+            if not is_company_name(company):
                 raise UserFacingError(NO_COMPANY_MESSAGE)
             target_language = (
                 i18n.normalize(language) if language
