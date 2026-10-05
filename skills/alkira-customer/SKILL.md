@@ -75,7 +75,15 @@ These rules decide whether a company is an Alkira fit. They set the fit score an
 
 **Never fit evidence.** Never present these as a reason to pursue: a new CEO or CFO; SAP, Workday or other ERP projects; generic "digital transformation"; headcount or hiring statistics; product recalls; earnings.
 
-**Evidence quality.** First-hand evidence is the company's own careers site and job postings, its filings and annual report, its press releases, and a cloud vendor's case study about it. Trade press is second-hand. A data-broker profile is a last resort and must be labelled as one. Current means the source is dated within about the last two years.
+**Evidence quality.** First-hand evidence is the company's own careers site and job postings, its filings and annual report, its press releases, and a cloud vendor's case study about it. Trade press is second-hand, and so is a job board's copy of a posting. A data-broker profile is a last resort and must be labelled as one. So is an encyclopedia. Current means the source is dated within about the last two years.
+
+**The word "network".** Fit evidence is about the IT network: the WAN, cloud connectivity, data centers, firewalls, and the people who run them. Many companies also call their business footprint a network: a delivery network, a logistics network, a store network, a distribution network, a branch or dealer network. That is not the IT network. Example: UPS reports "Network Reconfiguration" and "Network of the Future", programmes that close sorting buildings and consolidate package routes. Neither is network modernization. The building closures can support `site_rollout`, because sites are closing at scale, and nothing more. A `network_modernization` angle needs at least one fact that names network technology: MPLS, SD-WAN, SASE, a backbone, a data-center exit, a network engineering programme.
+
+**Plant networks.** In the technical snapshot, plant networks means industrial control systems: OT, SCADA, PLCs, the networks on a plant floor, and how they are kept apart from IT. RFID readers, package scanners, store Wi-Fi and vehicle telematics are not plant networks. Example: the RFID readers UPS puts in its package cars are a tracking product. Leave the line empty for a company with no plants.
+
+**Risk-factor language is not evidence.** The risk factors in a filing list what could go wrong, in wording most filers share: technology infrastructure may be aging, an integration may be harder than expected, the company depends on transition services. None of it shows that anything is happening. Evidence is what the company did or announced, with a date.
+
+**A specific, dated fact.** Every angle rests on at least one specific fact with a date: a deal that closed on a day, a posting with its posted date, a programme announced in a quarter. A deal that closed long ago is an angle only when the evidence shows the integration or the separation is still under way: a transition services agreement still running, systems still being merged. An accounting adjustment after a closed sale is not that. Never add an angle to reach three. Example: a parts retailer with one strong network-modernization angle gains nothing from a third angle built on a divestiture that closed the year before and a line of risk-factor language.
 
 ---
 

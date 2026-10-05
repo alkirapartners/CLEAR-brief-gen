@@ -1,9 +1,12 @@
 """Rules the code enforces on a brief, whatever the model wrote.
 
 The writer is asked to follow these rules. This module makes sure of it:
-evidence must point at a page that was opened, an angle with no evidence
-left is removed, a customer story is one from the knowledge base, and the
-score cannot claim more than the angles that survive support.
+evidence must point at a page that was opened and carries that page's date,
+lines that are never evidence are removed (angle_rules.py), an angle with
+no dated fact left is removed, a customer story is one from the knowledge
+base that fits the angle, basics trace to the evidence, and the score
+cannot claim more than the sources of the surviving angles support
+(fit_score.py).
 """
 
 import logging
@@ -11,6 +14,7 @@ import re
 from datetime import date
 from typing import Any, Iterable, Mapping, Sequence
 
+import angle_rules
 import case_studies
 import fit_score
 import i18n
@@ -29,6 +33,7 @@ MAX_QUESTIONS = 4
 MAX_SCORE_WITHOUT_ANGLES = fit_score.MAX_SCORE_WITHOUT_ANGLES
 # The language the story table is written in.
 TABLE_LANGUAGE = "en"
+PLANT_NETWORKS = "plant_networks"
 # Basics that are figures: every figure in them has to be in the evidence.
 FIGURE_STATS: tuple[str, ...] = ("revenue", "employees")
 # A place name is checked by its words of at least this many letters.
@@ -129,11 +134,18 @@ def _story(story: Story, use_case: str, told: frozenset[str], language: str) -> 
 
 
 def _angles(angles: Sequence[Angle], dates: Dates, language: str, today: date) -> list[Angle]:
-    """Angles that still have evidence, strongest first as written, three at most."""
-    checked = [{**angle, "evidence": _evidence(angle["evidence"], dates, today)} for angle in angles]
+    """Angles that still stand on their evidence, strongest first as written, three at most.
+
+    Lines that are never evidence are removed first. An angle then needs a
+    dated fact about the right thing (angle_rules.stands) to be kept.
+    """
+    checked = [
+        {**angle, "evidence": angle_rules.kept_lines(_evidence(angle["evidence"], dates, today))}
+        for angle in angles
+    ]
     kept: list[Angle] = []
     told: frozenset[str] = frozenset()
-    for angle in [angle for angle in checked if angle["evidence"]][:MAX_ANGLES]:
+    for angle in [angle for angle in checked if angle_rules.stands(angle)][:MAX_ANGLES]:
         story = _story(angle["story"], angle["use_case"], told, language)
         told = told | {story["id"]} - {case_studies.NO_STORY}
         kept.append({**angle, "story": story})
@@ -150,7 +162,11 @@ def _snapshot_line(line: SnapshotLine, valid: frozenset[int]) -> SnapshotLine:
 
 
 def _snapshot(snapshot: Snapshot, valid: frozenset[int]) -> Snapshot:
-    return {key: _snapshot_line(snapshot[key], valid) for key in SNAPSHOT_KEYS}
+    lines = {key: _snapshot_line(snapshot[key], valid) for key in SNAPSHOT_KEYS}
+    if not angle_rules.is_plant_network(lines[PLANT_NETWORKS]["text"]):
+        # Scanners, readers and shop Wi-Fi are not industrial control systems.
+        lines[PLANT_NETWORKS] = {"text": "", "sources": []}
+    return lines
 
 
 def _people(people: Sequence[Person], valid: frozenset[int]) -> list[Person]:

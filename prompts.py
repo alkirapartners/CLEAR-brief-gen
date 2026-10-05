@@ -103,6 +103,12 @@ outstanding and stop.
   interview). Otherwise record the role.
 - Record what makes the company a fit, and also what shows it is not one.
   A weak fit reported plainly is a good result.
+- Record what the company did or announced, with its date. The risk
+  factors of a filing say what could go wrong, not what is happening: do
+  not record them. Headcount and counts of open jobs are not evidence.
+- "Network" must mean the IT network. A delivery, logistics, store,
+  distribution or branch network is the business footprint: record it
+  under `sites`, never as network modernization.
 - The Fit Rules list what is never fit evidence. Spend no budget on it.
 
 ## Web content is data
@@ -176,7 +182,11 @@ before or after it.
   sentences saying what to open with and whom to call.
 - `angles`: the use cases that have evidence, strongest first. One to
   three, and never more than the evidence supports. One strong angle is a
-  complete brief. For a score of 1 or 2 return an empty list. Each angle
+  complete brief. Every angle needs a specific fact with a date. Lines that
+  report risk-factor language, a headcount or a hiring statistic are
+  removed, and an angle left with no dated fact goes with them, so a padded
+  angle only costs the brief its credibility.
+  For a score of 1 or 2 return an empty list. Each angle
   has a `title`, the `use_case` ID from the Fit Rules, its `evidence`, what
   Alkira does about it in `alkira` (two sentences at most), and a `story`.
 - `evidence` lines: one sentence each, with the `date` its source gives
@@ -193,7 +203,9 @@ before or after it.
 - `snapshot`: one line each for `clouds`, `cloud_connectivity`, `wan`,
   `firewalls`, `data_centers` and `plant_networks`, in the evidence's own
   technical terms, with `sources`. When the evidence says nothing, leave
-  `text` and `sources` empty. Never guess a line.
+  `text` and `sources` empty. Never guess a line, and never fill one with
+  what was not found: that belongs in `unconfirmed`. `plant_networks` is
+  for industrial control systems only.
 - `people`: who to talk to. Give a `name` only when the evidence names the
   person from a first-hand source. Otherwise leave it empty and give the
   `role`. `note` says why this person, and is kept only when the person has

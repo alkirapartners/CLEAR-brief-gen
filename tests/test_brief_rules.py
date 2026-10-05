@@ -17,11 +17,15 @@ NOTE = {"searches": 21, "pages": 17, "seconds": 203, "stopped_by": "finished"}
 STATED = "Northwind Energy Corporation is headquartered in Dallas, Texas. Revenue was $28B. It has 5,200 employees."
 
 
-def _sources(count=4, stated=STATED, source_type="first_hand", dated="2026-09-01"):
-    """The opened pages, numbered as the writer saw them, each stating the same basics."""
+def _sources(count=4, stated=STATED, source_type="first_hand", dated="2026-09-01", dates=None):
+    """The opened pages, numbered as the writer saw them, each stating the same basics.
+
+    ``dates`` gives single pages a date of their own, by number.
+    """
     return tuple(
         Source(
-            n=n, url=f"https://example.com/{n}", title=f"Page {n}", date=dated, source_type=source_type,
+            n=n, url=f"https://example.com/{n}", title=f"Page {n}",
+            date=(dates or {}).get(n, dated), source_type=source_type,
             facts=(EvidenceItem("Company basics.", "basics", f"https://example.com/{n}", opened=True, quote=stated),),
         )
         for n in range(1, count + 1)
@@ -39,7 +43,7 @@ def _finalize(output=None, sources=None, language="en"):
 def _angle(sources, title="Angle", story_id="koch", use_case="multi_cloud"):
     return {
         "title": title, "use_case": use_case,
-        "evidence": [{"text": "A dated fact.", "date": "2026-09-01", "sources": sources}],
+        "evidence": [{"text": "A posting lists SD-WAN and ExpressRoute.", "date": "2026-09-01", "sources": sources}],
         "alkira": "What Alkira does.",
         "story": {"id": story_id, "customer": "Whoever", "result": "A result."},
     }
@@ -217,8 +221,16 @@ def test_an_angle_resting_on_second_hand_sources_holds_the_score_at_three_and_th
     )
 
 
-def test_undated_first_hand_sources_hold_the_score_at_three():
-    assert _finalize(writer_output(fit=FIVE), sources=_sources(dated=""))["fit"]["score"] == 3
+def test_a_use_case_whose_first_hand_source_is_undated_is_held_at_three():
+    """A dated trade-press line keeps the angle standing. The undated posting cannot lift it."""
+    angle = _angle([1])
+    angle["evidence"].append({"text": "Trade press reports the SD-WAN rollout.", "date": "", "sources": [2]})
+    sources = (
+        _sources(1, dated="")[0],  # the company's own posting, with no date on it
+        _sources(2, source_type="second_hand")[1],
+    )
+    doc = _finalize(writer_output(angles=[angle], fit=FIVE), sources=sources)
+    assert len(doc["angles"]) == 1 and doc["fit"]["score"] == 3
 
 
 def test_one_first_hand_use_case_holds_the_score_at_four_and_the_brief_says_why():
@@ -242,8 +254,10 @@ def test_a_score_the_sources_support_is_left_as_written_with_no_note():
 # ── An evidence line carries its source's date, not one of the model's own ──
 
 def _dated_line(written, cited, **kwargs):
+    """The date the first line ends up with. A second, dated line keeps the angle standing."""
     angle = _angle(cited)
     angle["evidence"][0]["date"] = written
+    angle["evidence"].append({"text": "A dated press release.", "date": "2026-08-15", "sources": [4]})
     fit = {"score": 3, "verdict": "v", "lead": "l"}
     return _finalize(writer_output(angles=[angle], fit=fit), **kwargs)["angles"][0]["evidence"][0]["date"]
 
@@ -259,11 +273,11 @@ def test_a_date_the_source_does_not_give_is_replaced_by_the_one_it_does():
 
 
 def test_a_line_whose_sources_give_no_date_is_undated_whatever_the_model_wrote():
-    assert _dated_line("2026-09-30", [1], sources=_sources(dated="")) == ""
+    assert _dated_line("2026-09-30", [1], sources=_sources(dates={1: "", 4: "2026-08-15"})) == ""
 
 
 def test_a_source_dated_in_the_future_dates_nothing():
-    assert _dated_line("2027-03-01", [1], sources=_sources(dated="2027-03-01")) == ""
+    assert _dated_line("2027-03-01", [1], sources=_sources(dates={1: "2027-03-01", 4: "2026-08-15"})) == ""
 
 
 # ── Customer stories come from the knowledge base ────────────────
@@ -291,6 +305,61 @@ def test_in_spanish_the_translated_proof_is_kept_and_a_missing_one_falls_back_to
     doc = _finalize(writer_output(angles=[translated, blank]), language="es")
     assert doc["angles"][0]["story"]["result"] == "Unas 1,400 tiendas conectadas en tres semanas."
     assert doc["angles"][1]["story"]["result"] == case_studies.story_by_id("koch").result
+
+
+# ── Padding and noise are removed ────────────────────────────────
+
+def _with_lines(*texts, use_case="m_and_a", sources=(2,)):
+    angle = _angle(list(sources), title="Padded", use_case=use_case)
+    angle["evidence"] = [{"text": text, "date": "2026-01-03", "sources": list(sources)} for text in texts]
+    return angle
+
+
+def test_risk_language_and_headcount_lines_are_removed_from_an_angle():
+    angle = _with_lines(
+        "Advance sold Worldpac and agreed the final working capital adjustment in January.",
+        "The 10-K includes transition services risk language tied to the divestiture.",
+        "The 10-K reports 28,274 full-time team members.",
+    )
+    doc = _finalize(writer_output(angles=[_angle([1]), angle], fit=THREE))
+    assert [line["text"] for line in doc["angles"][1]["evidence"]] == [
+        "Advance sold Worldpac and agreed the final working capital adjustment in January.",
+    ]
+
+
+def test_an_angle_built_only_from_risk_language_does_not_survive():
+    padded = _with_lines(
+        "The 10-K cites an aging technological infrastructure risk.",
+        "The 10-K includes transition services risk language tied to the divestiture.",
+    )
+    doc = _finalize(writer_output(angles=[_angle([1], title="Real"), padded], fit=FIVE))
+    assert [angle["title"] for angle in doc["angles"]] == ["Real"]
+    assert doc["fit"]["score"] == 4  # one use case is left, and the score follows
+
+
+def test_an_angle_with_no_dated_fact_does_not_survive():
+    doc = _finalize(writer_output(angles=[_angle([1])], fit=THREE), sources=_sources(dated=""))
+    assert doc["angles"] == [] and doc["fit"]["score"] == 2
+
+
+def test_a_delivery_network_closing_buildings_is_not_a_network_modernization_angle():
+    ups = _with_lines(
+        "UPS closed 23 buildings and identified 27 more for closure under Network Reconfiguration.",
+        "The proxy says the company strategy centres on network optimization.",
+        use_case="network_modernization",
+    )
+    doc = _finalize(writer_output(angles=[ups, _angle([1], title="Real")], fit=THREE))
+    assert [angle["title"] for angle in doc["angles"]] == ["Real"]
+    as_sites = {**ups, "use_case": "site_rollout"}
+    assert len(_finalize(writer_output(angles=[as_sites], fit=THREE))["angles"]) == 1
+
+
+def test_a_plant_network_line_that_is_not_about_control_systems_becomes_not_found():
+    output = writer_output()
+    output["snapshot"]["plant_networks"] = {"text": "RFID sensing network with readers in package cars.", "sources": [1]}
+    assert _finalize(output)["snapshot"]["plant_networks"] == {"text": "", "sources": []}
+    output["snapshot"]["plant_networks"] = {"text": "OT networks at five refineries, segmented from IT.", "sources": [1]}
+    assert _finalize(output)["snapshot"]["plant_networks"]["text"].startswith("OT networks")
 
 
 # ── A story fits its angle's situation, and is told once ─────────

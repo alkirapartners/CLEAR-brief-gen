@@ -67,7 +67,11 @@ def test_the_writer_is_told_the_rules_the_code_also_enforces():
         "Use only the evidence you were given.",
         "never more than the evidence supports",
         "For a score of 1 or 2 return an empty list.",
-        "Never guess a line.",
+        "Never guess a line",
+        "Every angle needs a specific fact with a date.",
+        "`plant_networks` is\n  for industrial control systems only.",
+        "The story's Situations\n  must include the angle's `use_case`",
+        "Score from those marks",
         "use the id `none`",
         "both are filled in from the table",
         "Never write a URL or a bracketed number inside a sentence.",
@@ -90,6 +94,10 @@ def test_the_research_prefix_carries_the_checklist_and_fit_rules_only():
         "The company's own careers site and job postings",
         "One clear use case is enough.",
         "**Never fit evidence.**",
+        "do\n  not record them",
+        '"Network" must mean the IT network.',
+        "Say what each page is.",
+        "a guessed date is worse",
     ):
         assert expected in prefix, f"missing from the research prefix: {expected!r}"
     assert "20Large (20L)" not in prefix  # pricing is no use to a researcher

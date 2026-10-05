@@ -18,6 +18,15 @@ TEMPLATE = (SKILLS / "alkira-brief-template" / "SKILL.md").read_text(encoding="u
     "**Never fit evidence.**",
     "SAP, Workday or other ERP projects",
     "A data-broker profile is a last resort and must be labelled as one.",
+    '**The word "network".**',
+    "a delivery network, a logistics network, a store network, a distribution network, a branch or dealer network",
+    'Example: UPS reports "Network Reconfiguration" and "Network of the Future"',
+    "A `network_modernization` angle needs at least one fact that names network technology",
+    "plant networks means industrial control systems",
+    "RFID readers, package scanners, store Wi-Fi and vehicle telematics are not plant networks.",
+    "**Risk-factor language is not evidence.**",
+    "Every angle rests on at least one specific fact with a date",
+    "Never add an angle to reach three.",
 ])
 def test_the_knowledge_base_states_the_fit_rules(rule):
     assert rule in KNOWLEDGE_BASE
