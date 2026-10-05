@@ -67,17 +67,28 @@ def _evidence(lines: Sequence[EvidenceLine], valid: frozenset[int]) -> list[Evid
     return [line for line in checked if line["sources"] and line["text"].strip()]
 
 
+_NUMBER = re.compile(r"\d[\d.,]*\d|\d")
+
+
+def _numbers(text: str) -> frozenset[str]:
+    """Every figure in the text as bare digits, so 1,400 and 1.400 are the same."""
+    return frozenset(re.sub(r"[.,]", "", number) for number in _NUMBER.findall(text))
+
+
 def _story(story: Story, language: str) -> Story:
     """The story as the knowledge base has it. Proof is never the model's own.
 
     The customer name always comes from the story table. So does the result
     for a brief in English. In another language the model's translation of
-    the result is kept, and the table's wording is used if it gave none.
+    the result is kept only when it carries exactly the table's figures.
+    Otherwise the table's wording is used.
     """
     known = case_studies.story_by_id(story["id"])
     if known is None:
         return {"id": case_studies.NO_STORY, "customer": "", "result": ""}
     translated = story["result"].strip() if language != TABLE_LANGUAGE else ""
+    if _numbers(translated) != _numbers(known.result):
+        translated = ""  # a translation may change the words, never the figures
     return {"id": known.id, "customer": known.customer, "result": translated or known.result}
 
 

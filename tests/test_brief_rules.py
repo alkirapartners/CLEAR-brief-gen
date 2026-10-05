@@ -164,6 +164,23 @@ def test_a_story_that_is_not_in_the_knowledge_base_is_dropped():
     assert doc["angles"][0]["story"] == {"id": "none", "customer": "", "result": ""}
 
 
+def test_a_translated_proof_whose_numbers_differ_from_the_knowledge_base_is_replaced():
+    michaels = case_studies.story_by_id("michaels").result
+    koch = case_studies.story_by_id("koch").result
+    cases = [
+        ("michaels", "Unas 2,000 tiendas conectadas en tres semanas.", michaels),          # a different number
+        ("michaels", "Unas 1,400 tiendas en tres semanas, con 50% menos costo.", michaels),  # an added number
+        ("michaels", "Unas 1.400 tiendas conectadas a Google Cloud en tres semanas.", None),  # same number, Spanish separator
+        ("koch", "Reducción del 40% en la complejidad de la red.", koch),                 # a number the table never had
+        ("koch", "Reducción significativa de la complejidad de la red.", None),
+    ]
+    for story_id, translated, expected in cases:
+        angle = _angle([1], story_id=story_id)
+        angle["story"]["result"] = translated
+        result = _finalize(writer_output(angles=[angle]), language="es")["angles"][0]["story"]["result"]
+        assert result == (expected or translated), translated
+
+
 # ── Lists ────────────────────────────────────────────────────────
 
 def test_questions_are_capped_at_four_and_blanks_are_dropped():
