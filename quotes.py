@@ -108,17 +108,74 @@ def _is_name(token: str, starts_sentence: bool) -> bool:
     return token[0].isupper() and not starts_sentence
 
 
+# A number that belongs to a name: the number of a standard or a framework
+# ("IEC 62443", "NIST SP 800-82", "SOC 2", "PCI DSS 4.0") or of a product
+# model or version ("Catalyst 9300"). It is matched on the page like a name.
+# Money, counts and percentages are figures and have to be in the quote.
+_STANDARD_WORDS = frozenset(
+    "iec iso isa nist ieee ansi rfc pci dss soc fips cis nerc cip cmmc sp csf tia en ul nfpa asme "
+    "hipaa sox fedramp tier type level release version rev v".split()
+)
+# A model number after a product name has at least this many digits.
+MIN_MODEL_NUMBER_DIGITS = 3
+_CURRENCY_BEFORE = re.compile(r"(?:[$\u20ac\u00a3\u00a5]|\b(?:US\$|USD|CNY|RMB|EUR|GBP|JPY|CAD|AUD|CHF))\s*$")
+_MAGNITUDE_AFTER = re.compile(r"\s*(?:%|percent\b|million\b|billion\b|trillion\b|thousand\b|bn\b|mm\b|[BMK]\b)", re.IGNORECASE)
+_JOINS_A_NAME = re.compile(r"^[\s\-/:]*$")
+_NAME_PARTS = re.compile(r"[-/&+]")
+
+
+def _is_quantity(text: str, match: re.Match[str]) -> bool:
+    """True for a number written as money, a percentage, a magnitude or with thousands."""
+    return bool(
+        "," in match.group(0)
+        or _CURRENCY_BEFORE.search(text[: match.start()])
+        or _MAGNITUDE_AFTER.match(text, match.end())
+    )
+
+
+def _numbers(text: str) -> list[tuple[str, bool]]:
+    """Every number in the text, in order, with whether it is part of a name.
+
+    A number is part of a name when it directly follows the name of a
+    standard or framework, or follows another number that is. It is also
+    one when it has three or more digits and directly follows a product
+    name. A quantity never is.
+    """
+    found: list[tuple[str, bool]] = []
+    previous: re.Match[str] | None = None
+    previous_named = False
+    for match in _TOKEN.finditer(text):
+        token = match.group(0)
+        if not token[0].isdigit():
+            previous, previous_named = match, False
+            continue
+        named = False
+        if previous is not None and not _is_quantity(text, match) and _JOINS_A_NAME.match(text[previous.end(): match.start()]):
+            before = previous.group(0)
+            if before[0].isdigit():
+                named = previous_named
+            elif set(_NAME_PARTS.split(before.casefold())) & _STANDARD_WORDS:
+                named = True
+            else:
+                digits = sum(ch.isdigit() for ch in token)
+                named = digits >= MIN_MODEL_NUMBER_DIGITS and _is_name(before, starts_sentence=False)
+        found.append((token, named))
+        previous, previous_named = match, named
+    return found
+
+
 def missing_figures(fact: str, quote: str) -> tuple[str, ...]:
     """The figures in a fact that its quote does not hold, in the order they appear.
 
     Years, dates and labels such as "FY2025" or "10-K" are not figures.
+    Neither is the number of a standard or a model: that is part of a name.
     """
     quoted = _figures(quote)
     missing: list[str] = []
-    for token in _TOKEN.findall(_without_labels(fact)):
-        if token[0].isdigit() and not _YEAR.match(_plain_number(token)):
-            if _plain_number(token) not in quoted and token not in missing:
-                missing.append(token)
+    for token, named in _numbers(_without_labels(fact)):
+        number = _plain_number(token)
+        if not named and not _YEAR.match(number) and number not in quoted and token not in missing:
+            missing.append(token)
     return tuple(missing)
 
 
@@ -159,5 +216,9 @@ def missing_names(
             continue
         on_page = name in bare_page or _spelled_out(token, page_initials)
         if not on_page and not any(name in item for item in known):
+            missing.append(token)
+    # The numbers of standards and models are names too, and the page has to give them.
+    for token, named in _numbers(text):
+        if named and not _YEAR.match(_plain_number(token)) and bare(token) not in bare_page and token not in missing:
             missing.append(token)
     return tuple(missing)

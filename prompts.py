@@ -111,8 +111,9 @@ outstanding and stop.
 - Never record anything from memory.
 - Give every fact a `quote`: a passage copied word for word from the page
   that states it. Join separate passages with ` ... `. Three things are
-  checked. The quote has to be on the page. Every figure in the fact has to
-  be in the quote, copied as printed. And every product, vendor, technology,
+  checked. The quote has to be on the page. Every figure in the fact (money,
+  a count, a percentage) has to be in the quote, copied as printed. The
+  number of a standard or a model, as in IEC 62443, is part of its name. And every product, vendor, technology,
   place and company the fact names has to be somewhere on that page: write
   "AWS" only when the page says AWS. A fact that fails a check is thrown
   away, and the result tells you what was missing. A page that shows only

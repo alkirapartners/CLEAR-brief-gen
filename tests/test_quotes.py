@@ -191,3 +191,45 @@ def test_an_acronym_is_on_the_page_when_the_page_spells_it_out():
     assert quotes.missing_names("It trades on the NYSE as DINO in the USA.", page, (), spelled) == ()
     assert quotes.missing_names("It trades on the LSE as DINO.", page, (), spelled) == ("LSE",)
     assert quotes.missing_names("It trades on the NYSE.", page) == ("NYSE",)  # not without the page's initials
+
+
+# ── A standard or a model number is a name, not a figure ─────────
+
+OT_PAGE = (
+    "Date: Sep 23, 2026. The OT Cyber Analyst supports fleet-wide Operational Technology (OT) cybersecurity "
+    "for Industrial Automation and Control Systems. Experience with ISA/IEC 62443 zones and conduits, NIST "
+    "SP 800-82 and NIST CSF 2.0 is required. Familiarity with Cisco Catalyst 9300 switches, Palo Alto "
+    "PA-5220 firewalls and ISO 27001:2022 audits is preferred. The team covers 7 refineries."
+)
+
+
+@pytest.mark.parametrize("fact", [
+    "The OT Cyber Analyst posting asks for ISA/IEC 62443 zones and conduits.",
+    "The posting asks for NIST SP 800-82 and NIST CSF 2.0 experience.",
+    "The posting prefers ISO 27001:2022 audit experience.",
+    "The posting names Cisco Catalyst 9300 switches and Palo Alto PA-5220 firewalls.",
+    "The company holds SOC 2 Type 2 and PCI DSS 4.0 attestations.",
+], ids=["iec", "nist", "iso", "models", "soc-pci"])
+def test_the_number_in_a_standard_or_a_model_is_not_a_figure_the_quote_must_hold(fact):
+    quote = "fleet-wide Operational Technology (OT) cybersecurity for Industrial Automation and Control Systems"
+    assert quotes.missing_figures(fact, quote) == ()
+
+
+def test_a_standard_the_page_names_is_found_on_the_page_like_any_other_name():
+    page, spelled = quotes.bare(OT_PAGE), quotes.initials(OT_PAGE)
+    kept = "The OT Cyber Analyst posting asks for ISA/IEC 62443 zones and conduits and NIST SP 800-82."
+    assert quotes.missing_names(kept, page, (), spelled) == ()
+    wrong = "The posting asks for IEC 61511 and Cisco Catalyst 9500 switches."
+    assert quotes.missing_names(wrong, page, (), spelled) == ("61511", "9500")
+
+
+@pytest.mark.parametrize("fact, missing", [
+    ("The team covers 12 refineries under IEC 62443.", ("12",)),
+    ("It paid $38 million for Industrial Oils Unlimited.", ("38",)),
+    ("Azure hosts 96.62% of workloads.", ("96.62",)),
+    ("Catalyst switches run at 4,305 stores.", ("4,305",)),
+    ("Acme opened 500 stores.", ("500",)),
+], ids=["count", "money", "percent", "thousands", "count-after-verb"])
+def test_money_counts_and_percentages_are_still_figures_the_quote_must_hold(fact, missing):
+    quote = "fleet-wide Operational Technology (OT) cybersecurity"
+    assert quotes.missing_figures(fact, quote) == missing
