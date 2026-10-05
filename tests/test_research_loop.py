@@ -17,7 +17,7 @@ from tests.test_research_tools import JOB, FakeWeb
 TODAY = date(2026, 10, 5)
 FACT = {
     "fact": "Runs ExpressRoute and a Virtual WAN hub-and-spoke.", "category": "cloud",
-    "quote": "ExpressRoute, Virtual WAN hub-and-spoke, BGP",
+    "quote": "ExpressRoute, Virtual WAN hub-and-spoke, BGP", "source_type": "first_hand",
     "source_url": JOB, "source_title": "Senior Network Engineer", "source_date": "2026-09-23",
 }
 SEARCH = reply(thinking(), tool_use("s1", "web_search", {"query": "acme careers network", "site": "", "recent_news": False}))

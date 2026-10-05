@@ -94,7 +94,7 @@ def _angle(pdf: _BriefPDF, number: int, angle: Angle) -> None:
     pdf.ln(2)
     _text(pdf, f"{labels['angle'].upper()} {number:02d}", size=7, style="B", color=ALKIRA_ORANGE)
     _text(pdf, angle["title"], size=11, style="B")
-    _bullets(pdf, [brief_compat.evidence_text(line) for line in angle["evidence"]])
+    _bullets(pdf, [brief_compat.evidence_text(line, pdf.labels) for line in angle["evidence"]])
     _text(pdf, f"{labels['alkira_answer']}: {angle['alkira']}", size=9)
     proof = brief_compat.proof_text(angle["story"])
     if proof:

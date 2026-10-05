@@ -21,7 +21,7 @@ def _sources(count=4, stated=STATED):
     """The opened pages, numbered as the writer saw them, each stating the same basics."""
     return tuple(
         Source(
-            n=n, url=f"https://example.com/{n}", title=f"Page {n}", date="", data_broker=False,
+            n=n, url=f"https://example.com/{n}", title=f"Page {n}", date="", source_type="first_hand",
             facts=(EvidenceItem("Company basics.", "basics", f"https://example.com/{n}", opened=True, quote=stated),),
         )
         for n in range(1, count + 1)

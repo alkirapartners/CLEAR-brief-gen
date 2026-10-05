@@ -64,10 +64,11 @@ def _record(items, call_id="e1"):
     return ToolCall(call_id, tools.RECORD, {"items": items})
 
 
-def _fact(url=JOB, fact="Runs ExpressRoute and Virtual WAN.", category="cloud", quote=QUOTE):
+def _fact(url=JOB, fact="Runs ExpressRoute and Virtual WAN.", category="cloud", quote=QUOTE,
+          source_type="first_hand", date="2026-09-23"):
     return {
-        "fact": fact, "category": category, "quote": quote,
-        "source_url": url, "source_title": "Network Engineer", "source_date": "2026-09-23",
+        "fact": fact, "category": category, "quote": quote, "source_type": source_type,
+        "source_url": url, "source_title": "Network Engineer", "source_date": date,
     }
 
 
@@ -271,6 +272,24 @@ def test_a_fact_from_an_opened_page_is_kept():
     (item,) = after.evidence
     assert item.opened is True and item.category == "cloud" and item.source_date == "2026-09-23"
     assert item.quote == QUOTE
+
+
+# ── Each fact says what kind of source it is and when it is dated ──
+
+def test_every_recorded_fact_must_say_whether_its_source_is_first_or_second_hand():
+    item = tools.TOOLS[2]["input_schema"]["properties"]["items"]["items"]
+    assert "source_type" in item["required"]
+    assert item["properties"]["source_type"]["enum"] == ["first_hand", "second_hand"]
+
+
+def test_the_declared_source_type_and_a_well_formed_date_are_kept_with_the_fact():
+    _, after, _ = _run([_record([_fact(source_type="second_hand", date="2026-09")])], ledger=_opened())
+    assert (after.evidence[0].source_type, after.evidence[0].source_date) == ("second_hand", "2026-09")
+
+
+def test_a_date_that_is_not_a_date_is_left_empty_and_the_fact_is_still_kept():
+    _, after, _ = _run([_record([_fact(date="a few weeks ago"), _fact(date="2026-14-40")])], ledger=_opened())
+    assert [item.source_date for item in after.evidence] == ["", ""]
 
 
 # ── A fact needs a quote the page really holds ───────────────────

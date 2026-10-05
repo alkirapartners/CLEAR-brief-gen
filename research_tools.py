@@ -14,8 +14,8 @@ from urllib.parse import urlsplit
 
 import quotes
 from evidence import (
-    CATEGORIES, EvidenceItem, Page, canonical_url, is_fetchable_url, mark_opened, one_line,
-    safe_url,
+    CATEGORIES, DECLARABLE_SOURCE_TYPES, EvidenceItem, Page, canonical_url, clean_date,
+    is_fetchable_url, mark_opened, one_line, safe_url,
 )
 
 logger = logging.getLogger(__name__)
@@ -101,12 +101,27 @@ _EVIDENCE_ITEM = {
         "category": {"type": "string", "enum": list(CATEGORIES)},
         "source_url": {"type": "string", "description": "The exact URL you opened."},
         "source_title": {"type": "string", "description": "A short name for the page."},
+        "source_type": {
+            "type": "string",
+            "enum": list(DECLARABLE_SOURCE_TYPES),
+            "description": (
+                "first_hand: the company's own website, careers site or job posting, its filings "
+                "and annual report, its press releases, a cloud vendor's case study about it, or an "
+                "executive's own words. second_hand: news and trade press, analysts, a job board's "
+                "copy of a posting, an encyclopedia, a data broker, anyone writing about the company."
+            ),
+        },
         "source_date": {
             "type": "string",
-            "description": "The date the page gives for itself, YYYY-MM-DD or YYYY-MM. Empty if none.",
+            "description": (
+                "The date the page gives for itself, as YYYY-MM-DD, YYYY-MM or YYYY. For 'posted 3 "
+                "days ago', work it out from today's date. Empty when the page gives no date: never guess."
+            ),
         },
     },
-    "required": ["fact", "quote", "category", "source_url", "source_title", "source_date"],
+    "required": [
+        "fact", "quote", "category", "source_url", "source_title", "source_type", "source_date",
+    ],
     "additionalProperties": False,
 }
 
@@ -386,13 +401,15 @@ def _evidence_item(raw: Any) -> EvidenceItem | None:
         return None
     if not fact.strip() or not url.strip():
         return None
+    declared = raw.get("source_type")
     return EvidenceItem(
         fact=one_line(fact)[:MAX_FACT_CHARS],
         category=raw["category"],
         source_url=one_line(url)[:MAX_SOURCE_URL_CHARS],
         source_title=one_line(str(raw.get("source_title") or ""))[:MAX_TITLE_CHARS],
-        source_date=one_line(str(raw.get("source_date") or ""))[:MAX_DATE_CHARS],
+        source_date=clean_date(str(raw.get("source_date") or "")[:MAX_DATE_CHARS]),
         quote=one_line(str(raw.get("quote") or ""))[:MAX_QUOTE_CHARS],
+        source_type=declared if declared in DECLARABLE_SOURCE_TYPES else "",
     )
 
 

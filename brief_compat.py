@@ -18,9 +18,10 @@ def cite(sources: list[int]) -> str:
     return "".join(f" [{number}]" for number in sources)
 
 
-def evidence_text(line: EvidenceLine) -> str:
-    dated = f" ({line['date']})" if line["date"].strip() else ""
-    return f"{line['text']}{dated}{cite(line['sources'])}"
+def evidence_text(line: EvidenceLine, labels: Labels) -> str:
+    """An evidence line with its date, or with the word that says it has none."""
+    dated = line["date"].strip() or labels["undated"]
+    return f"{line['text']} ({dated}){cite(line['sources'])}"
 
 
 def snapshot_text(line: SnapshotLine, labels: Labels) -> str:
@@ -93,17 +94,17 @@ def infra_cells(doc: BriefDoc, labels: Labels) -> dict[str, str]:
     }
 
 
-def signals(doc: BriefDoc) -> list[str]:
-    lines = [evidence_text(line) for angle in doc["angles"] for line in angle["evidence"]]
+def signals(doc: BriefDoc, labels: Labels) -> list[str]:
+    lines = [evidence_text(line, labels) for angle in doc["angles"] for line in angle["evidence"]]
     return lines[:MAX_LEGACY_SIGNALS]
 
 
-def entry_points(doc: BriefDoc) -> list[dict[str, str]]:
+def entry_points(doc: BriefDoc, labels: Labels) -> list[dict[str, str]]:
     """One entry point per angle: as many as the brief has, never padded."""
     return [
         {
             "heading": angle["title"],
-            "signal": " ".join(evidence_text(line) for line in angle["evidence"]),
+            "signal": " ".join(evidence_text(line, labels) for line in angle["evidence"]),
             "solution": angle["alkira"],
             "proof": proof_text(angle["story"]),
         }
@@ -132,9 +133,18 @@ def starters_md(doc: BriefDoc, labels: Labels) -> str:
     return "\n".join(lines).strip()
 
 
+# The label printed after a reference that is not first-hand.
+_SOURCE_TYPE_LABELS: dict[str, str] = {
+    "second_hand": "source_second_hand",
+    "last_resort": "source_last_resort",
+}
+
+
 def reference_text(reference: dict, labels: Labels) -> str:
-    broker = f" ({labels['data_broker']})" if reference["data_broker"] else ""
-    return f"[{reference['n']}] {reference['title']}{broker} — {reference['url']}"
+    """A reference line. Anything short of first-hand says what it is."""
+    label = _SOURCE_TYPE_LABELS.get(reference["source_type"])
+    kind = f" ({labels[label]})" if label else ""
+    return f"[{reference['n']}] {reference['title']}{kind} — {reference['url']}"
 
 
 def references_md(doc: BriefDoc, labels: Labels) -> str:

@@ -95,10 +95,21 @@ def test_references_are_one_per_line_with_their_urls():
     ]
 
 
-def test_a_data_broker_reference_is_labelled():
+def test_a_reference_that_is_not_first_hand_says_so():
     references = make_doc()["references"]
-    references[0]["data_broker"] = True
-    assert "posting (data broker) — https://" in _detail(references=references)["referencesMd"]
+    references[0]["source_type"] = "last_resort"
+    references[1]["source_type"] = "second_hand"
+    lines = _detail(references=references)["referencesMd"].splitlines()
+    assert "posting (last-resort source) — https://" in lines[0]
+    assert "Annual report (second-hand) — https://" in lines[1]
+
+
+def test_an_evidence_line_with_no_date_says_it_is_undated():
+    angles = make_doc()["angles"]
+    angles[0]["evidence"][0]["date"] = ""
+    data = _detail(angles=angles)
+    assert data["signals"][0] == "A network engineer posting lists ExpressRoute and a Virtual WAN hub-and-spoke. (undated) [1]"
+    assert "(undated) [1]" in data["entryPoints"][0]["signal"]
 
 
 # ── Briefs with fewer angles are not padded ──────────────────────
@@ -133,7 +144,7 @@ def test_the_whole_document_is_returned_in_camel_case():
     assert doc["snapshot"]["cloudConnectivity"]["sources"] == [1]
     assert doc["questions"][0]["listenFor"] == "hand-built hubs, weeks of lead time"
     assert doc["raiseScore"] == ["A dated SD-WAN or MPLS renewal."]
-    assert doc["references"][0]["dataBroker"] is False
+    assert doc["references"][0]["sourceType"] == "first_hand"
     assert doc["research"]["stoppedBy"] == "finished"
 
 

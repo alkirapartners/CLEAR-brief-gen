@@ -128,7 +128,7 @@ class Reference(TypedDict):
     title: str
     url: str
     date: str
-    data_broker: bool
+    source_type: Literal["first_hand", "second_hand", "last_resort"]
 
 
 class ResearchNote(TypedDict):

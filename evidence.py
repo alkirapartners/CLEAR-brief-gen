@@ -8,6 +8,7 @@ page was never opened is discarded here, in code.
 import re
 import secrets
 from dataclasses import dataclass, replace
+from datetime import date
 from typing import Iterable, Sequence
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
@@ -28,6 +29,35 @@ DATA_BROKER_DOMAINS: tuple[str, ...] = (
     "cbinsights.com", "pitchbook.com", "crunchbase.com", "signalhire.com",
     "lusha.com", "contactout.com", "theorg.com", "enlyft.com", "hgdata.com",
 )
+# Pages anyone can edit. Like a broker's profile, a last resort.
+ENCYCLOPEDIA_DOMAINS: tuple[str, ...] = (
+    "wikipedia.org", "wikiwand.com", "grokipedia.com", "fandom.com", "britannica.com",
+)
+# Job boards and aggregators carry copies of postings, cut and reworded.
+JOB_BOARD_DOMAINS: tuple[str, ...] = (
+    "builtin.com", "indeed.com", "linkedin.com", "glassdoor.com", "ziprecruiter.com",
+    "dice.com", "simplyhired.com", "lensa.com", "talent.com", "theladders.com",
+    "monster.com", "careerbuilder.com", "jooble.org", "adzuna.com", "jobrapido.com",
+    "salary.com", "levels.fyi", "comparably.com", "bebee.com", "jobzmall.com",
+    "wellfound.com", "themuse.com", "snagajob.com", "jobs2careers.com", "whatjobs.com",
+)
+# Where a company's own words are published: its filings, and the hosted
+# sites that carry its own job postings and press releases.
+FIRST_HAND_DOMAINS: tuple[str, ...] = (
+    "sec.gov", "myworkdayjobs.com", "myworkdaysite.com", "greenhouse.io", "lever.co",
+    "icims.com", "smartrecruiters.com", "jobvite.com", "ashbyhq.com", "successfactors.com",
+    "successfactors.eu", "taleo.net", "oraclecloud.com", "workable.com", "bamboohr.com",
+    "eightfold.ai", "avature.net", "ultipro.com", "ukg.com", "paylocity.com",
+    "prnewswire.com", "businesswire.com", "globenewswire.com",
+)
+FIRST_HAND = "first_hand"
+SECOND_HAND = "second_hand"
+LAST_RESORT = "last_resort"
+# What the researcher may declare. Last resort is decided by the address alone.
+DECLARABLE_SOURCE_TYPES: tuple[str, ...] = (FIRST_HAND, SECOND_HAND)
+# A date is a year, a year and month, or a full day, and not from another century.
+_DATE = re.compile(r"^(\d{4})(?:-(\d{2}))?(?:-(\d{2}))?$")
+EARLIEST_YEAR = 1990
 MAX_URL_CHARS = 2000
 # A public host ends in a real top-level domain. This refuses every numeric
 # spelling of an address (10.0.0.5, 127.1, 0x7f.1) along with bare names.
@@ -47,6 +77,8 @@ class EvidenceItem:
     opened: bool = False
     # A passage of the page, word for word, that states the fact.
     quote: str = ""
+    # What the researcher said the page is: first_hand or second_hand.
+    source_type: str = ""
 
 
 @dataclass(frozen=True)
@@ -65,7 +97,8 @@ class Source:
     url: str
     title: str
     date: str
-    data_broker: bool
+    # first_hand, second_hand or last_resort: see ``source_type``.
+    source_type: str
     facts: tuple[EvidenceItem, ...]
 
 
@@ -136,9 +169,47 @@ def is_fetchable_url(url: str) -> bool:
     return safe_url(url) is not None
 
 
-def is_data_broker(url: str) -> bool:
+def _on(url: str, domains: Iterable[str]) -> bool:
     host = _host(url)
-    return any(host == domain or host.endswith("." + domain) for domain in DATA_BROKER_DOMAINS)
+    return any(host == domain or host.endswith("." + domain) for domain in domains)
+
+
+def is_data_broker(url: str) -> bool:
+    return _on(url, DATA_BROKER_DOMAINS)
+
+
+def source_type(url: str, declared: str) -> str:
+    """What kind of source a page is: first_hand, second_hand or last_resort.
+
+    Where the address settles it, the address wins: a data broker or an
+    encyclopedia is a last resort, a job board's copy is second-hand, and a
+    filing or a posting on the company's hosted job site is first-hand.
+    Anywhere else the researcher's word is taken, and no word means
+    second-hand.
+    """
+    if _on(url, DATA_BROKER_DOMAINS) or _on(url, ENCYCLOPEDIA_DOMAINS):
+        return LAST_RESORT
+    if _on(url, JOB_BOARD_DOMAINS):
+        return SECOND_HAND
+    if _on(url, FIRST_HAND_DOMAINS):
+        return FIRST_HAND
+    return FIRST_HAND if declared == FIRST_HAND else SECOND_HAND
+
+
+def parse_date(text: str) -> date | None:
+    """The day a date names, taking the first day of a month or a year. None if it is no date."""
+    match = _DATE.match(text.strip())
+    if match is None or int(match.group(1)) < EARLIEST_YEAR:
+        return None
+    try:
+        return date(int(match.group(1)), int(match.group(2) or 1), int(match.group(3) or 1))
+    except ValueError:
+        return None
+
+
+def clean_date(text: str) -> str:
+    """A date as the brief prints it (YYYY, YYYY-MM or YYYY-MM-DD), or nothing."""
+    return text.strip() if parse_date(text) is not None else ""
 
 
 def mark_opened(items: Iterable[EvidenceItem], pages: Iterable[Page]) -> tuple[EvidenceItem, ...]:
@@ -178,19 +249,33 @@ def build_sources(items: Sequence[EvidenceItem], pages: Sequence[Page]) -> tuple
             n=len(sources) + 1,
             url=page.url,
             title=one_line(_first(f.source_title for f in facts)) or _host(page.url),
-            date=one_line(_first(f.source_date for f in facts)),
-            data_broker=is_data_broker(page.url),
+            date=clean_date(_first(f.source_date for f in facts)),
+            source_type=source_type(page.url, _declared_type(facts)),
             facts=facts,
         ))
     return tuple(sources)
 
 
+def _declared_type(facts: Sequence[EvidenceItem]) -> str:
+    """First-hand only when every fact from the page that says anything says so."""
+    declared = {fact.source_type for fact in facts if fact.source_type in DECLARABLE_SOURCE_TYPES}
+    return FIRST_HAND if declared == {FIRST_HAND} else SECOND_HAND
+
+
 def to_references(sources: Iterable[Source]) -> list[Reference]:
     """Every source as a reference the brief may cite."""
     return [
-        {"n": s.n, "title": s.title, "url": s.url, "date": s.date, "data_broker": s.data_broker}
+        {"n": s.n, "title": s.title, "url": s.url, "date": s.date, "source_type": s.source_type}
         for s in sources
     ]
+
+
+# How each kind of source is named to the writer.
+_TYPE_WORDS: dict[str, str] = {
+    FIRST_HAND: "first-hand",
+    SECOND_HAND: "second-hand",
+    LAST_RESORT: "last resort: an encyclopedia or a data broker",
+}
 
 
 def _fact_lines(fact: EvidenceItem) -> str:
@@ -200,12 +285,11 @@ def _fact_lines(fact: EvidenceItem) -> str:
 
 
 def _source_block(source: Source, tag: str) -> str:
-    broker = " (data broker: last-resort source)" if source.data_broker else ""
-    dated = f"\nDate: {source.date}" if source.date else ""
+    dated = f"\nDate: {source.date}" if source.date else "\nDate: none given (undated)"
     facts = "\n".join(_fact_lines(fact) for fact in source.facts)
     return (
-        f"<source-{tag}>\n[{source.n}] {source.title}{broker}\nURL: {one_line(source.url)}{dated}\n"
-        f"{facts}\n</source-{tag}>"
+        f"<source-{tag}>\n[{source.n}] {source.title} ({_TYPE_WORDS[source.source_type]})\n"
+        f"URL: {one_line(source.url)}{dated}\n{facts}\n</source-{tag}>"
     )
 
 

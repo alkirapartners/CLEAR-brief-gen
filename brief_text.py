@@ -17,7 +17,7 @@ def _angles(doc: BriefDoc, labels: dict[str, str]) -> list[str]:
     lines: list[str] = []
     for number, angle in enumerate(doc["angles"], start=1):
         lines += [f"### {number}. {angle['title']} ({angle['use_case']})"]
-        lines += [f"- {brief_compat.evidence_text(line)}" for line in angle["evidence"]]
+        lines += [f"- {brief_compat.evidence_text(line, labels)}" for line in angle["evidence"]]
         lines += [f"{labels['alkira_answer']}: {angle['alkira']}"]
         proof = brief_compat.proof_text(angle["story"])
         if proof:
