@@ -55,6 +55,30 @@ Compute and storage are agile. Development is agile. **The network is not.** Alk
 
 ---
 
+## Fit Rules
+
+These rules decide whether a company is an Alkira fit. They set the fit score and decide which angles a brief may present.
+
+**One clear use case is enough.** A company does not have to check every box. Any single one of these, with evidence, is a fit:
+
+| Use case | ID | What counts |
+|---|---|---|
+| Multi-cloud or hybrid cloud connectivity | `multi_cloud` | Two or more clouds, or cloud plus data centers, that must reach each other. A cloud network built by hand counts: ExpressRoute, Direct Connect, Virtual WAN, Transit Gateway hub-and-spoke. Hand-built cloud-native networking is a positive signal, never a negative one. One cloud is enough when the network around it is complex. |
+| China-to-global connectivity | `china_global` | Workloads, plants or users in mainland China that must reach systems outside it, or the reverse. |
+| Firewall or security-services consolidation | `firewall_consolidation` | Firewalls or security services deployed per cloud, per region or per VPC or VNet, or a stated plan to consolidate them in the cloud. |
+| M&A | `m_and_a` | Acquisition integration, a divestiture, a carve-out, or a transition services agreement. |
+| Network modernization | `network_modernization` | An MPLS exit, backbone replacement, data-center exit, an SD-WAN or SASE programme, or any stated network or infrastructure modernization. |
+| Sites opening or closing at scale | `site_rollout` | Stores, plants, branches or clinics being opened, closed or moved in numbers. |
+| Business-partner connectivity | `partner_connectivity` | Suppliers, customers, joint ventures or other third parties that need controlled network access. |
+
+**Supporting only.** These strengthen a use case and are never an angle on their own: a cost programme with network contracts in scope; a new CIO or head of infrastructure; a lean network team.
+
+**Never fit evidence.** Never present these as a reason to pursue: a new CEO or CFO; SAP, Workday or other ERP projects; generic "digital transformation"; headcount or hiring statistics; product recalls; earnings.
+
+**Evidence quality.** First-hand evidence is the company's own careers site and job postings, its filings and annual report, its press releases, and a cloud vendor's case study about it. Trade press is second-hand. A data-broker profile is a last resort and must be labelled as one. Current means the source is dated within about the last two years.
+
+---
+
 ## Five Core Solution Categories (Entry Points)
 
 These are the five reasons customers buy Alkira. When Blake describes a partner's deal or shares a call transcript, map the customer's situation to one or more of these entry points.
@@ -180,7 +204,7 @@ Be specific. Don't give generic advice. Use the customer's actual situation and 
 
 For deeper detail, read the appropriate reference file:
 
-- **`references/case-studies.md`** — 12+ Nemertes case studies organized by industry (Software/Tech, Financial Services, Healthcare, Manufacturing/Biotech) plus named case studies (Tekion, Koch Industries, S&P Global). Use when you need specific customer proof points or industry-relevant examples.
+- **`references/case-studies.md`** — The Story Matching Table (every story tagged by situation and industry), named case studies (Michaels, Tekion, Koch Industries, S&P Global) and 12 Nemertes case studies organized by industry. Use when you need specific customer proof points or industry-relevant examples.
 
 - **`references/pricing.md`** — CXP sizing, connector sizing, services, data charges, and business models (ELA, PAYG, Commit Consumption, Subscription). Use when discussing pricing or building proposals.
 

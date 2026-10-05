@@ -1029,7 +1029,7 @@ git commit -m "feat: add the Michaels case study and the story matching table"
 - Consumes: the use-case IDs from Task 3 (`case_studies.SITUATIONS`), written out in the fit rules.
 - Produces: skill text that Tasks 13 and 15 load into the cached prefixes. The line `What a Brief Contains` is the marker later tests use for the template file.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `tests/test_skills.py`:
 
@@ -1101,12 +1101,12 @@ def test_no_skill_file_holds_a_year_that_would_date_the_cached_prefix():
             assert year not in text, f"{year} in {path.name}"
 ```
 
-- [ ] **Step 2: Run it and confirm it fails**
+- [x] **Step 2: Run it and confirm it fails**
 
 Run: `.venv/bin/python -m pytest tests/test_skills.py -q`
 Expected: `22 failed, 1 passed`. Only the year check passes.
 
-- [ ] **Step 3: Add the fit rules to the knowledge base**
+- [x] **Step 3: Add the fit rules to the knowledge base**
 
 Apply this change to `skills/alkira-customer/SKILL.md`. It adds a `## Fit Rules` section above `## Five Core Solution Categories (Entry Points)` and updates the description of `references/case-studies.md`.
 
@@ -1155,7 +1155,7 @@ Apply this change to `skills/alkira-customer/SKILL.md`. It adds a `## Fit Rules`
  
 ```
 
-- [ ] **Step 4: Replace the brief template**
+- [x] **Step 4: Replace the brief template**
 
 Replace the whole of `skills/alkira-brief-template/SKILL.md` with:
 
@@ -1253,7 +1253,7 @@ Bad:
 - [ ] No AI writing patterns (see the stop-slop rules)
 `````
 
-- [ ] **Step 5: Keep the existing prefix test in step with the template**
+- [x] **Step 5: Keep the existing prefix test in step with the template**
 
 `tests/test_prompts.py` checks that each skill file leaves a marker in the old prefix, and the template's old marker is gone. In `tests/test_prompts.py`, change line 17 from
 
@@ -1267,7 +1267,7 @@ to
     "alkira-brief-template/SKILL.md": "What a Brief Contains",
 ```
 
-- [ ] **Step 6: Run the tests**
+- [x] **Step 6: Run the tests**
 
 Run: `.venv/bin/python -m pytest tests/test_skills.py -q`
 Expected: `23 passed`.
@@ -1275,7 +1275,7 @@ Expected: `23 passed`.
 Run: `.venv/bin/python -m pytest -q`
 Expected: `321 passed, 2 skipped`.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add skills/alkira-customer/SKILL.md skills/alkira-brief-template/SKILL.md tests/test_skills.py tests/test_prompts.py

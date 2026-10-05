@@ -14,7 +14,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 # One distinctive marker per file in prompts.SKILL_FILES, hand-picked by reading
 # each file and confirming (via grep) it appears nowhere else under skills/.
 _SKILL_FILE_MARKERS: dict[str, str] = {
-    "alkira-brief-template/SKILL.md": "THE BRIEF MUST FIT ON TWO PRINTED PAGES.",
+    "alkira-brief-template/SKILL.md": "What a Brief Contains",
     "alkira-customer/SKILL.md": "Channel Account Manager Edition",
     "alkira-customer/references/case-studies.md": (
         "Nemertes Research Case Studies by Industry"
