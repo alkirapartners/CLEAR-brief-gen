@@ -195,6 +195,15 @@ def test_a_low_score_is_never_raised():
     assert doc["fit"]["score"] == 2
 
 
+def test_a_score_of_one_or_two_carries_no_angles():
+    """The table says a 1 or 2 found no evidenced use case, so the brief presents none."""
+    for low in (1, 2):
+        doc = _finalize(writer_output(angles=[_angle([1]), _angle([2], title="Second")], fit={"score": low, "verdict": "v", "lead": "l"}))
+        assert doc["angles"] == [] and doc["fit"]["score"] == low
+    kept = _finalize(writer_output(angles=[_angle([1])], fit={"score": 3, "verdict": "v", "lead": "l"}))
+    assert len(kept["angles"]) == 1
+
+
 # ── Customer stories come from the knowledge base ────────────────
 
 def test_the_customer_name_comes_from_the_story_table_not_the_model():

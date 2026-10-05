@@ -22,7 +22,8 @@ logger = logging.getLogger(__name__)
 
 MAX_ANGLES = 3
 MAX_QUESTIONS = 4
-# The scoring table: 3 and up need an evidenced use case, 5 needs two.
+# The scoring table: 3 and up need an evidenced use case, 5 needs two, and a
+# 1 or 2 presents no angle at all.
 MAX_SCORE_WITHOUT_ANGLES = 2
 MAX_SCORE_WITH_ONE_ANGLE = 4
 # The language the story table is written in.
@@ -232,7 +233,8 @@ def finalize(
     output = _scrub(output)
     candidates = to_references(sources)
     valid = frozenset(ref["n"] for ref in candidates)
-    angles = _angles(output["angles"], valid, language)
+    wanted = output["angles"] if output["fit"]["score"] > MAX_SCORE_WITHOUT_ANGLES else []
+    angles = _angles(wanted, valid, language)
     snapshot = _snapshot(output["snapshot"], valid)
     people = _people(output["people"], valid)
     score = _score(output["fit"]["score"], len(angles))
