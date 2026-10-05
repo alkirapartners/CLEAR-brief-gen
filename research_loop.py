@@ -114,6 +114,9 @@ class ResearchResult:
     usage: llm.Usage
     # What the research floor asked for and the run never got to, by name.
     not_covered: tuple[str, ...] = ()
+    facts_kept: int = 0
+    # Facts recorded without an opened page behind them, or without a quote on it.
+    facts_refused: int = 0
 
 
 @dataclass(frozen=True)
@@ -208,15 +211,15 @@ def _result(
     )
     logger.info(
         "research company=%s searches=%d reads=%d opened=%d sources=%d seconds=%.0f "
-        "stopped_by=%s nudges=%d not_covered=%s",
+        "stopped_by=%s nudges=%d facts_kept=%d facts_refused=%d not_covered=%s",
         company, ledger.searches, ledger.page_reads, len(ledger.pages), len(sources), seconds,
-        reason, run.nudges, "; ".join(not_covered) or "-",
+        reason, run.nudges, len(ledger.evidence), ledger.facts_refused, "; ".join(not_covered) or "-",
     )
     if not sources:
         raise _nothing_citable(company, ledger, reason) from cause
     return ResearchResult(
         sources, ledger.searches, ledger.page_reads, len(ledger.pages), seconds, reason,
-        run.usage, not_covered,
+        run.usage, not_covered, len(ledger.evidence), ledger.facts_refused,
     )
 
 

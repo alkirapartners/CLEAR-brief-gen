@@ -310,6 +310,15 @@ def test_a_fact_whose_quote_is_not_on_the_page_is_thrown_away_and_reported():
     assert [item.fact for item in after.evidence] == ["Runs ExpressRoute and Virtual WAN."]
 
 
+def test_the_ledger_counts_the_facts_that_were_refused():
+    invented = _fact(quote="We operate 14 data centers on a Cisco ACI fabric")
+    unread = _fact("https://example.com/unread")
+    _, after, _ = _run([_record([_fact(), invented, unread])], ledger=_opened())
+    assert (len(after.evidence), after.facts_refused) == (1, 2)
+    _, later, _ = _run([_record([invented])], ledger=after)
+    assert later.facts_refused == 3
+
+
 def test_layout_and_case_do_not_decide_whether_a_quote_matches():
     loose = _fact(quote="expressroute,   virtual WAN\nhub-and-spoke, **BGP**")
     _, after, _ = _run([_record([loose])], ledger=_opened())

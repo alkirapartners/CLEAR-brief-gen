@@ -199,6 +199,8 @@ class Ledger:
     texts: Mapping[str, str] = field(default_factory=dict)
     # What the searches and page reads so far were aimed at (research_floor.py).
     attempts: frozenset[str] = frozenset()
+    # Facts the model recorded that were not kept: no opened page, or no quote on it.
+    facts_refused: int = 0
 
 
 @dataclass(frozen=True)
@@ -209,6 +211,7 @@ class Outcome:
     page: Page | None = None
     page_text: str = ""
     evidence: tuple[EvidenceItem, ...] = ()
+    facts_refused: int = 0
     # True when the web service itself failed, False when it answered, None otherwise.
     web_failed: bool | None = None
 
@@ -477,7 +480,7 @@ def _record(call: ToolCall, before: Ledger) -> Outcome:
             f" Open a page with {READ} first, then record what it states."
         )
     # Only what was kept goes on the ledger, so refused facts use none of its room.
-    return Outcome(call.id, text, evidence=tuple(proven))
+    return Outcome(call.id, text, evidence=tuple(proven), facts_refused=len(unproven) + len(unopened))
 
 
 def _execute(
@@ -514,6 +517,7 @@ def _settle(ledger: Ledger, outcomes: Sequence[Outcome], aimed: frozenset[str]) 
     return replace(
         ledger, pages=pages, texts=texts, evidence=gathered[:MAX_EVIDENCE_ITEMS],
         failures_in_a_row=streak, attempts=ledger.attempts | aimed,
+        facts_refused=ledger.facts_refused + sum(o.facts_refused for o in outcomes),
     )
 
 

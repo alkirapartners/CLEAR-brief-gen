@@ -49,6 +49,8 @@ def metrics(company: str, made: generate.Generation) -> dict:
         "sources": len(made.research.sources),
         "stopped_by": made.research.stopped_by,
         "not_covered": list(made.research.not_covered),
+        "facts_kept": made.research.facts_kept,
+        "facts_refused": made.research.facts_refused,
         **asdict(made.usage),
         "tavily_credits": round(llm.web_credits(made.research.searches, made.research.pages_opened), 1),
         "cost_usd": round(made.cost, 3),

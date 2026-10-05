@@ -119,6 +119,13 @@ def test_tokens_are_added_up_across_turns():
     )
 
 
+def test_the_result_says_how_many_facts_were_kept_and_how_many_refused():
+    invented = {**FACT, "quote": "We operate 14 data centers on a Cisco ACI fabric"}
+    both = reply(tool_use("e1", "record_evidence", {"items": [FACT, invented]}))
+    result, _, _ = _run([READ, both])
+    assert (result.facts_kept, result.facts_refused) == (1, 1)
+
+
 # ── Research that finds nothing is an error, never a brief ───────
 
 def test_no_recorded_evidence_is_an_error():
