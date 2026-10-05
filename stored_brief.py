@@ -46,3 +46,17 @@ def is_reusable(stored: str | None) -> bool:
     """
     doc = brief_doc.load(stored)
     return doc is not None and doc["research"]["stopped_by"] in COMPLETE_RESEARCH
+
+
+def filing_name(stored: str, typed: str) -> str:
+    """The company name a brief is saved under, which is the name reuse looks up.
+
+    A JSON brief is filed under the name the partner typed, never the name
+    the model wrote: a model talked into writing another company's name
+    would otherwise plant its brief where that company's next reader finds
+    it. Legacy markdown keeps the heading it was always filed under.
+    """
+    if brief_doc.is_json_brief(stored):
+        return typed
+    _, heading = score_and_company(stored)
+    return heading or typed

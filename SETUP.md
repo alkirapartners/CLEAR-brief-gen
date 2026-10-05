@@ -103,4 +103,4 @@ Edit the files under `skills/` (brief template and scoring rubric, Alkira proof 
 
 The table is the estimate at the full research allowance. Measured over 8 companies on 2026-10-05: median 94 seconds and $0.39 per brief (range 82 to 138 seconds, $0.32 to $0.51). Those runs stopped on their own after 6 to 13 of the 25 searches and 4 to 11 of the 20 page reads. `generate_brief.py` prints the measured time, tokens and cost of every run.
 
-Each stage's system prefix is prompt-cached for 1 hour. Repeat briefs within that window read the cache instead of paying full input rate. Separately, a brief for a company already researched in the last 14 days is served from Supabase without any model call at all. The daily cap is 10 paid briefs per person.
+Each stage's system prefix is prompt-cached for 1 hour. Repeat briefs within that window read the cache instead of paying full input rate. Separately, a brief for a company already researched in the last 14 days is served from Supabase without any model call at all, when the same name is typed again and that research ran its course. The daily cap is 10 paid briefs per person.

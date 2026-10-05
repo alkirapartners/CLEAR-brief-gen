@@ -85,9 +85,11 @@ def _camel_key(key: str) -> str:
 def to_summary(row: dict) -> dict:
     brief_md = row.get("brief_md") or ""
     doc = brief_doc.load(brief_md)
+    # The row is filed under the name that was typed; the brief knows the real one.
+    resolved = doc["company"]["name"].strip() if doc else ""
     return {
         "id": row["id"],
-        "company": row.get("company") or "",
+        "company": resolved or row.get("company") or "",
         "score": row.get("score") or 0,
         "snippet": brief_compat.snippet(doc) if doc else extract_exec_snippet(brief_md),
         "language": stored_brief.language_of(brief_md),

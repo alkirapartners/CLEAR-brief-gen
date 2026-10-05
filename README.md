@@ -19,7 +19,7 @@ This repo holds the Brief API, the sign-in service and the sign-in pages. The sc
 
 A brief took one and a half to two and a half minutes and cost about 40 cents when measured on eight companies; at the full research allowance it can take about five minutes and cost about a dollar. If research finds nothing it can cite, the partner gets an error and no brief is written.
 
-A brief for a company already researched in the last 14 days is reused from Supabase without a model call. **Update brief** always re-researches and never consults that cache.
+A brief for a company already researched in the last 14 days is reused from Supabase without a model call. Reuse matches the name as it was typed, ignoring case: a brief is filed under what the partner typed, not under the name the model wrote, so nobody can plant a brief under another company's name. Only a brief in the current format whose research ran its course is shared; one that was cut short, or an older markdown brief, is researched again. **Update brief** always re-researches and never consults that cache.
 
 Briefs written before this pipeline are stored as markdown and still open: `briefparse.py` reads them. New briefs are stored as JSON in the same column (`brief_doc.py`).
 

@@ -44,8 +44,9 @@ def _utc_now() -> datetime:
 def _clean_stored_company(raw: str | None) -> str:
     """A stored company name, made safe to search and prompt with.
 
-    The stored name is the heading the model wrote, not what a partner typed,
-    so it gets the same flattening as typed input and is cut to the same limit.
+    For a legacy brief the stored name is the heading the model wrote, not
+    what a partner typed, so it gets the same flattening as typed input and
+    is cut to the same limit.
     """
     printable = "".join(ch if ch.isprintable() else " " for ch in (raw or ""))
     return " ".join(printable.split())[:MAX_COMPANY_PREFILL_CHARS].strip()
@@ -222,12 +223,11 @@ class BriefService:
         created_at: str | None, reused_from: str | None,
     ) -> dict:
         brief_md = stored_brief.normalise(raw)
-        score, company = stored_brief.score_and_company(brief_md)
+        score, _ = stored_brief.score_and_company(brief_md)
+        company = stored_brief.filing_name(brief_md, typed_company)
         saved = None
         for _attempt in range(SAVE_ATTEMPTS):
-            saved = self._repo.save_brief(
-                email, company or typed_company, score, brief_md, created_at=created_at
-            )
+            saved = self._repo.save_brief(email, company, score, brief_md, created_at=created_at)
             if saved:
                 break
         if not saved:

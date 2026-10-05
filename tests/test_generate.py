@@ -256,7 +256,7 @@ def test_a_generated_brief_is_saved_then_served_in_both_shapes_and_as_a_pdf():
     assert got[-1]["type"] == "done"
 
     (row,) = repo.rows
-    assert (row["company"], row["score"]) == ("Northwind Energy", 4)
+    assert (row["company"], row["score"]) == ("Northwind", 4)  # filed under the typed name
 
     data = api.get(f"/api/brief/briefs/{got[-1]['briefId']}", headers=AUTH).json()["data"]
     assert data["format"] == 2 and data["score"] == 4
@@ -266,6 +266,7 @@ def test_a_generated_brief_is_saved_then_served_in_both_shapes_and_as_a_pdf():
 
     listed = api.get("/api/brief/briefs", headers=AUTH).json()["data"]
     assert listed[0]["snippet"].startswith("Strong fit")
+    assert listed[0]["company"] == data["company"] == "Northwind Energy"  # shown under the resolved name
 
     download = api.get(f"/api/brief/briefs/{got[-1]['briefId']}/pdf", headers=AUTH)
     assert download.status_code == 200 and download.content.startswith(b"%PDF-")
