@@ -27,6 +27,13 @@ TEMPLATE = (SKILLS / "alkira-brief-template" / "SKILL.md").read_text(encoding="u
     "**Risk-factor language is not evidence.**",
     "Every angle rests on at least one specific fact with a date",
     "Never add an angle to reach three.",
+    "**M&A: recent or pending.**",
+    "An M&A event counts when it happened in the last three months, or when the deal is announced and not yet completed.",
+    "announced on 28 July and still to be completed, qualifies when a brief is written in October",
+    "A carve-out completed in January does not qualify in October",
+    "A qualifying M&A angle goes first in the brief.",
+    "An M&A angle names what has to be connected or separated",
+    "It may appear as one line of background inside another angle's evidence",
 ])
 def test_the_knowledge_base_states_the_fit_rules(rule):
     assert rule in KNOWLEDGE_BASE
@@ -56,6 +63,14 @@ def test_the_template_says_what_second_hand_evidence_can_and_cannot_do():
     assert "cannot lift the score above 3" in TEMPLATE
     assert "one use case told twice" in TEMPLATE
     assert "a score they do not support is lowered" in TEMPLATE
+
+
+def test_the_rubric_and_the_fit_rules_state_the_same_m_and_a_rule_as_the_code():
+    import deal_rules
+    assert deal_rules.DEAL_WINDOW_MONTHS == 3 and deal_rules.PENDING_DEALS_COUNT is True
+    for text in (TEMPLATE, KNOWLEDGE_BASE):
+        assert "in the last three months" in text and "announced and not yet completed" in text
+    assert "A qualifying M&A angle is always the first angle." in TEMPLATE
 
 
 def test_the_template_never_asks_for_three_entry_points():

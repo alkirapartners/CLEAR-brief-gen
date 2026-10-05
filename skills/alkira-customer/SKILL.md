@@ -66,7 +66,7 @@ These rules decide whether a company is an Alkira fit. They set the fit score an
 | Multi-cloud or hybrid cloud connectivity | `multi_cloud` | Two or more clouds, or cloud plus data centers, that must reach each other. A cloud network built by hand counts: ExpressRoute, Direct Connect, Virtual WAN, Transit Gateway hub-and-spoke. Hand-built cloud-native networking is a positive signal, never a negative one. One cloud is enough when the network around it is complex. |
 | China-to-global connectivity | `china_global` | Workloads, plants or users in mainland China that must reach systems outside it, or the reverse. |
 | Firewall or security-services consolidation | `firewall_consolidation` | Firewalls or security services deployed per cloud, per region or per VPC or VNet, or a stated plan to consolidate them in the cloud. |
-| M&A | `m_and_a` | Acquisition integration, a divestiture, a carve-out, or a transition services agreement. |
+| M&A | `m_and_a` | An acquisition, merger, divestiture, carve-out or separation that happened in the last three months, or that is announced and not yet completed. See "M&A: recent or pending" below. |
 | Network modernization | `network_modernization` | An MPLS exit, backbone replacement, data-center exit, an SD-WAN or SASE programme, or any stated network or infrastructure modernization. |
 | Sites opening or closing at scale | `site_rollout` | Stores, plants, branches or clinics being opened, closed or moved in numbers. |
 | Business-partner connectivity | `partner_connectivity` | Suppliers, customers, joint ventures or other third parties that need controlled network access. |
@@ -83,7 +83,14 @@ These rules decide whether a company is an Alkira fit. They set the fit score an
 
 **Risk-factor language is not evidence.** The risk factors in a filing list what could go wrong, in wording most filers share: technology infrastructure may be aging, an integration may be harder than expected, the company depends on transition services. None of it shows that anything is happening. Evidence is what the company did or announced, with a date.
 
-**A specific, dated fact.** Every angle rests on at least one specific fact with a date: a deal that closed on a day, a posting with its posted date, a programme announced in a quarter. A deal that closed long ago is an angle only when the evidence shows the integration or the separation is still under way: a transition services agreement still running, systems still being merged. An accounting adjustment after a closed sale is not that. Never add an angle to reach three. Example: a parts retailer with one strong network-modernization angle gains nothing from a third angle built on a divestiture that closed the year before and a line of risk-factor language.
+**M&A: recent or pending.** M&A is the strongest reason to engage, and only while it is live. An M&A event counts when it happened in the last three months, or when the deal is announced and not yet completed. The event is the announcement or the completion of an acquisition, merger, divestiture, carve-out or separation, dated by the company's own press release or filing. Examples: HF Sinclair's separation of its lubricants business, announced on 28 July and still to be completed, qualifies when a brief is written in October. A carve-out completed in January does not qualify in October: the deal is done and more than three months old, and transition services that are still running do not bring it back.
+
+- A qualifying M&A angle goes first in the brief. The lead line and the first question open with it.
+- An M&A angle names what has to be connected or separated: the sites, the systems, or the businesses on each side. A deal with a price and a closing date and nothing to connect is news, not an angle.
+- A completed deal outside the three months is not an angle, cannot lead and cannot raise the score. It may appear as one line of background inside another angle's evidence when it explains that angle, and nowhere else.
+- Give each M&A angle the date of its event and say whether the deal is pending or completed. The date is checked against the page, and the three-month rule is applied to it afterwards.
+
+**A specific, dated fact.** Every angle rests on at least one specific fact with a date: a deal announced on a day, a posting with its posted date, a programme announced in a quarter. An accounting adjustment after a closed sale is not that. Never add an angle to reach three. Example: a parts retailer with one strong network-modernization angle gains nothing from a third angle built on a divestiture that closed the year before and a line of risk-factor language.
 
 ---
 

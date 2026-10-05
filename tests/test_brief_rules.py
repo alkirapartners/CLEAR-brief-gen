@@ -14,7 +14,10 @@ NOTE = {"searches": 21, "pages": 17, "seconds": 203, "stopped_by": "finished"}
 
 
 # What the opened pages state about the sample company's basics.
-STATED = "Northwind Energy Corporation is headquartered in Dallas, Texas. Revenue was $28B. It has 5,200 employees."
+STATED = (
+    "Northwind Energy Corporation is headquartered in Dallas, Texas. Revenue was $28B. It has 5,200 employees. "
+    "The separation of the lubricants business was announced on February 20, 2026."
+)
 
 
 def _sources(count=4, stated=STATED, source_type="first_hand", dated="2026-09-01", dates=None):
@@ -40,12 +43,16 @@ def _finalize(output=None, sources=None, language="en"):
     )
 
 
-def _angle(sources, title="Angle", story_id="koch", use_case="multi_cloud"):
+def _angle(sources, title="Angle", story_id="koch", use_case="multi_cloud", deal=None):
+    """An angle every rule lets through. An M&A one is a deal dated by its own source, still pending."""
+    is_deal = use_case == "m_and_a"
+    deal_date, deal_status = deal or (("2026-09-01", "pending") if is_deal else ("", "none"))
     return {
         "title": title, "use_case": use_case,
-        "evidence": [{"text": "A posting lists SD-WAN and ExpressRoute.", "date": "2026-09-01", "sources": sources}],
+        "evidence": [{"text": "A posting lists SD-WAN and ExpressRoute at 40 sites.", "date": "2026-09-01", "sources": sources}],
         "alkira": "What Alkira does.",
         "story": {"id": story_id, "customer": "Whoever", "result": "A result."},
+        "deal_date": deal_date, "deal_status": deal_status,
     }
 
 
@@ -256,7 +263,8 @@ FIVE = {"score": 5, "verdict": "Strong fit.", "lead": "Call the CIO."}
 
 
 def test_an_angle_resting_on_second_hand_sources_holds_the_score_at_three_and_the_brief_says_why():
-    doc = _finalize(writer_output(fit=FIVE), sources=_sources(source_type="second_hand"))
+    two = [_angle([1]), _angle([2], title="Sites", use_case="site_rollout")]
+    doc = _finalize(writer_output(angles=two, fit=FIVE), sources=_sources(source_type="second_hand"))
     assert doc["fit"]["score"] == 3 and len(doc["angles"]) == 2
     assert doc["fit"]["verdict"] == (
         "A use case without current first-hand evidence. "
@@ -386,7 +394,7 @@ def test_in_spanish_the_translated_proof_is_kept_and_a_missing_one_falls_back_to
 
 # ── Padding and noise are removed ────────────────────────────────
 
-def _with_lines(*texts, use_case="m_and_a", sources=(2,)):
+def _with_lines(*texts, use_case="site_rollout", sources=(2,)):
     angle = _angle(list(sources), title="Padded", use_case=use_case)
     angle["evidence"] = [{"text": text, "date": "2026-01-03", "sources": list(sources)} for text in texts]
     return angle
@@ -437,6 +445,96 @@ def test_a_plant_network_line_that_is_not_about_control_systems_becomes_not_foun
     assert _finalize(output)["snapshot"]["plant_networks"] == {"text": "", "sources": []}
     output["snapshot"]["plant_networks"] = {"text": "OT networks at five refineries, segmented from IT.", "sources": [1]}
     assert _finalize(output)["snapshot"]["plant_networks"]["text"].startswith("OT networks")
+
+
+# ── M&A: in the last three months, or announced and not yet completed ──
+
+def _question(text, angle):
+    return {"question": text, "listen_for": "x", "alkira_angle": "y", "angle": angle}
+
+
+def _deal(sources, title, deal, text="The business becomes a standalone company with its own sites."):
+    angle = _angle(sources, title=title, use_case="m_and_a", deal=deal)
+    angle["evidence"][0]["text"] = text
+    return angle
+
+
+def test_a_qualifying_m_and_a_angle_is_put_first_and_its_question_with_it():
+    """A separation announced ten weeks ago and still open is the strongest reason to call."""
+    output = writer_output(
+        angles=[_angle([1], title="Azure network"), _deal([2], "Lubricants separation", ("2026-09-01", "pending"))],
+        questions=[_question("How long does a new hub take?", 1), _question("Which networks stay shared?", 2)],
+        fit=FIVE,
+    )
+    doc = _finalize(output)
+    assert [angle["title"] for angle in doc["angles"]] == ["Lubricants separation", "Azure network"]
+    assert [(q["question"], q["angle"]) for q in doc["questions"]] == [
+        ("Which networks stay shared?", 1), ("How long does a new hub take?", 2),
+    ]
+    assert doc["fit"]["score"] == 5
+
+
+def test_a_deal_completed_before_the_window_is_not_an_angle_cannot_lead_and_cannot_raise_the_score():
+    """A carve-out completed in January is history in October, transition services or not."""
+    carve_out = _deal(
+        [2], "Chemicals carve-out", ("2026-01-02", "completed"),
+        text="Transition services to the sold chemicals business are still running at 12 sites.",
+    )
+    output = writer_output(
+        angles=[carve_out, _angle([1], title="Azure network")],
+        questions=[_question("Which systems are still shared?", 1), _question("How long does a new hub take?", 2)],
+        fit=FIVE,
+    )
+    doc = _finalize(output, sources=_sources(dates={2: "2026-01-02"}))
+    assert [angle["title"] for angle in doc["angles"]] == ["Azure network"]
+    assert doc["fit"]["score"] == 4  # one use case is left
+    assert [(q["question"], q["angle"]) for q in doc["questions"]] == [("How long does a new hub take?", 1)]
+    assert doc["fit"]["lead"] == ""  # the lead pointed at the angle that is gone
+
+
+def test_a_deal_completed_inside_the_window_qualifies_on_its_date():
+    recent = _deal([2], "Acquisition closed", ("2026-08-20", "completed"))
+    doc = _finalize(writer_output(angles=[_angle([1]), recent], fit=FIVE), sources=_sources(dates={2: "2026-08-20"}))
+    assert doc["angles"][0]["title"] == "Acquisition closed"
+    assert (doc["angles"][0]["deal_date"], doc["angles"][0]["deal_status"]) == ("2026-08-20", "completed")
+
+
+def test_a_deal_date_no_first_hand_page_gives_does_not_qualify():
+    invented = _deal([2], "Acquisition closed", ("2026-08-20", "completed"))
+    doc = _finalize(writer_output(angles=[_angle([1]), invented], fit=FIVE))  # the page is dated 2026-09-01
+    assert [angle["title"] for angle in doc["angles"]] == ["Angle"]
+    trade_press = _finalize(
+        writer_output(angles=[_deal([2], "Deal", ("2026-09-01", "pending"))], fit=FIVE),
+        sources=_sources(source_type="second_hand"),
+    )
+    assert trade_press["angles"] == [] and trade_press["fit"]["score"] == 2
+
+
+def test_a_deal_date_in_the_wording_quoted_from_the_page_qualifies():
+    stated = "On August 20, 2026, we completed the acquisition of the lubricants business and its plants."
+    recent = _deal([2], "Acquisition closed", ("2026-08-20", "completed"))
+    doc = _finalize(writer_output(angles=[recent], fit=FIVE), sources=_sources(stated=stated, dates={2: "2026-09-30"}))
+    assert [angle["title"] for angle in doc["angles"]] == ["Acquisition closed"]
+
+
+def test_an_angle_that_is_not_m_and_a_carries_no_deal_and_is_never_moved():
+    odd = _angle([1], title="Azure network", deal=("2026-09-01", "pending"))
+    doc = _finalize(writer_output(angles=[odd, _angle([2], title="Sites", use_case="site_rollout")], fit=FIVE))
+    assert [angle["title"] for angle in doc["angles"]] == ["Azure network", "Sites"]
+    assert (doc["angles"][0]["deal_date"], doc["angles"][0]["deal_status"]) == ("", "none")
+
+
+def test_a_question_about_no_angle_stays_and_one_about_a_removed_angle_goes():
+    output = writer_output(
+        angles=[_angle([99], title="Invented"), _angle([2], title="Real")],
+        questions=[_question("About the invented one?", 1), _question("About nothing?", 0),
+                   _question("About the real one?", 2), _question("About a fifth angle?", 5)],
+        fit=THREE,
+    )
+    doc = _finalize(output)
+    assert [(q["question"], q["angle"]) for q in doc["questions"]] == [
+        ("About nothing?", 0), ("About the real one?", 1), ("About a fifth angle?", 0),
+    ]
 
 
 # ── A story fits its angle's situation, and is told once ─────────
@@ -511,7 +609,7 @@ def test_a_translated_proof_whose_numbers_differ_from_the_knowledge_base_is_repl
 # ── Lists ────────────────────────────────────────────────────────
 
 def test_questions_are_capped_at_four_and_blanks_are_dropped():
-    question = SAMPLE_DOC["questions"][0]
+    question = {**SAMPLE_DOC["questions"][0], "angle": 0}
     blank = {**question, "question": " "}
     doc = _finalize(writer_output(questions=[question, blank] + [question] * 5))
     assert len(doc["questions"]) == 4
@@ -564,7 +662,7 @@ def test_links_and_addresses_are_removed_from_everything_the_model_wrote():
     doc = _finalize(output)
     assert doc["fit"]["verdict"] == "Strong fit, see the full report for more."
     assert doc["fit"]["lead"] == "Call the CIO or visit today."
-    assert doc["angles"][0]["alkira"] == "Details at and x here."
+    assert doc["angles"][1]["alkira"] == "Details at and x here."  # the M&A angle now leads
     assert doc["snapshot"]["wan"]["text"] == "SD-WAN vendor"
     assert doc["company"]["identity_note"] == "Not Northwind Traders."
     everything = brief_doc.dump({**doc, "references": [], "company": {**doc["company"], "website": ""}})
@@ -597,5 +695,7 @@ def test_a_reference_title_is_plain_text_too():
 def test_scrubbing_leaves_identifiers_and_the_writer_output_alone():
     output = writer_output()
     doc = _finalize(output)
-    assert doc["angles"][0]["use_case"] == "multi_cloud" and doc["angles"][0]["story"]["id"] == "koch"
+    assert [(angle["use_case"], angle["story"]["id"]) for angle in doc["angles"]] == [
+        ("m_and_a", "nemertes-4"), ("multi_cloud", "koch"),
+    ]
     assert output == writer_output()

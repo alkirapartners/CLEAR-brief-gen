@@ -132,7 +132,7 @@ def test_signals_and_timing_carries_one_dated_fact_per_angle_with_the_date_in_wo
     data = _detail(angles=[_three_line_angle(), make_doc()["angles"][1]])
     assert data["signals"] == [
         "The same posting asks for ExpressRoute and BGP (source dated 23 Sep 2026).",
-        "The annual report describes separating the lubricants business (source dated 20 Feb 2026).",
+        "The annual report describes separating the lubricants business into a standalone company (source dated 20 Feb 2026).",
     ]
 
 

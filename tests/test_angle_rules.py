@@ -13,6 +13,7 @@ def _angle(*lines, use_case="m_and_a"):
     return {
         "title": "Angle", "use_case": use_case, "evidence": list(lines), "alkira": "What Alkira does.",
         "story": {"id": "none", "customer": "", "result": ""},
+        "deal_date": "", "deal_status": "none",
     }
 
 
@@ -56,12 +57,46 @@ def test_ordinary_evidence_is_left_alone(text):
 # ── An angle needs a specific, dated fact ────────────────────────
 
 def test_an_angle_with_a_dated_line_stands():
-    assert angle_rules.stands(_angle(_line("The deal closed.", "2026-01-09"), _line("An undated note.", "")))
+    assert angle_rules.stands(_angle(_line("The deal closed.", "2026-01-09"), _line("An undated note.", ""), use_case="multi_cloud"))
+
+
+# ── An M&A angle names what has to be connected or separated ─────
+
+@pytest.mark.parametrize("text", [
+    "HF Sinclair completed its acquisition of Industrial Oils Unlimited, LLC for $38 million.",
+    "UPS completed the $1.6B acquisition of Andlauer Healthcare Group.",
+    "The company announced an agreement to merge with a competitor.",
+    "Management expects cost savings from the integration.",
+], ids=["price-only", "closed-only", "announced-only", "savings"])
+def test_a_deal_with_a_price_and_a_date_and_nothing_to_connect_is_not_an_angle(text):
+    assert not angle_rules.stands(_angle(_line(text)))
+
+
+@pytest.mark.parametrize("text", [
+    "The separation creates a new independent, publicly traded company operating in the U.S., Canada and the Netherlands.",
+    "The acquired business runs blending plants in Tulsa and Houston.",
+    "Occidental provides transition services to OxyChem under a Transition Services Agreement.",
+    "The deal adds 31 temperature-controlled facilities in Canada.",
+    "It acquired the assets of a New York City distribution operation.",
+    "Employees and 140 storefronts transferred to the buyer.",
+    "The 10-K says the technology and networks of the acquired company are being integrated.",
+    "La adquisición suma 12 plantas y sus sistemas.",
+], ids=["new-entity", "plants", "tsa", "facilities", "operation", "storefronts", "systems", "spanish"])
+def test_a_deal_that_names_sites_systems_or_entities_can_be_an_angle(text):
+    assert angle_rules.stands(_angle(_line(text)))
+
+
+def test_one_line_that_names_what_is_connected_carries_the_other_lines_of_the_angle():
+    angle = _angle(
+        _line("It completed the acquisition for $38 million."),
+        _line("The acquired business runs two blending plants in Oklahoma.", ""),
+    )
+    assert angle_rules.stands(angle)
 
 
 def test_an_angle_with_no_dated_line_does_not_stand():
-    assert not angle_rules.stands(_angle(_line("A posting lists SD-WAN.", "")))
-    assert not angle_rules.stands(_angle())
+    assert not angle_rules.stands(_angle(_line("A posting lists SD-WAN.", ""), use_case="multi_cloud"))
+    assert not angle_rules.stands(_angle(use_case="multi_cloud"))
 
 
 # ── "Network" has to mean the IT network ─────────────────────────

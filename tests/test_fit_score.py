@@ -18,6 +18,7 @@ def _angle(sources, use_case="multi_cloud"):
         "title": "Angle", "use_case": use_case, "alkira": "What Alkira does.",
         "evidence": [{"text": "A fact.", "date": "", "sources": list(sources)}],
         "story": {"id": "none", "customer": "", "result": ""},
+        "deal_date": "", "deal_status": "none",
     }
 
 

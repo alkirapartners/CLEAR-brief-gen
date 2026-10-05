@@ -1,4 +1,8 @@
-"""A complete JSON brief for tests, in the shape production stores."""
+"""A complete JSON brief for tests, in the shape production stores.
+
+The two angles are in the order the tests were written around. A brief
+that goes through brief_rules.finalize has its qualifying M&A angle first.
+"""
 
 import copy
 import json
@@ -44,13 +48,15 @@ SAMPLE_DOC: dict = {
                 "customer": "Koch Industries",
                 "result": "Significant reduction in network complexity across acquisitions and business units.",
             },
+            "deal_date": "",
+            "deal_status": "none",
         },
         {
             "title": "Lubricants separation",
             "use_case": "m_and_a",
             "evidence": [
                 {
-                    "text": "The annual report describes separating the lubricants business.",
+                    "text": "The annual report describes separating the lubricants business into a standalone company.",
                     "date": "2026-02-20",
                     "sources": [2],
                 },
@@ -61,6 +67,8 @@ SAMPLE_DOC: dict = {
                 "customer": "A software company (Nemertes study)",
                 "result": "An acquired company's cloud networks integrated in days instead of months.",
             },
+            "deal_date": "2026-02-20",
+            "deal_status": "pending",
         },
     ],
     "snapshot": {
@@ -80,11 +88,13 @@ SAMPLE_DOC: dict = {
             "question": "Who builds a new Virtual WAN hub today, and how long does one take?",
             "listen_for": "hand-built hubs, weeks of lead time",
             "alkira_angle": "A new region is a design change deployed in a day.",
+            "angle": 1,
         },
         {
             "question": "Which network services stay shared after the lubricants split?",
             "listen_for": "a transition services agreement with an end date",
             "alkira_angle": "Separate segments on one fabric until cutover.",
+            "angle": 2,
         },
     ],
     "unconfirmed": ["Who owns the WAN contract.", "Whether a second cloud is in use."],

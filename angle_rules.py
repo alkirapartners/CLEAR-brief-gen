@@ -4,8 +4,9 @@ The fit rules say what is never evidence and what an angle has to rest on.
 The writer is asked to follow them. This module removes what the code can
 recognise when the writer does not: risk-factor language, headcount and
 hiring statistics, an angle with no dated fact, a network-modernization
-angle that never names network technology, and a plant-network line that
-is not about industrial control systems.
+angle that never names network technology, an M&A angle that never names
+what is to be connected or separated, and a plant-network line that is not
+about industrial control systems.
 """
 
 import re
@@ -14,6 +15,7 @@ from typing import Sequence
 from brief_doc import Angle, EvidenceLine
 
 NETWORK_MODERNIZATION = "network_modernization"
+M_AND_A = "m_and_a"
 
 # What a filing lists as a risk says what could go wrong, not what is happening.
 _RISK_LANGUAGE = re.compile(r"\brisk(?:s| factors?)?\b|\briesgos?\b", re.IGNORECASE)
@@ -54,6 +56,22 @@ _CONTROL_WORDS = re.compile(
 )
 
 
+# What a deal leaves to connect or to separate: sites, systems, or the
+# entities on each side. A deal's name, its price and its closing date are
+# none of these.
+_TO_CONNECT = re.compile(
+    r"\b(?:sites?|locations?|facilit(?:y|ies)|plants?|refiner(?:y|ies)|stores?|storefronts?|branch(?:es)?"
+    r"|offices?|warehouses?|terminals?|depots?|clinics?|hospitals?|campus(?:es)?|hubs?|operations?"
+    r"|data[- ]?cent(?:er|re)s?|networks?|systems?|platforms?|applications?|infrastructure|technology"
+    r"|ERP|subsidiar(?:y|ies)|business units?|segments?|divisions?|entit(?:y|ies)|employees|countries"
+    r"|transition services|TSA|carve-?out|standalone|spin-?off"
+    r"|(?:independent|separate|new)(?:,? \w+){0,3} compan(?:y|ies)|operat(?:es|ing) in"
+    r"|sedes?|plantas?|tiendas?|sucursales?|oficinas?|instalaciones|sistemas?|redes|filiales"
+    r"|unidades de negocio|servicios de transici[oó]n)\b",
+    re.IGNORECASE,
+)
+
+
 def is_evidence(text: str) -> bool:
     """False for a line that only reports a listed risk, a headcount or a hiring statistic."""
     return not (_RISK_LANGUAGE.search(text) or _HEADCOUNT.search(text))
@@ -72,13 +90,17 @@ def stands(angle: Angle) -> bool:
 
     Every angle needs at least one dated line. A network-modernization angle
     also needs a line that names network technology: a business "network"
-    being reorganised is about sites, not about the IT network.
+    being reorganised is about sites, not about the IT network. An M&A angle
+    needs a line that names what has to be connected or separated: a deal
+    with a price and a date and nothing else is news.
     """
     lines = angle["evidence"]
     if not any(line["date"].strip() for line in lines):
         return False
     if angle["use_case"] == NETWORK_MODERNIZATION:
         return any(names_network_technology(line["text"]) for line in lines)
+    if angle["use_case"] == M_AND_A:
+        return any(_TO_CONNECT.search(line["text"]) for line in lines)
     return True
 
 

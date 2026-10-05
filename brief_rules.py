@@ -16,6 +16,7 @@ from typing import Any, Iterable, Mapping, Sequence
 
 import angle_rules
 import case_studies
+import deal_rules
 import fit_score
 import i18n
 import stat_tracing
@@ -130,22 +131,54 @@ def _story(story: Story, use_case: str, told: frozenset[str], language: str) -> 
     return {"id": known.id, "customer": known.customer, "result": translated or known.result}
 
 
-def _angles(angles: Sequence[Angle], dates: Dates, language: str, today: date) -> list[Angle]:
-    """Angles that still stand on their evidence, strongest first as written, three at most.
+# An angle with the place it had in the writer's list, counting from 0.
+Placed = tuple[int, Angle]
+
+
+def _deal(angle: Angle) -> Angle:
+    """The angle with its deal fields tidied: a date and a status for M&A, nothing for the rest."""
+    if not deal_rules.is_deal(angle):
+        return {**angle, "deal_date": "", "deal_status": deal_rules.NO_DEAL}
+    return {**angle, "deal_date": clean_date(angle["deal_date"])}
+
+
+def _standing(
+    angles: Sequence[Angle], references: Sequence[Reference], sources: Sequence[Source], today: date,
+) -> list[Placed]:
+    """Angles that stand on their evidence, each with its place in the writer's list.
 
     Lines that are never evidence are removed first. An angle then needs a
-    dated fact about the right thing (angle_rules.stands) to be kept.
+    dated fact about the right thing (angle_rules.stands). An M&A angle also
+    has to be recent or pending (deal_rules.qualifies): an older, completed
+    deal is not an angle.
     """
-    checked = [
-        {**angle, "evidence": angle_rules.kept_lines(_evidence(angle["evidence"], dates, today))}
-        for angle in angles
-    ]
-    kept: list[Angle] = []
+    dates = {ref["n"]: ref["date"] for ref in references}
+    wording = {source.n: " ".join(fact.quote for fact in source.facts) for source in sources}
+    standing: list[Placed] = []
+    for place, angle in enumerate(angles):
+        lines = angle_rules.kept_lines(_evidence(angle["evidence"], dates, today))
+        checked = _deal({**angle, "evidence": lines})
+        if not angle_rules.stands(checked):
+            continue
+        if deal_rules.is_deal(checked) and not deal_rules.qualifies(checked, references, today, wording):
+            continue
+        standing.append((place, checked))
+    return standing
+
+
+def _angles(standing: Sequence[Placed], language: str) -> list[Placed]:
+    """The angles a brief presents: a qualifying M&A angle first, three at most, each with its story.
+
+    M&A that qualifies is the strongest reason to engage, so it leads. The
+    rest keep the order the writer gave them.
+    """
+    ordered = sorted(standing, key=lambda placed: not deal_rules.is_deal(placed[1]))[:MAX_ANGLES]
+    kept: list[Placed] = []
     told: frozenset[str] = frozenset()
-    for angle in [angle for angle in checked if angle_rules.stands(angle)][:MAX_ANGLES]:
+    for place, angle in ordered:
         story = _story(angle["story"], angle["use_case"], told, language)
         told = told | ({story["id"]} - {case_studies.NO_STORY})
-        kept.append({**angle, "story": story})
+        kept.append((place, {**angle, "story": story}))
     return kept
 
 
@@ -181,27 +214,38 @@ def _people(people: Sequence[Person], valid: frozenset[int], first_hand: frozens
     return checked
 
 
-def _questions(questions: Sequence[Question]) -> list[Question]:
-    return [q for q in questions if q["question"].strip()][:MAX_QUESTIONS]
+def _questions(questions: Sequence[Question], placed: Sequence[Placed], written: int) -> list[Question]:
+    """Questions renumbered to the angles that are left, the lead M&A angle's first, four at most.
+
+    ``written`` is how many angles the writer gave. A question about an
+    angle that was removed goes with it. A question about no angle stays.
+    """
+    now_at = {place: position for position, (place, _) in enumerate(placed, start=1)}
+    kept: list[Question] = []
+    for question in questions:
+        about = question["angle"] - 1
+        if not question["question"].strip() or (0 <= about < written and about not in now_at):
+            continue
+        kept.append({**question, "angle": now_at.get(about, 0)})
+    if placed and deal_rules.is_deal(placed[0][1]):
+        kept.sort(key=lambda question: question["angle"] != 1)
+    return kept[:MAX_QUESTIONS]
 
 
-def _fit(fit: Fit, ceiling: fit_score.Ceiling, language: str, has_angles: bool) -> Fit:
+def _fit(fit: Fit, ceiling: fit_score.Ceiling, language: str, lead_stands: bool) -> Fit:
     """The fit as written, or the code's own when the sources do not support the score.
 
     A lowered score cannot keep the writer's verdict: "Strong fit" over a 2
     would contradict it. The verdict becomes the code's label for the new
-    score, followed by the reason. The lead goes too when no angle is left
-    for it to point at.
+    score, followed by the reason. The lead goes whenever the angle it was
+    written to open with is no longer in the brief.
     """
+    lead = fit["lead"] if lead_stands else ""
     if fit["score"] <= ceiling.score:
-        return fit
+        return {**fit, "lead": lead}
     labels = i18n.labels(language)
     reason = labels[ceiling.reason].format(score=ceiling.score)
-    return {
-        "score": ceiling.score,
-        "verdict": f"{labels[f'verdict_{ceiling.score}']} {reason}",
-        "lead": fit["lead"] if has_angles else "",
-    }
+    return {"score": ceiling.score, "verdict": f"{labels[f'verdict_{ceiling.score}']} {reason}", "lead": lead}
 
 
 def _cited(angles: Sequence[Angle], snapshot: Snapshot, people: Sequence[Person]) -> list[int]:
@@ -278,13 +322,15 @@ def finalize(
     output = _scrub(output)
     candidates = _typed_references(sources, output["company"], typed_name)
     valid = frozenset(ref["n"] for ref in candidates)
-    dates = {ref["n"]: ref["date"] for ref in candidates}
     wanted = output["angles"] if output["fit"]["score"] > MAX_SCORE_WITHOUT_ANGLES else []
-    angles = _angles(wanted, dates, language, today)
+    placed = _angles(_standing(wanted, candidates, sources, today), language)
+    angles = [angle for _, angle in placed]
     snapshot = _snapshot(output["snapshot"], valid)
     first_hand = frozenset(ref["n"] for ref in candidates if ref["source_type"] == FIRST_HAND)
     people = _people(output["people"], valid, first_hand)
-    fit = _fit(output["fit"], fit_score.ceiling(angles, candidates, today), language, bool(angles))
+    # The lead was written to open with the writer's first angle.
+    lead_stands = not wanted or any(place == 0 for place, _ in placed)
+    fit = _fit(output["fit"], fit_score.ceiling(angles, candidates, today), language, lead_stands)
     _log_adjustment(output, angles, fit["score"])
     order = {old: new for new, old in enumerate(_cited(angles, snapshot, people), start=1)}
     return {
@@ -300,7 +346,7 @@ def finalize(
             for key in SNAPSHOT_KEYS
         },
         "people": [{**p, "sources": _renumber(p["sources"], order)} for p in people],
-        "questions": _questions(output["questions"]),
+        "questions": _questions(output["questions"], placed, len(output["angles"])),
         "unconfirmed": [item.strip() for item in output["unconfirmed"] if item.strip()],
         "raise_score": [item.strip() for item in output["raise_score"] if item.strip()],
         "references": _references(candidates, order),

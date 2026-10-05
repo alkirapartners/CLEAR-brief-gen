@@ -45,6 +45,8 @@ The score reflects the strength and freshness of the best use case, never the nu
 | 2 | A plausible use case with no evidence found |
 | 1 | No use case |
 
+M&A counts toward the score only while it is live, by the rule in the Fit Rules: the event happened in the last three months, or the deal is announced and not yet completed. HF Sinclair's separation, announced on 28 July and not yet completed, counts in October. A carve-out completed in January does not. A qualifying M&A angle is always the first angle.
+
 A dated first-hand source is the trigger: a job posting with its posted date, a filing, a press release. An angle that rests only on trade press or another second-hand source cannot lift the score above 3, however many such angles there are. Two angles that lean on the same single page are one use case told twice. These limits are checked against the sources after the brief is written, and a score they do not support is lowered.
 
 "Could not find out" is different from "weak fit". What the research looked for and did not find belongs under What we couldn't confirm, and stays out of the score reasoning.
@@ -56,7 +58,7 @@ A dated first-hand source is the trigger: a job posting with its posted date, a 
 - **Company.** The resolved name and identifiers, and a note saying which entity was chosen when the name was ambiguous.
 - **Stats.** Headquarters, revenue, employees, industry, ownership, and a cloud-and-network headline such as "Azure, ExpressRoute and Virtual WAN, SD-WAN". Leave a value empty when it was not found.
 - **Fit.** The score, a one-sentence verdict, and a lead line: what to open with and whom to call.
-- **Why this account, why now.** One to three angles. Each angle has its evidence with date and source, what Alkira does about it, and one customer story with its result. Present an angle only when it has evidence. One strong angle is a complete brief. Never pad to three. A score of 1 or 2 has no angles.
+- **Why this account, why now.** One to three angles, a qualifying M&A angle first. Each angle has its evidence with date and source, what Alkira does about it, and one customer story with its result. Present an angle only when it has evidence. One strong angle is a complete brief. Never pad to three. A score of 1 or 2 has no angles.
 - **Technical snapshot.** One line each for clouds, cloud connectivity, WAN, firewalls, data centers and plant networks. A line is sourced or left empty, and an empty line prints as "not found". Keep the specific terms: ExpressRoute, Virtual WAN, BGP, Palo Alto.
 - **Who to talk to.** Names only from first-hand sources, roles otherwise.
 - **Questions.** Three or four when the brief has several angles, fewer for a one-angle brief. Each has what to listen for and the Alkira angle. Technical vocabulary is welcome when the evidence uses it.

@@ -74,12 +74,20 @@ class Story(TypedDict):
     result: str
 
 
+DealStatus = Literal["none", "pending", "completed"]
+
+
 class Angle(TypedDict):
     title: str
     use_case: UseCase
     evidence: list[EvidenceLine]
     alkira: str
     story: Story
+    # For an M&A angle: the date of the event (its announcement or its
+    # completion) and whether the deal is still pending. Empty and "none"
+    # for every other use case. See deal_rules.py.
+    deal_date: str
+    deal_status: DealStatus
 
 
 class SnapshotLine(TypedDict):
@@ -107,6 +115,8 @@ class Question(TypedDict):
     question: str
     listen_for: str
     alkira_angle: str
+    # Which angle the question is about, counting from 1. 0 for none.
+    angle: int
 
 
 class WriterOutput(TypedDict):
