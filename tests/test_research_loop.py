@@ -10,7 +10,7 @@ import prompts
 import research_loop
 import research_tools as tools
 from research_loop import ResearchError
-from tests.llm_fakes import FakeClient, reply, text, thinking, tool_use, usage
+from tests.llm_fakes import FakeClient, reply, text, thinking, timed_out, tool_use, usage
 from tests.test_research_tools import JOB, FakeWeb
 
 TODAY = date(2026, 10, 5)
@@ -127,10 +127,41 @@ def test_a_refusal_is_an_error_that_names_the_category():
         _run([READ, RECORD, declined])
 
 
+def _five_searches():
+    return reply(*[tool_use(f"s{i}", "web_search", {"query": f"q{i}", "site": "", "recent_news": False}) for i in range(5)])
+
+
 def test_a_web_service_that_keeps_failing_is_an_error():
-    many = reply(*[tool_use(f"s{i}", "web_search", {"query": f"q{i}", "site": "", "recent_news": False}) for i in range(5)])
     with pytest.raises(ResearchError, match="kept failing"):
-        _run([many], web=FakeWeb(fail=True))
+        _run([_five_searches()], web=FakeWeb(fail=True))
+
+
+def test_a_model_request_that_fails_with_nothing_gathered_is_an_error():
+    failure = timed_out()
+    with pytest.raises(ResearchError, match="request to the model failed while researching 'Acme'") as raised:
+        _run([SEARCH, failure])
+    assert raised.value.__cause__ is failure
+
+
+# ── A late failure keeps what was already gathered ───────────────
+
+def test_a_web_service_that_fails_late_keeps_the_evidence_already_recorded():
+    web = FakeWeb()
+
+    def break_the_web(request_number):
+        web.fail = request_number >= 3
+
+    result, client, _ = _run([READ, RECORD, _five_searches()], web=web, on_request=break_the_web)
+    assert result.stopped_by == "web_failed"
+    assert len(result.sources) == 1
+    assert len(client.requests) == 3  # no further turn is spent on a web that is down
+
+
+def test_a_model_request_that_fails_late_keeps_the_evidence_already_recorded():
+    result, client, _ = _run([READ, RECORD, timed_out()])
+    assert result.stopped_by == "model_failed"
+    assert len(result.sources) == 1
+    assert result.usage.requests == 2  # the failed request billed nothing
 
 
 # ── Budgets and the clock ────────────────────────────────────────
@@ -205,5 +236,5 @@ def test_a_cut_off_reply_ends_research_without_running_its_tool_calls():
 
 
 def test_only_abnormal_stops_are_worded_for_the_writer():
-    assert set(research_loop.EARLY_STOPS) == {"deadline", "turn_cap", "truncated"}
+    assert set(research_loop.EARLY_STOPS) == {"deadline", "turn_cap", "truncated", "web_failed", "model_failed"}
     assert "finished" not in research_loop.EARLY_STOPS and "budget" not in research_loop.EARLY_STOPS

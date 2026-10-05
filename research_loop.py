@@ -5,7 +5,8 @@ pages or to record evidence. ``research_tools`` runs those calls and
 enforces the search and page budgets. This module enforces the clock and
 decides when research is over. The result is the evidence recorded from
 pages that were opened. With none, research has failed and no brief is
-written.
+written. A failure late in a run ends the research but keeps what was
+already gathered, so a brief that was nearly paid for is still written.
 """
 
 import logging
@@ -13,6 +14,8 @@ import time
 from dataclasses import dataclass
 from datetime import date
 from typing import Any, Callable
+
+import anthropic
 
 import llm
 import prompts
@@ -39,11 +42,20 @@ BUDGET_SPENT = "budget"
 DEADLINE = "deadline"
 TURN_CAP = "turn_cap"
 TRUNCATED = "truncated"
+WEB_FAILED = "web_failed"
+MODEL_FAILED = "model_failed"
 # Stops the writer is told about, with the words it is told in.
 EARLY_STOPS: dict[str, str] = {
     DEADLINE: "its time ran out",
     TURN_CAP: "it reached its turn limit",
     TRUNCATED: "a reply was cut off",
+    WEB_FAILED: "the web search service kept failing",
+    MODEL_FAILED: "a request to the model failed",
+}
+# What the log says when one of these stops leaves nothing to cite.
+_FAILURES: dict[str, str] = {
+    WEB_FAILED: "The web search service kept failing while researching {company!r}.",
+    MODEL_FAILED: "A request to the model failed while researching {company!r}, before anything citable was gathered.",
 }
 
 Clock = Callable[[], float]
@@ -95,9 +107,21 @@ def _ending(response: Any, calls: list[ToolCall], company: str) -> str | None:
     return None
 
 
+def _nothing_citable(company: str, ledger: Ledger, reason: str) -> ResearchError:
+    failure = _FAILURES.get(reason)
+    if failure is not None:
+        return ResearchError(failure.format(company=company))
+    return ResearchError(
+        f"Research found nothing citable for {company!r} (searches={ledger.searches}, "
+        f"pages opened={len(ledger.pages)}, stopped by {reason})."
+    )
+
+
 def _result(
     company: str, ledger: Ledger, usage: llm.Usage, seconds: float, stopped_by: str,
+    cause: BaseException | None = None,
 ) -> ResearchResult:
+    """What research gathered, or an error when there is nothing to cite."""
     sources = build_sources(ledger.evidence, ledger.pages)
     spent = ledger.searches >= MAX_SEARCHES or ledger.page_reads >= MAX_PAGES
     reason = BUDGET_SPENT if stopped_by == FINISHED and spent else stopped_by
@@ -106,10 +130,7 @@ def _result(
         company, ledger.searches, ledger.page_reads, len(ledger.pages), len(sources), seconds, reason,
     )
     if not sources:
-        raise ResearchError(
-            f"Research found nothing citable for {company!r} (searches={ledger.searches}, "
-            f"pages opened={len(ledger.pages)}, stopped by {reason})."
-        )
+        raise _nothing_citable(company, ledger, reason) from cause
     return ResearchResult(
         sources, ledger.searches, ledger.page_reads, len(ledger.pages), seconds, reason, usage,
     )
@@ -126,8 +147,9 @@ def research(
     """Follow leads on the web until they run out or the budget does.
 
     ``client`` is an Anthropic client and ``web`` a Tavily client. Raises
-    ``ResearchError`` when nothing citable was found, the model declined,
-    or the web service keeps failing.
+    ``ResearchError`` when the model declined or nothing citable was found.
+    A web service or a model request that fails after something citable was
+    gathered ends the research early instead.
     """
     status_callback("research")
     fence, started = new_fence(), clock()
@@ -136,11 +158,17 @@ def research(
     )
     messages: list[dict[str, Any]] = [{"role": "user", "content": opening}]
     ledger, usage, stopped_by = Ledger(), llm.Usage(), TURN_CAP
+    cause: BaseException | None = None
     for _turn in range(MAX_TURNS):
         if clock() - started >= HARD_DEADLINE_SECONDS:
             stopped_by = DEADLINE
             break
-        response = _ask(client, messages)
+        try:
+            response = _ask(client, messages)
+        except anthropic.APIError as exc:
+            logger.warning("research request failed for %s: %s: %s", company, type(exc).__name__, exc)
+            stopped_by, cause = MODEL_FAILED, exc
+            break
         usage = llm.add_usage(usage, response.usage)
         calls = _tool_calls(response)
         ending = _ending(response, calls, company)
@@ -150,10 +178,11 @@ def research(
         accepting = clock() - started < SOFT_DEADLINE_SECONDS
         results, ledger = run_calls(calls, ledger, web, fence, accepting)
         if ledger.failures_in_a_row >= MAX_FAILURES_IN_A_ROW:
-            raise ResearchError(f"The web search service kept failing while researching {company!r}.")
+            stopped_by = WEB_FAILED
+            break
         messages = [
             *messages,
             {"role": "assistant", "content": response.content},
             {"role": "user", "content": results},
         ]
-    return _result(company, ledger, usage, clock() - started, stopped_by)
+    return _result(company, ledger, usage, clock() - started, stopped_by, cause)

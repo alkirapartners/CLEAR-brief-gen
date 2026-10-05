@@ -2,6 +2,14 @@
 
 from types import SimpleNamespace
 
+import anthropic
+import httpx
+
+
+def timed_out():
+    """The error the SDK raises when a request to the model runs out of time."""
+    return anthropic.APITimeoutError(request=httpx.Request("POST", "https://api.anthropic.com/v1/messages"))
+
 
 def usage(input_tokens=100, output_tokens=20, cache_read=0, cache_write=0):
     return SimpleNamespace(
@@ -61,7 +69,8 @@ class FakeClient:
     """Plays research turns from a script and answers the writer call.
 
     ``turns`` are returned one per research request; when they run out,
-    ``then`` is returned for every further request. ``on_request`` is called
+    ``then`` is returned for every further request. A turn that is an
+    exception is raised instead. ``on_request`` is called
     before each research request with its number, so a test can move a clock.
     """
 
@@ -79,7 +88,10 @@ class FakeClient:
         self.requests.append(kwargs)
         if self.on_request is not None:
             self.on_request(len(self.requests))
-        return self.turns.pop(0) if self.turns else self.then
+        turn = self.turns.pop(0) if self.turns else self.then
+        if isinstance(turn, BaseException):
+            raise turn  # a scripted failure, such as a timeout
+        return turn
 
     def _stream(self, **kwargs):
         self.writer_requests.append(kwargs)
