@@ -4,8 +4,9 @@ Run: uvicorn server:app --host 127.0.0.1 --port 8501
 """
 
 import logging
+from uuid import UUID
 
-from fastapi import Depends, FastAPI
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
@@ -13,12 +14,14 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 import db
 import generate
 from authdep import is_admin, require_email
+from brief_view import to_detail, to_summary
 from errors import GENERIC_ERROR, UserFacingError
 from settings import Settings, load_settings
 
 logger = logging.getLogger(__name__)
 
 VALIDATION_ERROR = "Check the company name and language, then try again."
+NOT_FOUND = "Brief not found"
 
 
 def ok(data) -> dict:
@@ -68,6 +71,17 @@ def create_app(
     @app.get("/api/brief/me")
     def me(email: str = Depends(require_email)):
         return ok({"email": email, "isAdmin": is_admin(email, settings.admins_file)})
+
+    @app.get("/api/brief/briefs")
+    def list_briefs(email: str = Depends(require_email)):
+        return ok([to_summary(row) for row in repo.get_user_briefs(email)])
+
+    @app.get("/api/brief/briefs/{brief_id}")
+    def get_brief(brief_id: UUID, email: str = Depends(require_email)):
+        row = repo.get_brief(str(brief_id), email)
+        if row is None:
+            raise HTTPException(status_code=404, detail=NOT_FOUND)
+        return ok(to_detail(row))
 
     return app
 
