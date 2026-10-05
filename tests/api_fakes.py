@@ -61,7 +61,7 @@ class FakeRepo:
         ]
         return len(self.rows) < before
 
-    def find_recent_brief_by_company(self, company, max_age_days=7):
+    def find_recent_brief_by_company(self, company, max_age_days=14):
         wanted = company.strip().lower()
         matches = [r for r in self.rows if r["company"].lower() == wanted]
         return max(matches, key=lambda r: r["created_at"]) if matches else None

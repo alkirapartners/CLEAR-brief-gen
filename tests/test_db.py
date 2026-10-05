@@ -189,7 +189,13 @@ def test_find_recent_brief_by_company_cutoff_is_in_the_past():
 
     assert cutoff < after
     tolerance = timedelta(seconds=5)
-    assert before - timedelta(days=7) - tolerance <= cutoff <= after - timedelta(days=7) + tolerance
+    window = timedelta(days=db.REUSE_WINDOW_DAYS)
+    assert before - window - tolerance <= cutoff <= after - window + tolerance
+
+
+def test_research_is_reused_for_fourteen_days():
+    import db
+    assert db.REUSE_WINDOW_DAYS == 14
 
 
 def test_find_recent_brief_by_company_honors_custom_max_age_days():
@@ -211,7 +217,7 @@ def test_find_recent_brief_by_company_honors_custom_max_age_days():
 
     tolerance = timedelta(seconds=5)
     assert before - timedelta(days=1) - tolerance <= cutoff <= after - timedelta(days=1) + tolerance
-    # Clearly the 1-day window, not the 7-day default.
+    # Clearly the 1-day window, not the 14-day default.
     assert cutoff > before - timedelta(days=2)
 
 
@@ -246,7 +252,7 @@ def test_save_brief_inserts_supplied_created_at_verbatim():
     """A cache-hit copy must carry the ORIGINAL research timestamp.
 
     Without this the copy is dated today, the next company-cache lookup
-    matches the copy rather than the original, and both the 7-day window and
+    matches the copy rather than the original, and both the reuse window and
     the reused-research badge drift further with every repeat.
     """
     original = "2026-08-24T10:00:00+00:00"

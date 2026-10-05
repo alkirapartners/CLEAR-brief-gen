@@ -14,6 +14,8 @@ logger = logging.getLogger(__name__)
 
 # How many recent rows the reuse lookup reads before picking the exact company.
 CACHE_CANDIDATES = 5
+# Research this recent is reused across all partners instead of being paid for again.
+REUSE_WINDOW_DAYS = 14
 
 # Module-level client cache
 _client = None
@@ -97,7 +99,7 @@ def save_brief(
     ``created_at`` is normally left to the column default. Pass it only when
     copying an existing brief (the repeat-company cache), so the copy keeps the
     ORIGINAL research timestamp. Without that, each cache hit would write a row
-    dated today, the next lookup would match the copy, and both the 7-day
+    dated today, the next lookup would match the copy, and both the reuse
     window and the "reused research" date would drift indefinitely.
     """
     client = _get_client()
@@ -190,12 +192,12 @@ def is_available() -> bool:
 
 def find_recent_brief_by_company(
     company: str,
-    max_age_days: int = 7,
+    max_age_days: int = REUSE_WINDOW_DAYS,
 ) -> Optional[dict]:
     """Most recent brief for this company across all users, or None.
 
     Unlike get_user_briefs this deliberately ignores email: if any partner
-    briefed the company this week, reuse that research.
+    briefed the company inside the reuse window, reuse that research.
     """
     client = _get_client()
     if client is None:

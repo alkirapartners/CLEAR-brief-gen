@@ -553,7 +553,7 @@ Recorded 2026-10-05: verdict `tavily`, `refusal_fallback` is `ok`. Continue with
 - Consumes: nothing from this plan.
 - Produces: `settings.DEFAULT_DAILY_LIMIT == 10`; `db.REUSE_WINDOW_DAYS == 14`, the default of `db.find_recent_brief_by_company(company: str, max_age_days: int = REUSE_WINDOW_DAYS)`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Apply this change to `tests/test_db.py`:
 
@@ -613,12 +613,12 @@ Apply this change to `tests/test_settings.py`:
      assert load_settings().daily_limit == 12
 ```
 
-- [ ] **Step 2: Run them and confirm they fail**
+- [x] **Step 2: Run them and confirm they fail**
 
 Run: `.venv/bin/python -m pytest tests/test_db.py tests/test_settings.py -q`
 Expected: `3 failed, 22 passed`. The failures are `AttributeError: module 'db' has no attribute 'REUSE_WINDOW_DAYS'` (twice) and `assert 50 == 10`.
 
-- [ ] **Step 3: Change the two limits**
+- [x] **Step 3: Change the two limits**
 
 Apply this change to `settings.py`:
 
@@ -695,12 +695,12 @@ Apply this change to `tests/api_fakes.py`, so the stand-in database has the same
 
 `usage_ledger.KEEP_DAYS = 7` is how long usage files are kept, not the reuse window. Leave it.
 
-- [ ] **Step 4: Run the tests**
+- [x] **Step 4: Run the tests**
 
 Run: `.venv/bin/python -m pytest -q`
 Expected: `285 passed, 2 skipped`.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add settings.py db.py tests/api_fakes.py tests/test_db.py tests/test_settings.py
