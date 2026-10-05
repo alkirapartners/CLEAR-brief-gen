@@ -728,11 +728,11 @@ git commit -m "feat: lower the daily cap to 10 and reuse research for 14 days"
   - `case_studies.parse_story_table(markdown: str) -> tuple[Story, ...]`, raising `CaseStudyTableError`.
   - `case_studies.load_stories() -> tuple[Story, ...]` and `case_studies.story_by_id(story_id: str) -> Story | None`.
 
-- [ ] **Step 1: Read the source for Michaels**
+- [x] **Step 1: Read the source for Michaels**
 
 Read `/Users/blakehays/Downloads/Alkira-Michaels-Futuriom-v1.3-final-1.pdf` (five pages). Every statement about Michaels added in Step 4 must be found in that PDF. If a statement below is not in it, leave the statement out and report it. Do not add facts from anywhere else, and do not copy sentences from the PDF: state the facts in plain words.
 
-- [ ] **Step 2: Write the failing test**
+- [x] **Step 2: Write the failing test**
 
 Create `tests/test_case_studies.py`:
 
@@ -813,12 +813,12 @@ def test_a_file_without_the_table_is_refused():
         parse_story_table("## Story Matching Table\n\n" + HEADER)
 ```
 
-- [ ] **Step 3: Run it and confirm it fails**
+- [x] **Step 3: Run it and confirm it fails**
 
 Run: `.venv/bin/python -m pytest tests/test_case_studies.py -q`
 Expected: `1 error`, with `ModuleNotFoundError: No module named 'case_studies'`.
 
-- [ ] **Step 4: Add the table and Michaels to the knowledge base**
+- [x] **Step 4: Add the table and Michaels to the knowledge base**
 
 Apply this change to `skills/alkira-customer/references/case-studies.md`. It rewrites the table of contents, adds the `## Story Matching Table` section above `## Named Case Studies`, and adds `### Michaels` as the first named case study. Every row other than Michaels restates an outcome already in this file; add nothing to them.
 
@@ -886,7 +886,7 @@ Apply this change to `skills/alkira-customer/references/case-studies.md`. It rew
  - **Use case:** Cloud networking and connectivity
 ```
 
-- [ ] **Step 5: Write the loader**
+- [x] **Step 5: Write the loader**
 
 Create `case_studies.py`:
 
@@ -998,7 +998,7 @@ def story_by_id(story_id: str) -> Story | None:
     return None
 ```
 
-- [ ] **Step 6: Run the tests**
+- [x] **Step 6: Run the tests**
 
 Run: `.venv/bin/python -m pytest tests/test_case_studies.py -q`
 Expected: `13 passed`.
@@ -1006,7 +1006,7 @@ Expected: `13 passed`.
 Run: `.venv/bin/python -m pytest -q`
 Expected: `298 passed, 2 skipped`.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add skills/alkira-customer/references/case-studies.md case_studies.py tests/test_case_studies.py
