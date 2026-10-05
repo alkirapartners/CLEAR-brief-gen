@@ -182,11 +182,14 @@ before or after it.
 - `evidence` lines: one sentence each, with the `date` its source gives
   (empty when the source is undated: never a date of your own) and the
   `sources` numbers the sentence rests on.
-- `story`: choose from the Story Matching Table. Match the situation first,
-  then the industry. Give the story's `id`. Leave `customer` and `result`
+- `story`: choose from the Story Matching Table. The story's Situations
+  must include the angle's `use_case`: a story about another situation is
+  removed. Among those that match, prefer the closest industry. Use a story
+  once in a brief. Give the story's `id`. Leave `customer` and `result`
   empty: both are filled in from the table, unless the user message asks
-  for a translated result. When nothing matches, use the id `none`. Any
-  other proof you cite must be a metric from the knowledge base.
+  for a translated result. When nothing matches, use the id `none`: no
+  story is better than the wrong one. Any other proof you cite must be a
+  metric from the knowledge base.
 - `snapshot`: one line each for `clouds`, `cloud_connectivity`, `wan`,
   `firewalls`, `data_centers` and `plant_networks`, in the evidence's own
   technical terms, with `sources`. When the evidence says nothing, leave

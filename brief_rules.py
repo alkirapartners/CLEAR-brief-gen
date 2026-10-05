@@ -106,17 +106,22 @@ def _numbers(text: str) -> frozenset[str]:
     return frozenset(re.sub(r"[.,]", "", number) for number in _NUMBER.findall(text))
 
 
-def _story(story: Story, language: str) -> Story:
+_NO_STORY: Story = {"id": case_studies.NO_STORY, "customer": "", "result": ""}
+
+
+def _story(story: Story, use_case: str, told: frozenset[str], language: str) -> Story:
     """The story as the knowledge base has it. Proof is never the model's own.
 
-    The customer name always comes from the story table. So does the result
-    for a brief in English. In another language the model's translation of
-    the result is kept only when it carries exactly the table's figures.
-    Otherwise the table's wording is used.
+    A story is kept only when the table tags it with the angle's use case
+    and no earlier angle in this brief has told it. The customer name always
+    comes from the story table. So does the result for a brief in English.
+    In another language the model's translation of the result is kept only
+    when it carries exactly the table's figures. Otherwise the table's
+    wording is used.
     """
     known = case_studies.story_by_id(story["id"])
-    if known is None:
-        return {"id": case_studies.NO_STORY, "customer": "", "result": ""}
+    if known is None or use_case not in known.situations or known.id in told:
+        return _NO_STORY
     translated = story["result"].strip() if language != TABLE_LANGUAGE else ""
     if _numbers(translated) != _numbers(known.result):
         translated = ""  # a translation may change the words, never the figures
@@ -125,15 +130,14 @@ def _story(story: Story, language: str) -> Story:
 
 def _angles(angles: Sequence[Angle], dates: Dates, language: str, today: date) -> list[Angle]:
     """Angles that still have evidence, strongest first as written, three at most."""
-    checked = [
-        {
-            **angle,
-            "evidence": _evidence(angle["evidence"], dates, today),
-            "story": _story(angle["story"], language),
-        }
-        for angle in angles
-    ]
-    return [angle for angle in checked if angle["evidence"]][:MAX_ANGLES]
+    checked = [{**angle, "evidence": _evidence(angle["evidence"], dates, today)} for angle in angles]
+    kept: list[Angle] = []
+    told: frozenset[str] = frozenset()
+    for angle in [angle for angle in checked if angle["evidence"]][:MAX_ANGLES]:
+        story = _story(angle["story"], angle["use_case"], told, language)
+        told = told | {story["id"]} - {case_studies.NO_STORY}
+        kept.append({**angle, "story": story})
+    return kept
 
 
 def _snapshot_line(line: SnapshotLine, valid: frozenset[int]) -> SnapshotLine:

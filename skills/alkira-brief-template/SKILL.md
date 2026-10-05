@@ -65,7 +65,7 @@ A dated first-hand source is the trigger: a job posting with its posted date, a 
 
 ### Customer stories
 
-Choose the story from the Story Matching Table in the case studies. Match the angle's situation first, then the industry. Give the story's ID. When nothing matches, use `none`.
+Choose the story from the Story Matching Table in the case studies. The story's Situations must include the angle's use case: an M&A story is no proof for a network-modernization angle. Among the stories that match, prefer the closest industry. A story is told once in a brief, so two angles never share one. Give the story's ID. When nothing matches, use `none`: no story is better than the wrong one.
 
 ### Questions
 

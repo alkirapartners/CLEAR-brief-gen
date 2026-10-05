@@ -36,9 +36,9 @@ def _finalize(output=None, sources=None, language="en"):
     )
 
 
-def _angle(sources, title="Angle", story_id="koch"):
+def _angle(sources, title="Angle", story_id="koch", use_case="multi_cloud"):
     return {
-        "title": title, "use_case": "multi_cloud",
+        "title": title, "use_case": use_case,
         "evidence": [{"text": "A dated fact.", "date": "2026-09-01", "sources": sources}],
         "alkira": "What Alkira does.",
         "story": {"id": story_id, "customer": "Whoever", "result": "A result."},
@@ -291,6 +291,52 @@ def test_in_spanish_the_translated_proof_is_kept_and_a_missing_one_falls_back_to
     doc = _finalize(writer_output(angles=[translated, blank]), language="es")
     assert doc["angles"][0]["story"]["result"] == "Unas 1,400 tiendas conectadas en tres semanas."
     assert doc["angles"][1]["story"]["result"] == case_studies.story_by_id("koch").result
+
+
+# ── A story fits its angle's situation, and is told once ─────────
+
+NO_STORY = {"id": "none", "customer": "", "result": ""}
+THREE = {"score": 3, "verdict": "v", "lead": "l"}
+
+
+def _stories(*angles):
+    return [angle["story"] for angle in _finalize(writer_output(angles=list(angles), fit=THREE))["angles"]]
+
+
+def test_a_story_about_another_situation_is_removed_from_the_angle():
+    """The M&A story is not proof for a network-modernization angle."""
+    (story,) = _stories(_angle([1], story_id="nemertes-4", use_case="network_modernization"))
+    assert story == NO_STORY
+    (kept,) = _stories(_angle([1], story_id="nemertes-4", use_case="m_and_a"))
+    assert kept["id"] == "nemertes-4"
+
+
+def test_every_story_in_the_table_is_accepted_for_each_of_its_own_situations_and_no_other():
+    for known in case_studies.load_stories():
+        for use_case in case_studies.SITUATIONS:
+            (story,) = _stories(_angle([1], story_id=known.id, use_case=use_case))
+            assert (story["id"] == known.id) is (use_case in known.situations), (known.id, use_case)
+
+
+def test_a_story_is_told_once_in_a_brief():
+    first, second = _stories(
+        _angle([1], story_id="michaels", use_case="network_modernization"),
+        _angle([2], title="Second", story_id="michaels", use_case="site_rollout"),
+    )
+    assert first["id"] == "michaels" and second == NO_STORY
+
+
+def test_a_story_on_an_angle_that_was_removed_is_still_free_for_the_next_angle():
+    (story,) = _stories(
+        _angle([99], title="Invented", story_id="michaels"),
+        _angle([2], title="Real", story_id="michaels"),
+    )
+    assert story["id"] == "michaels"
+
+
+def test_an_angle_may_go_without_a_story():
+    first, second = _stories(_angle([1], story_id="none"), _angle([2], title="Second", story_id="none"))
+    assert first == NO_STORY and second == NO_STORY
 
 
 def test_a_story_that_is_not_in_the_knowledge_base_is_dropped():
