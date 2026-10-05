@@ -9,7 +9,7 @@ from unittest.mock import patch
 
 import pytest
 
-from app import MAX_COMPANY_PREFILL_CHARS, clean_company_prefill
+from briefparse import MAX_COMPANY_PREFILL_CHARS, clean_company_prefill
 
 # ── Sanitising the query value ───────────────────────────────────
 

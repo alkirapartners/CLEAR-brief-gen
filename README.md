@@ -46,12 +46,20 @@ Browser (HTTPS)
 
 | File | Purpose |
 |------|---------|
-| `app.py` | Streamlit web app — UI, auth gate, brief parsing and rendering |
+| `app.py` | Streamlit web app — UI, auth gate and rendering. Still the served UI until the shared front end cuts over |
 | `research.py` | Tavily search + extract, result ranking, source payload |
 | `generate.py` | The single streamed Sonnet 5 call |
 | `prompts.py` | Prompt-cached system prefix + per-brief user message |
 | `generate_brief.py` | CLI tool for generating briefs from the terminal |
 | `briefgen-proxy.js` | Node.js auth backend — magic links, sessions, admin read API |
+| `server.py` | Brief API: FastAPI routes under `/api/brief/` (JSON plus a server-sent-event stream for generation) |
+| `brief_service.py` | Generate / reuse / save / refresh rules, the one-generation-per-user guard and the daily cap |
+| `brief_view.py` | Shapes a stored brief row into the API's summary and detail objects |
+| `streaming.py` | Runs a blocking job in a thread and exposes it as an SSE stream with a heartbeat |
+| `briefparse.py` | Pure brief-markdown parsers and the company-name cleaner (no Streamlit, no I/O) |
+| `authdep.py` | `X-Auth-Email` request dependency and the admin check |
+| `settings.py` | Environment configuration for the Brief API |
+| `errors.py` | Errors whose message is safe to show to a partner |
 | `db.py` | Supabase persistence and the 7-day repeat-company cache |
 | `pdf.py` | PDF generation (fpdf2) |
 | `notifications.py` | Slack webhook on successful brief generation |
@@ -102,12 +110,30 @@ SLACK_WEBHOOK_URL=https://hooks.slack.com/services/...  # optional — posts a n
 
 `ANTHROPIC_API_KEY` and `TAVILY_API_KEY` are both required; the app fails at the config guard without them. There is no agent or environment to provision.
 
+Optional settings for the Brief API:
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `BRIEF_DAILY_LIMIT` | `50` | Paid generations (new briefs and updates) each person may run per UTC day. Reused research is free and not counted. |
+| `BRIEF_DATA_DIR` | `./data` | Where daily usage files (`brief-usage-YYYY-MM-DD.jsonl`) are kept. In production `data/` is the EFS symlink, so both instances share one count. |
+| `BRIEF_ADMINS_FILE` | `/var/www/briefgen/data/admins.json` | The admin list used to show the Settings link. |
+
 ```bash
 # Run the app
 streamlit run app.py
 ```
 
 App opens at `http://localhost:8501`. Auth is bypassed locally — the nginx gate only runs in production.
+
+**Brief API** (runs alongside the Streamlit page; Streamlit remains the served UI until the shared front end cuts over):
+
+```bash
+uvicorn server:app --host 127.0.0.1 --port 8501 --reload
+# every request needs the header nginx sets in production:
+curl -H "X-Auth-Email: you@example.com" http://127.0.0.1:8501/api/brief/briefs
+```
+
+Both default to port 8501, so run one at a time or pass a different `--port`. `BRIEF_DAILY_LIMIT` (default 50) caps new briefs per user per UTC day.
 
 ### CLI Usage
 

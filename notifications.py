@@ -1,7 +1,7 @@
 """
 Slack notification dispatch for brief generation events.
 
-Reads SLACK_WEBHOOK_URL from env vars first, then st.secrets.
+Reads SLACK_WEBHOOK_URL from the environment.
 All public functions catch their own exceptions and return a safe
 default so a notification failure never affects the calling code.
 """
@@ -13,20 +13,12 @@ import urllib.error
 import urllib.request
 from datetime import datetime, timezone
 
-import streamlit as st
-
 logger = logging.getLogger(__name__)
 
 
 def _slack_webhook_url() -> str:
-    """Read SLACK_WEBHOOK_URL from env, then st.secrets. Returns '' if unset."""
-    val = os.environ.get("SLACK_WEBHOOK_URL", "")
-    if not val:
-        try:
-            val = st.secrets.get("SLACK_WEBHOOK_URL", "")
-        except FileNotFoundError:
-            val = ""
-    return val
+    """Read SLACK_WEBHOOK_URL from the environment. Returns '' if unset."""
+    return os.environ.get("SLACK_WEBHOOK_URL", "")
 
 
 def _post(url: str, payload: dict, timeout: float = 5.0) -> None:
@@ -45,6 +37,11 @@ def _post(url: str, payload: dict, timeout: float = 5.0) -> None:
             )
 
 
+def _escape_slack(text: str) -> str:
+    """Neutralise Slack's control characters, so text cannot ping a channel or forge a link."""
+    return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+
 def _format_message(email: str, company: str, score: int) -> str:
     """Return the Slack-formatted notification text for a brief generation."""
     # Alkira Fit Score is a 1-5 scale (see README).
@@ -59,9 +56,9 @@ def _format_message(email: str, company: str, score: int) -> str:
 
     return (
         f"{emoji} *New Alkira brief generated*\n"
-        f"*Company:* {company}\n"
+        f"*Company:* {_escape_slack(company)}\n"
         f"*Score:* {score}\n"
-        f"*By:* {email}\n"
+        f"*By:* {_escape_slack(email)}\n"
         f"*At:* {now_utc}"
     )
 

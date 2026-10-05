@@ -3,66 +3,98 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Alkira | Brief Generator | Admin</title>
+<title>Alkira | Settings</title>
 <link rel="icon" type="image/png" href="/favicon.png"/>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
+/* Tokens mirror the app's design system (web/styles/tokens.css in the front end). */
+:root {
+  --canvas: #F5F5F3; --surface: #FFFFFF; --sunken: #EFEFED; --ink: #141414; --ink-2: #5F6673;
+  --line: rgba(20,20,20,.07); --line-strong: rgba(20,20,20,.13);
+  --accent: #2D58F2; --accent-strong: #2144CC; --accent-tint: rgba(45,88,242,.10);
+  --positive: #15803D; --negative: #BE123C;
+  --shadow-card: 0 1px 2px rgba(20,20,20,.04), 0 8px 24px rgba(20,20,20,.04);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+}
 * { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: 'Inter', sans-serif; background: #F4F7FB; min-height: 100vh; color: #1A2B40; }
+body {
+  font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  background: var(--canvas); color: var(--ink); min-height: 100vh; min-height: 100dvh;
+  -webkit-font-smoothing: antialiased;
+}
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
-.topbar { background: #0D2F5E; height: 60px; display: flex; align-items: center; justify-content: space-between; padding: 0 28px; }
-.topbar-brand { display: flex; align-items: center; gap: 14px; }
-.topbar-brand img { height: 28px; }
-.topbar-title { color: rgba(255,255,255,.55); font-size: 13px; font-weight: 600; border-left: 1px solid rgba(255,255,255,.2); padding-left: 14px; margin-left: 4px; }
-.topbar-user { font-size: 13px; color: rgba(255,255,255,.7); display: flex; align-items: center; gap: 12px; }
-.logout-btn { background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.2); color: rgba(255,255,255,.8); padding: 5px 14px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; transition: background .15s; text-decoration: none; display: inline-block; }
-.logout-btn:hover { background: rgba(255,255,255,.18); }
-.cyan-bar { height: 3px; background: linear-gradient(90deg, #00B4E5, #0096C7); }
+.topbar {
+  position: sticky; top: 0; z-index: 10; height: 64px;
+  display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 0 clamp(16px, 4vw, 32px);
+  background: rgba(245,245,243,.8); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--line);
+}
+.topbar-brand { display: flex; align-items: center; gap: 14px; min-width: 0; }
+.topbar-brand img { height: 28px; width: auto; }
+.topbar-title { color: var(--ink-2); font-size: 14px; font-weight: 500; border-left: 1px solid var(--line-strong); padding-left: 14px; white-space: nowrap; }
+.topbar-user { font-size: 14px; color: var(--ink-2); display: flex; align-items: center; gap: 8px; min-width: 0; }
+#user-email { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-right: 6px; }
+.logout-btn {
+  display: inline-flex; align-items: center; height: 40px; padding: 0 16px;
+  background: var(--surface); border: 1px solid var(--line-strong); border-radius: 999px;
+  color: var(--ink); font-size: 14px; font-weight: 500; font-family: inherit; text-decoration: none; white-space: nowrap; cursor: pointer;
+  transition: background-color .15s var(--ease-out), transform .15s var(--ease-out);
+}
+.logout-btn:hover { background: var(--sunken); }
+.logout-btn:active { transform: scale(.97); }
 
-.page { max-width: 720px; margin: 0 auto; padding: 36px 24px 60px; }
-.page-title { font-size: 22px; font-weight: 700; color: #0D2F5E; margin-bottom: 6px; }
-.page-sub   { font-size: 14px; color: #6b7280; margin-bottom: 32px; }
+.page { max-width: 760px; margin: 0 auto; padding: 40px clamp(16px, 4vw, 32px) 72px; animation: rise .4s var(--ease-out) both; }
+@keyframes rise { from { opacity: 0; transform: translateY(10px); } }
+.page-title { font-size: 34px; font-weight: 600; letter-spacing: -0.026em; line-height: 1.1; margin-bottom: 8px; }
+.page-sub   { font-size: 15px; color: var(--ink-2); margin-bottom: 28px; }
 
-.card { background: #fff; border-radius: 12px; border: 1px solid #D8E4F0; box-shadow: 0 2px 8px rgba(13,47,94,.08); margin-bottom: 20px; overflow: hidden; }
-.card-head { background: #F0F5FB; border-bottom: 1px solid #D8E4F0; padding: 14px 20px; }
-.card-title { font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #0D2F5E; }
-.card-body  { padding: 20px; }
+.callout {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+  background: var(--accent-tint); border-radius: 20px; padding: 18px 22px; margin-bottom: 20px;
+}
+.callout-text { font-size: 15px; color: var(--ink); line-height: 1.5; }
+.callout-link {
+  display: inline-flex; align-items: center; height: 44px; padding: 0 20px;
+  background: var(--accent); color: #fff; border-radius: 999px; font-size: 15px; font-weight: 500; text-decoration: none; white-space: nowrap;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.22), 0 6px 18px rgba(45,88,242,.3);
+  transition: background-color .15s var(--ease-out), transform .15s var(--ease-out);
+}
+.callout-link:hover { background: var(--accent-strong); }
+.callout-link:active { transform: scale(.97); }
 
-.tag-list { display: flex; flex-wrap: wrap; gap: 8px; min-height: 36px; align-items: center; margin-bottom: 16px; }
-.tag { display: inline-flex; align-items: center; gap: 6px; background: #EFF6FF; border: 1px solid #BFDBFE; color: #1D4ED8; border-radius: 20px; padding: 4px 10px 4px 14px; font-size: 13px; font-weight: 500; }
-.tag-remove { background: none; border: none; color: #93C5FD; cursor: pointer; font-size: 16px; line-height: 1; padding: 0; transition: color .15s; display: flex; align-items: center; }
-.tag-remove:hover { color: #DC2626; }
-.tag-empty { font-size: 13px; color: #9CA3AF; font-style: italic; }
+.card { background: var(--surface); border-radius: 20px; border: 1px solid var(--line); box-shadow: var(--shadow-card); margin-bottom: 20px; padding: 24px 26px; }
+.card-title { display: block; font-size: 11px; font-weight: 600; letter-spacing: .09em; text-transform: uppercase; color: var(--ink-2); }
+.card-note { font-size: 15px; color: var(--ink-2); line-height: 1.55; margin: 12px 0 18px; }
 
-.add-row { display: flex; gap: 8px; }
-.add-row input { flex: 1; padding: 8px 12px; border: 1px solid #D1D5DB; border-radius: 8px; font-size: 14px; font-family: inherit; outline: none; transition: border .15s; }
-.add-row input:focus { border-color: #2563EB; box-shadow: 0 0 0 3px rgba(37,99,235,.1); }
-.add-btn { background: #0D2F5E; color: #fff; border: none; padding: 8px 18px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; transition: background .15s; }
-.add-btn:hover { background: #164b8a; }
-.add-btn:disabled { opacity: .5; cursor: default; }
+.tag-list { display: flex; flex-wrap: wrap; gap: 8px; min-height: 32px; align-items: center; }
+.tag { display: inline-flex; align-items: center; height: 32px; padding: 0 14px; background: var(--sunken); color: var(--ink); border-radius: 999px; font-size: 14px; font-weight: 500; }
+.tag-empty { font-size: 14px; color: var(--ink-2); }
 
-.notice { padding: 12px 16px; border-radius: 8px; font-size: 13px; margin-bottom: 16px; display: none; }
-.notice.info  { background: #EFF6FF; border: 1px solid #BFDBFE; color: #1D4ED8; }
-.notice.error { background: #FEF2F2; border: 1px solid #FECACA; color: #DC2626; }
-.notice.ok    { background: #ECFDF5; border: 1px solid #A7F3D0; color: #065F46; }
-
-#auth-screen { display: flex; min-height: 100vh; align-items: center; justify-content: center; background: #F4F7FB; padding: 24px; }
-.auth-card { background: #fff; border-radius: 16px; box-shadow: 0 4px 24px rgba(13,47,94,.12); padding: 48px 40px; width: 100%; max-width: 400px; text-align: center; }
-.auth-logo { height: 36px; width: auto; margin-bottom: 28px; }
-.auth-title { font-size: 20px; font-weight: 700; color: #111827; margin-bottom: 8px; }
-.auth-sub   { font-size: 14px; color: #6b7280; line-height: 1.6; margin-bottom: 28px; }
-.auth-input { width: 100%; padding: 11px 14px; border: 1px solid #D1D5DB; border-radius: 8px; font-size: 15px; font-family: inherit; outline: none; margin-bottom: 12px; transition: border .15s; }
-.auth-input:focus { border-color: #0D2F5E; box-shadow: 0 0 0 3px rgba(13,47,94,.1); }
-.auth-btn { width: 100%; padding: 12px; background: #0D2F5E; color: #fff; border: none; border-radius: 8px; font-size: 15px; font-weight: 700; cursor: pointer; transition: background .15s; }
-.auth-btn:hover { background: #164b8a; }
-.auth-btn:disabled { opacity: .5; cursor: default; }
-.auth-msg { font-size: 13px; color: #6b7280; margin-top: 14px; min-height: 20px; }
-.auth-msg.error { color: #DC2626; }
-.auth-msg.ok    { color: #059669; }
+#auth-screen { display: flex; min-height: 100vh; min-height: 100dvh; align-items: center; justify-content: center; padding: 24px;
+  background-image: radial-gradient(60% 50% at 50% 0%, rgba(45,88,242,.10), transparent 70%); background-repeat: no-repeat; }
+.auth-card { background: var(--surface); border: 1px solid var(--line); border-radius: 24px; box-shadow: 0 1px 2px rgba(20,20,20,.04), 0 18px 44px rgba(20,20,20,.07); padding: 44px 40px 36px; width: 100%; max-width: 420px; text-align: center; }
+.auth-logo { height: 34px; width: auto; margin-bottom: 30px; }
+.auth-title { font-size: 24px; font-weight: 600; letter-spacing: -0.02em; margin-bottom: 8px; }
+.auth-sub   { font-size: 15px; color: var(--ink-2); line-height: 1.6; margin-bottom: 26px; }
+.auth-input { width: 100%; height: 52px; padding: 0 16px; border: 1px solid var(--line-strong); border-radius: 12px; font-size: 16px; font-family: inherit; color: var(--ink); outline: none; margin-bottom: 12px; transition: border-color .15s var(--ease-out), box-shadow .15s var(--ease-out); }
+.auth-input:focus { border-color: var(--accent); box-shadow: 0 0 0 4px rgba(45,88,242,.15); }
+.auth-btn { width: 100%; height: 52px; background: var(--accent); color: #fff; border: none; border-radius: 999px; font-size: 16px; font-weight: 500; font-family: inherit; cursor: pointer; box-shadow: inset 0 1px 0 rgba(255,255,255,.22), 0 6px 18px rgba(45,88,242,.3); transition: background-color .15s var(--ease-out), transform .15s var(--ease-out); }
+.auth-btn:hover { background: var(--accent-strong); }
+.auth-btn:active { transform: scale(.97); }
+.auth-btn:disabled { opacity: .5; cursor: default; box-shadow: none; }
+.auth-msg { font-size: 14px; color: var(--ink-2); margin-top: 14px; min-height: 21px; }
+.auth-msg.error { color: var(--negative); }
+.auth-msg.ok    { color: var(--positive); }
+.auth-legal { font-size: 12.5px; color: var(--ink-2); margin-top: 26px; padding-top: 20px; border-top: 1px solid var(--line); line-height: 1.55; }
+.auth-alt { display: inline-flex; align-items: center; min-height: 44px; margin-top: 8px; padding: 0 12px; border-radius: 999px; font-size: 14px; color: var(--ink-2); text-decoration: none; transition: color .15s var(--ease-out), background-color .15s var(--ease-out); }
+.auth-alt:hover { color: var(--ink); background: rgba(20,20,20,.05); }
 
 #app-screen { display: none; }
+@media (max-width: 560px) { .topbar-title, #user-email { display: none; } .auth-card { padding: 32px 22px 28px; border-radius: 20px; } }
+@media (prefers-reduced-motion: reduce) { .page { animation: none; } * { transition-duration: .01ms !important; } }
 </style>
 </head>
 <body>
@@ -71,13 +103,13 @@ body { font-family: 'Inter', sans-serif; background: #F4F7FB; min-height: 100vh;
 <div id="auth-screen">
   <div class="auth-card">
     <img src="/Alkira-Logo-Registered-Color.png" class="auth-logo" alt="Alkira">
-    <div class="auth-title">Admin Sign In</div>
+    <h1 class="auth-title">Admin sign in</h1>
     <div class="auth-sub" id="auth-sub">Enter your admin email to receive a sign-in link.</div>
-    <input id="auth-email" class="auth-input" type="email" placeholder="you@alkira.com" autocomplete="email">
-    <button id="auth-btn" class="auth-btn">Send Sign-In Link</button>
+    <input id="auth-email" class="auth-input" type="email" placeholder="you@alkira.com" autocomplete="email" aria-label="Admin email">
+    <button id="auth-btn" class="auth-btn" type="button">Send sign-in link</button>
     <div id="auth-msg" class="auth-msg"></div>
-    <div style="font-size:11px;color:#9CA3AF;margin-top:20px;line-height:1.5">This system is for authorized users only. Unauthorized access or use is strictly prohibited.</div>
-    <a href="/auth.html" style="display:inline-block;margin-top:16px;font-size:12px;color:#9CA3AF;text-decoration:none;transition:color .15s" onmouseover="this.style.color='#0D2F5E'" onmouseout="this.style.color='#9CA3AF'">User sign in →</a>
+    <div class="auth-legal">This system is for authorized users only. Unauthorized access or use is strictly prohibited.</div>
+    <a href="/auth.html" class="auth-alt">User sign in</a>
   </div>
 </div>
 
@@ -85,35 +117,30 @@ body { font-family: 'Inter', sans-serif; background: #F4F7FB; min-height: 100vh;
 <div id="app-screen">
   <div class="topbar">
     <div class="topbar-brand">
-      <img src="/Alkira-Logo-Registered-White.png" alt="Alkira">
-      <span class="topbar-title">Brief Generator — Admin</span>
+      <img src="/Alkira-Logo-Registered-Color.png" alt="Alkira">
+      <span class="topbar-title">Settings</span>
     </div>
     <div class="topbar-user">
       <span id="user-email"></span>
-      <a href="/" class="logout-btn">← App</a>
+      <a href="/" class="logout-btn">Back to the app</a>
       <button class="logout-btn" id="logout-btn">Sign out</button>
     </div>
   </div>
-  <div class="cyan-bar"></div>
 
   <div class="page">
-    <div class="page-title">Admin Panel</div>
+    <h1 class="page-title">Settings</h1>
     <div class="page-sub">Access settings for the Alkira Brief Generator.</div>
 
-    <div style="background:#EFF6FF;border:1px solid #BFDBFE;border-radius:10px;padding:14px 18px;margin-bottom:24px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap">
-      <span style="font-size:13px;color:#1D4ED8">Trusted domains and admins are managed centrally in the Channel Team Dashboard.</span>
-      <a href="https://dashboard.partners.alkira.cc" target="_blank" style="font-size:13px;font-weight:600;color:#fff;background:#1D4ED8;padding:7px 16px;border-radius:7px;text-decoration:none;white-space:nowrap">Open Dashboard →</a>
+    <div class="callout">
+      <span class="callout-text">Trusted domains and admins are managed centrally in the Channel Team Dashboard.</span>
+      <a href="https://dashboard.partners.alkira.cc" target="_blank" rel="noopener noreferrer" class="callout-link">Open dashboard</a>
     </div>
 
     <!-- Trusted Domains -->
     <div class="card">
-      <div class="card-head">
-        <span class="card-title">Trusted Domains</span>
-      </div>
-      <div class="card-body">
-        <p style="font-size:13px;color:#6b7280;margin-bottom:14px">Users with an email from a trusted domain can request access via magic link.</p>
-        <div id="domains-list" class="tag-list"></div>
-      </div>
+      <h2 class="card-title">Trusted domains</h2>
+      <p class="card-note">Anyone with an email at one of these domains can sign in with a code sent to that address.</p>
+      <div id="domains-list" class="tag-list"></div>
     </div>
   </div>
 </div>
@@ -205,8 +232,13 @@ async function loadAdmins() {
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function renderTags(listId, items) {
   const el = $(listId);
-  if (!items.length) { el.innerHTML = '<span class="tag-empty">None configured.</span>'; return; }
-  el.innerHTML = items.map(item => `<span class="tag" style="padding:4px 14px">${item}</span>`).join('');
+  if (!el) return;
+  el.replaceChildren(...(items.length ? items : ['None configured.']).map(item => {
+    const tag = document.createElement('span');
+    tag.className = items.length ? 'tag' : 'tag-empty';
+    tag.textContent = item;
+    return tag;
+  }));
 }
 
 boot();

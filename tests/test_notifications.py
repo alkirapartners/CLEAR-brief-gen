@@ -1,5 +1,8 @@
 """Tests for Slack notifications module."""
 
+import sys
+import types
+
 import pytest
 
 from notifications import _format_message
@@ -59,19 +62,18 @@ def test_slack_webhook_url_reads_from_env(monkeypatch):
 
 def test_slack_webhook_url_returns_empty_when_unset(monkeypatch):
     monkeypatch.delenv("SLACK_WEBHOOK_URL", raising=False)
-    # Mock st.secrets too so the test is deterministic regardless of whether
-    # a .streamlit/secrets.toml file exists in the runner's CWD.
-    with patch("notifications.st") as mock_st:
-        mock_st.secrets.get.return_value = ""
-        assert _slack_webhook_url() == ""
+    assert _slack_webhook_url() == ""
 
 
-def test_slack_webhook_url_falls_back_to_st_secrets(monkeypatch):
+def test_slack_webhook_url_ignores_streamlit_secrets(monkeypatch):
+    # The st.secrets fallback was removed with the Streamlit import: the
+    # webhook now comes from the environment only.
     monkeypatch.delenv("SLACK_WEBHOOK_URL", raising=False)
-    fake_secrets = {"SLACK_WEBHOOK_URL": "https://hooks.slack.com/from-secrets"}
-    with patch("notifications.st") as mock_st:
-        mock_st.secrets.get.side_effect = lambda k, d="": fake_secrets.get(k, d)
-        assert _slack_webhook_url() == "https://hooks.slack.com/from-secrets"
+    fake_streamlit = types.SimpleNamespace(
+        secrets={"SLACK_WEBHOOK_URL": "https://hooks.slack.com/from-secrets"}
+    )
+    monkeypatch.setitem(sys.modules, "streamlit", fake_streamlit)
+    assert _slack_webhook_url() == ""
 
 
 from unittest.mock import MagicMock
@@ -110,9 +112,7 @@ from notifications import notify_brief_generated
 
 def test_notify_returns_false_when_webhook_unset(monkeypatch):
     monkeypatch.delenv("SLACK_WEBHOOK_URL", raising=False)
-    with patch("notifications.st") as mock_st:
-        mock_st.secrets.get.return_value = ""
-        result = notify_brief_generated("u@x.com", "Acme", 3)
+    result = notify_brief_generated("u@x.com", "Acme", 3)
     assert result is False
 
 
@@ -143,3 +143,13 @@ def test_notify_returns_false_on_http_error(monkeypatch):
     with patch("notifications._post", side_effect=err):
         result = notify_brief_generated("u@x.com", "Acme", 3)
     assert result is False
+
+
+def test_format_message_neutralises_slack_markup_in_the_company_and_email():
+    """The company name is typed by a partner; it must not ping a channel or forge a link."""
+    msg = _format_message("u<x>@x.com", "<!channel> Acme & <https://evil.example|Alkira>", 3)
+
+    assert "<!channel>" not in msg
+    assert "<https://evil.example|Alkira>" not in msg
+    assert "&lt;!channel&gt; Acme &amp; &lt;https://evil.example|Alkira&gt;" in msg
+    assert "u&lt;x&gt;@x.com" in msg

@@ -339,7 +339,7 @@ def test_english_pdf_chrome_is_unchanged():
 
 def test_spanish_brief_still_parses_through_the_english_extractors():
     """The whole design rests on this: Spanish content, English keys."""
-    from app import extract_entry_points, extract_infra_cells, extract_score, extract_section
+    from briefparse import extract_entry_points, extract_infra_cells, extract_score, extract_section
 
     cells = extract_infra_cells(FULL_BRIEF)
     assert all(cells.values()), f"blank infra cell: {cells}"

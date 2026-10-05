@@ -41,14 +41,32 @@ SLACK_WEBHOOK_URL=https://hooks.slack.com/services/...  # optional
 
 The app opens at http://localhost:8501.
 
+The Brief API (FastAPI routes under `/api/brief/`) runs alongside the Streamlit page. Streamlit remains the served UI until the shared front end cuts over.
+
+```bash
+uvicorn server:app --host 127.0.0.1 --port 8501 --reload
+# every request needs the header nginx sets in production:
+curl -H "X-Auth-Email: you@example.com" http://127.0.0.1:8501/api/brief/briefs
+```
+
+Both default to port 8501, so run one at a time or pass a different `--port`. Tests: `pip install -r requirements-dev.txt` then `python -m pytest -q`.
+
 ## File Overview
 
 | File | Purpose |
 |------|---------|
-| `app.py` | Streamlit web app — UI, brief parsing, rendering, history |
+| `app.py` | Streamlit web app — UI, rendering, history. Still the served UI until the shared front end cuts over |
 | `research.py` | Tavily search + extract, ranking, source payload |
 | `generate.py` | The single streamed Sonnet 5 call |
 | `prompts.py` | Cached system prefix + per-brief user message |
+| `server.py` | Brief API: FastAPI routes under `/api/brief/` (JSON plus a server-sent-event stream for generation) |
+| `brief_service.py` | Generate / reuse / save / refresh rules, the one-generation-per-user guard and the daily cap |
+| `brief_view.py` | Shapes a stored brief row into the API's summary and detail objects |
+| `streaming.py` | Runs a blocking job in a thread and exposes it as an SSE stream with a heartbeat |
+| `briefparse.py` | Pure brief-markdown parsers and the company-name cleaner (no Streamlit, no I/O) |
+| `authdep.py` | `X-Auth-Email` request dependency and the admin check |
+| `settings.py` | Environment configuration for the Brief API |
+| `errors.py` | Errors whose message is safe to show to a partner |
 | `db.py` | Supabase persistence and the 7-day repeat-company cache |
 | `pdf.py` | PDF generation (fpdf2) |
 | `notifications.py` | Slack webhook on successful generation |

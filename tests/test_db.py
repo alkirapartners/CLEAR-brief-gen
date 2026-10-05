@@ -96,7 +96,7 @@ def test_find_recent_brief_by_company_returns_match():
     (fake_client.table.return_value.select.return_value.ilike.return_value
      .gte.return_value.order.assert_called_once_with("created_at", desc=True))
     (fake_client.table.return_value.select.return_value.ilike.return_value
-     .gte.return_value.order.return_value.limit.assert_called_once_with(1))
+     .gte.return_value.order.return_value.limit.assert_called_once_with(db.CACHE_CANDIDATES))
 
 
 def test_find_recent_brief_by_company_returns_none_when_empty():
