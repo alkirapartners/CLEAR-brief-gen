@@ -7,8 +7,9 @@ score cannot claim more than the angles that survive support.
 """
 
 import logging
+import re
 from datetime import date
-from typing import Iterable, Sequence
+from typing import Any, Iterable, Sequence
 
 import case_studies
 from brief_doc import (
@@ -26,6 +27,30 @@ MAX_SCORE_WITHOUT_ANGLES = 2
 MAX_SCORE_WITH_ONE_ANGLE = 4
 # The language the story table is written in.
 TABLE_LANGUAGE = "en"
+
+
+# The brief shows no links of the model's own making. Sources are cited by
+# number and listed by the code; the website is checked on its own.
+_MARKDOWN_LINK = re.compile(r"!?\[([^\]]*)\]\([^)]*\)")
+_BARE_URL = re.compile(r"(?:https?://|www\.)\S+", re.IGNORECASE)
+_NOT_PROSE = frozenset({"website"})
+
+
+def _plain(text: str) -> str:
+    """Text with markdown links reduced to their words and web addresses removed."""
+    unlinked = _MARKDOWN_LINK.sub(r"\1", text)
+    return " ".join(_BARE_URL.sub("", unlinked).split())
+
+
+def _scrub(value: Any) -> Any:
+    """A copy of the writer's output with every string made plain, at any depth."""
+    if isinstance(value, str):
+        return _plain(value)
+    if isinstance(value, list):
+        return [_scrub(item) for item in value]
+    if isinstance(value, dict):
+        return {key: item if key in _NOT_PROSE else _scrub(item) for key, item in value.items()}
+    return value
 
 
 def _known(numbers: Iterable[int], valid: frozenset[int]) -> list[int]:
@@ -135,6 +160,7 @@ def finalize(
     saw them. Only the ones the brief cites become its references, and they
     are renumbered from 1 in the order the brief cites them.
     """
+    output = _scrub(output)
     valid = frozenset(ref["n"] for ref in candidates)
     angles = _angles(output["angles"], valid, language)
     snapshot = _snapshot(output["snapshot"], valid)

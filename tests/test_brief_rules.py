@@ -190,3 +190,32 @@ def test_a_real_website_is_kept_rebuilt_from_its_parts():
     company = {**SAMPLE_DOC["company"], "website": " HTTPS://WWW.Northwind.example/about#team "}
     doc = _finalize(writer_output(company=company))
     assert doc["company"]["website"] == "https://www.northwind.example/about"
+
+
+def test_links_and_addresses_are_removed_from_everything_the_model_wrote():
+    """A brief is read by partners: nothing the model wrote may carry them to a web address."""
+    output = writer_output()
+    output["fit"]["verdict"] = "Strong fit, see [the full report](https://evil.example/login) for more."
+    output["fit"]["lead"] = "Call the CIO or visit www.evil.example/now today."
+    output["angles"][0]["alkira"] = "Details at HTTPS://evil.example/a?b=c and ![x](http://evil.example/p.png) here."
+    output["angles"][0]["evidence"][0]["text"] = "A posting lists ExpressRoute http://evil.example"
+    output["snapshot"]["wan"]["text"] = "SD-WAN [vendor](http://evil.example)"
+    output["people"][0]["note"] = "Profile: https://evil.example/u/1"
+    output["questions"][0]["question"] = "Have you seen https://evil.example ?"
+    output["unconfirmed"] = ["Confirm at https://evil.example/confirm"]
+    output["company"]["identity_note"] = "Not [Northwind Traders](https://evil.example)."
+    doc = _finalize(output)
+    assert doc["fit"]["verdict"] == "Strong fit, see the full report for more."
+    assert doc["fit"]["lead"] == "Call the CIO or visit today."
+    assert doc["angles"][0]["alkira"] == "Details at and x here."
+    assert doc["snapshot"]["wan"]["text"] == "SD-WAN vendor"
+    assert doc["company"]["identity_note"] == "Not Northwind Traders."
+    everything = brief_doc.dump({**doc, "references": [], "company": {**doc["company"], "website": ""}})
+    assert "evil.example" not in everything and "](" not in everything
+
+
+def test_scrubbing_leaves_identifiers_and_the_writer_output_alone():
+    output = writer_output()
+    doc = _finalize(output)
+    assert doc["angles"][0]["use_case"] == "multi_cloud" and doc["angles"][0]["story"]["id"] == "koch"
+    assert output == writer_output()
