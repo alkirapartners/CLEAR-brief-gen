@@ -454,6 +454,19 @@ def test_blank_list_items_are_dropped():
     assert doc["unconfirmed"] == ["Who owns the WAN."] and doc["raise_score"] == []
 
 
+# ── The ticker is stated one way ─────────────────────────────────
+
+def test_the_ticker_is_stored_as_exchange_and_symbol_whatever_the_model_wrote():
+    for written, stored_as in (
+        ("AAP (NYSE)", "NYSE: AAP"),
+        ("NYSE: NWE", "NYSE: NWE"),
+        ("SHE:300866 (Shenzhen); also listed in Hong Kong since 2 July", "SHE: 300866"),
+        ("Privately held", ""),
+    ):
+        company = {**SAMPLE_DOC["company"], "ticker": written}
+        assert _finalize(writer_output(company=company))["company"]["ticker"] == stored_as
+
+
 # ── Links ────────────────────────────────────────────────────────
 
 def test_a_website_that_is_not_a_public_web_address_is_dropped():

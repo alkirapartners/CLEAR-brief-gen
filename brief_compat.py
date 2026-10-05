@@ -6,6 +6,7 @@ starters and references. These functions fill every one of those from a
 brief document, so the page keeps working until it learns the new layout.
 """
 
+import ticker
 from brief_doc import BriefDoc, EvidenceLine, Person, SnapshotLine, Story
 
 MAX_LEGACY_SIGNALS = 6
@@ -45,8 +46,8 @@ def person_text(person: Person) -> str:
 def entity_text(doc: BriefDoc) -> str:
     """The legal entity with its ticker, when the research resolved one."""
     legal_name = doc["company"]["legal_name"].strip()
-    ticker = doc["company"]["ticker"].strip()
-    return f"{legal_name} ({ticker})" if legal_name and ticker else legal_name
+    listing = ticker.normalise(doc["company"]["ticker"])
+    return f"{legal_name} ({listing})" if legal_name and listing else legal_name
 
 
 def stat_pairs(doc: BriefDoc, labels: Labels) -> list[tuple[str, str]]:

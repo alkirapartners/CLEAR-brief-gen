@@ -46,6 +46,14 @@ def test_the_stats_line_names_the_entity_and_the_network_headline():
     assert "**" not in line
 
 
+def test_a_ticker_stored_the_old_way_is_still_printed_the_one_way():
+    import brief_compat
+    company = {**SAMPLE_DOC["company"], "legal_name": "Advance Auto Parts, Inc.", "ticker": "AAP (NYSE)"}
+    assert brief_compat.entity_text(make_doc(company=company)) == "Advance Auto Parts, Inc. (NYSE: AAP)"
+    unlisted = {**company, "ticker": "also listed in Hong Kong since July"}
+    assert brief_compat.entity_text(make_doc(company=unlisted)) == "Advance Auto Parts, Inc."
+
+
 def test_a_stat_that_was_not_found_is_left_out_of_the_stats_line():
     stats = {**SAMPLE_DOC["stats"], "revenue": "", "employees": " "}
     line = _detail(stats=stats)["statsLine"]

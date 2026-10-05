@@ -18,8 +18,9 @@ import angle_rules
 import case_studies
 import fit_score
 import i18n
+import ticker
 from brief_doc import (
-    FORMAT_VERSION, SNAPSHOT_KEYS, Angle, BriefDoc, EvidenceLine, Fit, Person, Question,
+    FORMAT_VERSION, SNAPSHOT_KEYS, Angle, BriefDoc, Company, EvidenceLine, Fit, Person, Question,
     Reference, ResearchNote, Snapshot, SnapshotLine, Stats, Story, WriterOutput,
 )
 from evidence import FIRST_HAND, Source, clean_date, parse_date, safe_url, to_references
@@ -247,6 +248,15 @@ def _references(candidates: Sequence[Reference], order: dict[int, int]) -> list[
     return [{**by_number[old], "n": new} for old, new in order.items()]
 
 
+def _company(company: Company) -> Company:
+    """The company as written, with the website checked and the ticker stated one way."""
+    return {
+        **company,
+        "website": safe_url(company["website"]) or "",
+        "ticker": ticker.normalise(company["ticker"]),
+    }
+
+
 def _renumbered_angle(angle: Angle, order: dict[int, int]) -> Angle:
     lines = [{**line, "sources": _renumber(line["sources"], order)} for line in angle["evidence"]]
     return {**angle, "evidence": lines}
@@ -292,7 +302,7 @@ def finalize(
         "format": FORMAT_VERSION,
         "language": language,
         "generated": today.isoformat(),
-        "company": {**output["company"], "website": safe_url(output["company"]["website"]) or ""},
+        "company": _company(output["company"]),
         "stats": _stats(output["stats"], _stated(sources)),
         "fit": fit,
         "angles": [_renumbered_angle(angle, order) for angle in angles],

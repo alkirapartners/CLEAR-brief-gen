@@ -192,9 +192,10 @@ before or after it.
 
 ## Fields
 
-- `company`: `name` is the name a partner would use. `legal_name`, `ticker`
-  (with its exchange) and `website` as the evidence gives them, empty when
-  it does not. `identity_note` says which entity this is and names any
+- `company`: `name` is the name a partner would use. `legal_name` and
+  `website` as the evidence gives them, empty when it does not. `ticker` is
+  the main listing only, written as the exchange, a colon and the symbol,
+  such as `NYSE: DINO`, and empty for a company that is not listed. `identity_note` says which entity this is and names any
   look-alike that was ruled out. Leave it empty when the name was never in
   doubt.
 - `stats`: short values, empty when not found. Copy the headquarters and
