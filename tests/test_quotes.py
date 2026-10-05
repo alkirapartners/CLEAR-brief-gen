@@ -114,3 +114,21 @@ def test_what_names_the_source_does_not_have_to_be_quoted():
     assert quotes.missing_from_quote(fact, quote) == ("HF", "Sinclair", "Dallas")
     context = ("HF Sinclair", "https://careers.hfsinclair.com/job/Dallas-Network-Engineer-TX-75219/1387485900")
     assert quotes.missing_from_quote(fact, quote, context) == ()
+
+
+@pytest.mark.parametrize("fact, quote", [
+    ("It completed the acquisition of Andlauer Healthcare Group on November 3, 2025.", "it has completed the acquisition of Andlauer Healthcare Group Inc."),
+    ("The role was posted Oct 30 2024 and covers VPC networking.", "Strong understanding of VPC networking"),
+    ("The sale of Worldpac closed 2024-11-04.", "announced the close of the sale of Worldpac, Inc."),
+    ("Income fell in the sixteen weeks ended April 25, 2026.", "income recognized in the sixteen weeks ended"),
+    ("The plan was approved on 13 November 2024.", "the Board approved the plan"),
+    ("Posted October 30th 2024 for VPC networking.", "VPC networking, and IAM"),
+], ids=["month-day-year", "abbreviated", "iso", "week-ended", "day-first", "ordinal"])
+def test_a_date_in_a_fact_is_not_a_figure_the_quote_must_hold(fact, quote):
+    """The date belongs to the source. The figures a quote must hold are quantities."""
+    assert quotes.missing_from_quote(fact, quote) == ()
+
+
+def test_a_quantity_beside_a_date_is_still_checked():
+    fact = "On November 3, 2025 it paid $1.6 billion for 31 sites."
+    assert quotes.missing_from_quote(fact, "it paid $1.6 billion for the business") == ("31",)

@@ -55,6 +55,16 @@ def is_on_page(quote: str, page_text: str) -> bool:
 # Labels that hold digits and are not figures: a filing form, a fiscal period.
 _DESIGNATOR = re.compile(r"\b(?:10-[KQ]|20-F|40-F|8-K|S-1|FY\s?\d{2,4}|Q[1-4]|H[12]|24/7)\b", re.IGNORECASE)
 _YEAR = re.compile(r"^(?:19|20)\d{2}$")
+# A date written in a fact is the source's date, not a quantity: "2024-11-04",
+# "November 3, 2025", "Oct 30th 2024", "13 November 2024".
+_MONTH = r"(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\.?"
+_DAY = r"\d{1,2}(?:st|nd|rd|th)?"
+_DATE = re.compile(
+    rf"\b\d{{4}}-\d{{2}}(?:-\d{{2}})?\b"
+    rf"|\b{_MONTH}\s+{_DAY}\b(?:,?\s+(?:19|20)\d{{2}}\b)?"
+    rf"|\b{_DAY}\s+{_MONTH}(?:\s+(?:19|20)\d{{2}}\b)?",
+    re.IGNORECASE,
+)
 _TOKEN = re.compile(r"[A-Za-z][A-Za-z0-9]*(?:[-/&+][A-Za-z0-9]+)*|\d[\d,]*(?:\.\d+)?")
 _ENDS_A_SENTENCE = ".!?:"
 # Capitalised words that describe a source or a role and name nothing.
@@ -76,8 +86,13 @@ def _plain_number(written: str) -> str:
     return number.rstrip("0").rstrip(".") if "." in number else number
 
 
+def _without_labels(text: str) -> str:
+    """The text with dates and labels such as "FY2025" blanked, so only quantities are left as digits."""
+    return _DESIGNATOR.sub(" ", _DATE.sub(" ", text))
+
+
 def _figures(text: str) -> frozenset[str]:
-    found = (_plain_number(token) for token in _TOKEN.findall(_DESIGNATOR.sub(" ", text)) if token[0].isdigit())
+    found = (_plain_number(token) for token in _TOKEN.findall(_without_labels(text)) if token[0].isdigit())
     return frozenset(number for number in found if not _YEAR.match(number))
 
 
@@ -94,10 +109,10 @@ def missing_from_quote(fact: str, quote: str, context: tuple[str, ...] = ()) -> 
     """The figures and names in a fact that its quote does not hold, in the order they appear.
 
     ``context`` is what is known without the quote: the company's name and
-    the page's address. A name found there does not have to be quoted. Years
-    and labels such as "FY2025" or "10-K" are not figures.
+    the page's address. A name found there does not have to be quoted. Years,
+    dates and labels such as "FY2025" or "10-K" are not figures.
     """
-    text = _DESIGNATOR.sub(" ", fact)
+    text = _without_labels(fact)
     quoted, quoted_figures = bare(quote), _figures(quote)
     known = tuple(bare(item) for item in context)
     missing: list[str] = []
