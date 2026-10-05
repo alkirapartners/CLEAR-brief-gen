@@ -3,65 +3,88 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Sign In — Alkira | Brief Generator</title>
+<title>Alkira | Sign in</title>
 <link rel="icon" type="image/png" href="/favicon.png"/>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
+/* Tokens mirror the app's design system (web/styles/tokens.css in the front end). */
+:root {
+  --canvas: #F5F5F3; --surface: #FFFFFF; --ink: #141414; --ink-2: #5F6673;
+  --line: rgba(20,20,20,.07); --line-strong: rgba(20,20,20,.13);
+  --accent: #2D58F2; --accent-strong: #2144CC;
+  --positive: #15803D; --negative: #BE123C;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+}
 * { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: 'Inter', sans-serif; background: #F4F7FB; min-height: 100vh;
-       display: flex; align-items: center; justify-content: center; padding: 24px; }
-
+body {
+  font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  color: var(--ink); background: var(--canvas);
+  min-height: 100vh; min-height: 100dvh;
+  display: flex; align-items: center; justify-content: center; padding: 24px;
+  -webkit-font-smoothing: antialiased;
+  /* A soft wash of the accent behind the card. */
+  background-image: radial-gradient(60% 50% at 50% 0%, rgba(45,88,242,.10), transparent 70%);
+  background-repeat: no-repeat;
+}
 .card {
-  background: #fff;
-  border-radius: 16px;
-  box-shadow: 0 4px 24px rgba(13,47,94,.12);
-  padding: 48px 40px;
-  width: 100%;
-  max-width: 400px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  box-shadow: 0 1px 2px rgba(20,20,20,.04), 0 18px 44px rgba(20,20,20,.07);
+  padding: 44px 40px 36px;
+  width: 100%; max-width: 420px;
   text-align: center;
+  animation: card-in .4s var(--ease-out) both;
 }
-.logo { height: 36px; width: auto; margin-bottom: 28px; }
-.title { font-size: 20px; font-weight: 700; color: #0D1B35; margin-bottom: 8px; }
-.sub   { font-size: 14px; color: #6b7280; line-height: 1.6; margin-bottom: 28px; }
-input  {
-  width: 100%; padding: 11px 14px; border: 1px solid #D1D5DB; border-radius: 8px;
-  font-size: 15px; font-family: inherit; outline: none; margin-bottom: 12px; transition: border .15s;
+@keyframes card-in { from { opacity: 0; transform: translateY(12px); } }
+.logo { height: 34px; width: auto; margin-bottom: 30px; }
+.title { font-size: 24px; font-weight: 600; letter-spacing: -0.02em; margin-bottom: 8px; }
+.sub   { font-size: 15px; color: var(--ink-2); line-height: 1.6; margin-bottom: 26px; }
+input {
+  width: 100%; height: 52px; padding: 0 16px;
+  border: 1px solid var(--line-strong); border-radius: 12px; background: var(--surface);
+  font-size: 16px; font-family: inherit; color: var(--ink); outline: none; margin-bottom: 12px;
+  transition: border-color .15s var(--ease-out), box-shadow .15s var(--ease-out);
 }
-input:focus { border-color: #0D2F5E; box-shadow: 0 0 0 3px rgba(13,47,94,.1); }
+input::placeholder { color: var(--ink-2); opacity: .7; }
+input:hover { border-color: rgba(20,20,20,.25); }
+input:focus { border-color: var(--accent); box-shadow: 0 0 0 4px rgba(45,88,242,.15); }
+.code-input { letter-spacing: 8px; font-size: 22px; text-align: center; font-variant-numeric: tabular-nums; }
 .btn {
-  width: 100%; padding: 12px; background: #0D2F5E; color: #fff; border: none;
-  border-radius: 8px; font-size: 15px; font-weight: 700; cursor: pointer;
-  transition: background .15s;
+  display: flex; align-items: center; justify-content: center;
+  width: 100%; height: 52px; padding: 0 24px;
+  background: var(--accent); color: #fff; border: none; border-radius: 999px;
+  font-size: 16px; font-weight: 500; font-family: inherit; text-decoration: none; cursor: pointer;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.22), 0 6px 18px rgba(45,88,242,.3);
+  transition: background-color .15s var(--ease-out), box-shadow .15s var(--ease-out), transform .15s var(--ease-out);
 }
-.btn:hover   { background: #164b8a; }
-.btn:disabled { opacity: .5; cursor: default; }
-.msg { font-size: 13px; color: #6b7280; margin-top: 14px; min-height: 20px; line-height: 1.5; }
-.msg.error { color: #DC2626; }
-.msg.ok    { color: #059669; }
+.btn:hover { background: var(--accent-strong); box-shadow: inset 0 1px 0 rgba(255,255,255,.22), 0 10px 26px rgba(45,88,242,.38); }
+.btn:active { transform: scale(.97); }
+.btn:disabled { opacity: .5; cursor: default; box-shadow: none; }
+.link-btn {
+  display: inline-flex; align-items: center; min-height: 44px; padding: 0 12px; margin-top: 4px;
+  background: none; border: none; border-radius: 999px;
+  color: var(--ink-2); font-size: 14px; font-family: inherit; cursor: pointer;
+  transition: color .15s var(--ease-out), background-color .15s var(--ease-out);
+}
+.link-btn:hover { color: var(--ink); background: rgba(20,20,20,.05); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+input:focus-visible { outline: none; }
+.msg { font-size: 14px; color: var(--ink-2); margin-top: 14px; min-height: 21px; line-height: 1.5; }
+.msg.error { color: var(--negative); }
+.msg.ok    { color: var(--positive); }
 .warning {
-  background: #fffbeb;
-  border: 1px solid #fcd34d;
-  border-radius: 8px;
-  padding: 10px 14px;
-  font-size: 12px;
-  color: #92400e;
-  line-height: 1.5;
-  margin-top: 24px;
-  text-align: center;
+  margin-top: 26px; padding-top: 20px; border-top: 1px solid var(--line);
+  font-size: 12.5px; color: var(--ink-2); line-height: 1.55; text-align: center;
 }
-.admin-link {
-  display: inline-block;
-  margin-top: 24px;
-  font-size: 12px;
-  color: #9CA3AF;
-  text-decoration: none;
-  transition: color .15s;
+.checking { color: var(--ink-2); font-size: 15px; }
+@media (max-width: 480px) { .card { padding: 32px 22px 28px; border-radius: 20px; } }
+@media (prefers-reduced-motion: reduce) {
+  .card { animation: none; }
+  * { transition-duration: .01ms !important; }
 }
-.admin-link:hover { color: #0D2F5E; }
-.checking { color: #6b7280; font-size: 14px; }
-@media (max-width: 480px) { .card { padding: 28px 20px; } }
 </style>
 </head>
 <body>
@@ -82,7 +105,7 @@ async function boot() {
       if (d.ok && d.email) {
         const dest = d.role === 'admin' && params.get('next') === 'admin'
           ? '/admin.html'
-          : '/?auth_email=' + encodeURIComponent(d.email);
+          : '/';
         location.replace(dest);
         return;
       }
@@ -110,34 +133,31 @@ async function boot() {
 function showSsoForm() {
   document.getElementById('card').innerHTML = `
     <img src="/Alkira-Logo-Registered-Color.png" class="logo" alt="Alkira">
-    <div class="title">Sign In</div>
+    <div class="title">Sign in</div>
     <div class="sub">Sign in with your Alkira account.</div>
-    <a href="https://dashboard.partners.alkira.cc/?return_to=briefgen"
-       style="display:block;width:100%;padding:12px;background:#0D2F5E;color:#fff;border-radius:8px;font-size:15px;font-weight:700;text-decoration:none;text-align:center;box-sizing:border-box">
-      Sign in via Okta SSO →
-    </a>
-    <div class="warning">⚠️ This system is for authorized users only. Unauthorized access is strictly prohibited and may be subject to legal action.</div>
+    <a class="btn" href="https://dashboard.partners.alkira.cc/?return_to=briefgen">Sign in via Okta SSO</a>
+    <div class="warning">This system is for authorized users only. Unauthorized access is strictly prohibited and may be subject to legal action.</div>
   `;
 }
 
 function showForm() {
   document.getElementById('card').innerHTML = `
     <img src="/Alkira-Logo-Registered-Color.png" class="logo" alt="Alkira">
-    <div class="title">Alkira Brief Generator</div>
+    <h1 class="title">Alkira Brief Generator</h1>
     <div id="step1">
       <div class="sub">Enter your work email to receive a sign-in code.</div>
-      <input id="email" type="email" placeholder="you@company.com" autocomplete="email">
-      <button class="btn" id="btn">Login</button>
+      <input id="email" type="email" placeholder="you@company.com" autocomplete="email" aria-label="Work email">
+      <button class="btn" id="btn" type="button">Send sign-in code</button>
     </div>
     <div id="step2" style="display:none">
       <div class="sub">Enter the 6-digit code sent to your email.</div>
-      <input id="code" type="text" inputmode="numeric" maxlength="6" placeholder="000000" autocomplete="one-time-code" style="letter-spacing:6px;font-size:22px;text-align:center">
-      <button class="btn" id="verify-btn">Sign In</button>
-      <button id="back-btn" style="background:none;border:none;color:#6b7280;font-size:13px;cursor:pointer;margin-top:4px;text-decoration:underline;font-family:inherit">Use a different email</button>
-      <button id="resend-btn" style="background:none;border:none;color:#6b7280;font-size:13px;cursor:pointer;margin-top:2px;text-decoration:underline;font-family:inherit">Generate new code</button>
+      <input id="code" class="code-input" type="text" inputmode="numeric" maxlength="6" placeholder="000000" autocomplete="one-time-code" aria-label="6-digit sign-in code">
+      <button class="btn" id="verify-btn" type="button">Sign in</button>
+      <button id="back-btn" class="link-btn" type="button">Use a different email</button>
+      <button id="resend-btn" class="link-btn" type="button">Send a new code</button>
     </div>
-    <div class="msg" id="msg"></div>
-    <div class="warning">⚠️ This system is for authorized users only. Unauthorized access is strictly prohibited and may be subject to legal action.</div>
+    <div class="msg" id="msg" role="status"></div>
+    <div class="warning">This system is for authorized users only. Unauthorized access is strictly prohibited and may be subject to legal action.</div>
   `;
 
   const emailEl   = document.getElementById('email');

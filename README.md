@@ -110,6 +110,14 @@ SLACK_WEBHOOK_URL=https://hooks.slack.com/services/...  # optional — posts a n
 
 `ANTHROPIC_API_KEY` and `TAVILY_API_KEY` are both required; the app fails at the config guard without them. There is no agent or environment to provision.
 
+Optional settings for the Brief API:
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `BRIEF_DAILY_LIMIT` | `50` | Paid generations (new briefs and updates) each person may run per UTC day. Reused research is free and not counted. |
+| `BRIEF_DATA_DIR` | `./data` | Where daily usage files (`brief-usage-YYYY-MM-DD.jsonl`) are kept. In production `data/` is the EFS symlink, so both instances share one count. |
+| `BRIEF_ADMINS_FILE` | `/var/www/briefgen/data/admins.json` | The admin list used to show the Settings link. |
+
 ```bash
 # Run the app
 streamlit run app.py
