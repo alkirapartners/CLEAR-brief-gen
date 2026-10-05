@@ -15,6 +15,31 @@ from briefparse import (
 
 MAX_ENTRY_POINTS = 3
 _BULLET_PREFIX = re.compile(r"^[-*]\s+")
+# A line that is nothing but dashes divides sections in the stored markdown.
+_RULE_LINE = re.compile(r"^\s*-{3,}\s*$")
+_EMPHASIS_CHARS = "*_\"' \t"
+# The brief ends with a confidentiality marker (*CONFIDENTIAL*), in its own language.
+_CONFIDENTIAL_WORDS = frozenset(
+    table["confidential"].casefold() for table in i18n.LABELS.values()
+)
+
+
+def _is_chrome(line: str) -> bool:
+    """A divider or the confidentiality marker: structure, not content."""
+    if _RULE_LINE.match(line):
+        return True
+    return line.strip(_EMPHASIS_CHARS).casefold() in _CONFIDENTIAL_WORDS
+
+
+def _tidy(text: str) -> str:
+    """Section text without the dividers and marker that trail it in the markdown.
+
+    The section readers return everything up to the next heading, which
+    includes the rule line that closes a section and, for the last section,
+    the confidentiality marker. The page shows that marker itself, from the
+    label table.
+    """
+    return "\n".join(line for line in (text or "").splitlines() if not _is_chrome(line)).strip()
 
 
 def to_summary(row: dict) -> dict:
@@ -44,29 +69,29 @@ def to_detail(row: dict) -> dict:
         "company": company or row.get("company") or "",
         "statsLine": (stats_line or "").replace("**", "").strip(),
         "score": score,
-        "scoreRationale": rationale,
+        "scoreRationale": _tidy(rationale),
         "infra": {
-            "cloudPlatforms": cells["cloud_platforms"],
-            "onPrem": cells["on_prem"],
-            "deployment": cells["deployment"],
-            "complexity": cells["complexity"],
+            "cloudPlatforms": _tidy(cells["cloud_platforms"]),
+            "onPrem": _tidy(cells["on_prem"]),
+            "deployment": _tidy(cells["deployment"]),
+            "complexity": _tidy(cells["complexity"]),
         },
         "signals": [
             _BULLET_PREFIX.sub("", line.strip())
-            for line in signals_md.splitlines()
+            for line in _tidy(signals_md).splitlines()
             if line.strip()
         ],
         "entryPoints": [
             {
-                "heading": point.get("heading", ""),
-                "signal": point.get("signal", ""),
-                "solution": point.get("solution", ""),
-                "proof": point.get("proof", ""),
+                "heading": _tidy(point.get("heading", "")),
+                "signal": _tidy(point.get("signal", "")),
+                "solution": _tidy(point.get("solution", "")),
+                "proof": _tidy(point.get("proof", "")),
             }
             for point in extract_entry_points(brief_md)[:MAX_ENTRY_POINTS]
         ],
-        "startersMd": extract_section(brief_md, "Conversation Starters"),
-        "referencesMd": extract_section(brief_md, "References"),
+        "startersMd": _tidy(extract_section(brief_md, "Conversation Starters")),
+        "referencesMd": _tidy(extract_section(brief_md, "References")),
         "language": language,
         "labels": i18n.labels(language),
         "createdAt": row.get("created_at") or "",

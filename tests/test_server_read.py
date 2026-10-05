@@ -84,3 +84,102 @@ def test_spanish_brief_gets_spanish_labels():
     assert data["labels"]["alkira_fit"] != "Alkira Fit"
     listed = client.get("/api/brief/briefs", headers=AUTH).json()["data"]
     assert listed[0]["language"] == "es"
+
+
+# The shape real briefs have: sections divided by rule lines, a confidentiality
+# marker at the end, and a "listening for" note under each question.
+REAL_SHAPE_BRIEF = """# ALKIRA OPPORTUNITY BRIEF
+*October 2026*
+
+## RuleCo
+
+**HQ:** Dallas, TX | **Revenue:** $1B
+
+**Alkira Fit Score: 3 / 5**
+
+RuleCo has one cloud and a stable WAN.
+
+---
+
+## Infrastructure Snapshot
+
+**Cloud Platforms:** Azure (confirmed).
+**On-Prem / Hybrid:** One data center.
+**Deployment Model:** Hybrid.
+**Resulting Complexity:** Forty sites on MPLS.
+
+---
+
+## Signals & Timing
+- New CIO in 2026 (confirmed).
+- WAN contract ends 2027 (directional).
+
+---
+
+## Three Alkira Entry Points
+
+**1. MPLS replacement**
+Signal: The WAN contract ends in 2027.
+Solution: Backbone as a service.
+Proof: 40% lower run cost.
+
+---
+
+## Conversation Starters
+
+**Stakeholders:** CIO, VP Network
+
+1. "What happens when the WAN contract ends?"
+   *(You're listening for: timeline pressure.)*
+
+---
+
+## References
+[1] RuleCo annual report — https://example.com/report
+
+---
+
+*CONFIDENTIAL*
+"""
+
+
+def _real_shape_detail():
+    repo = FakeRepo()
+    row = repo.seed("partner@example.com", company="RuleCo", brief_md=REAL_SHAPE_BRIEF, score=3)
+    return make_client(repo).get(f"/api/brief/briefs/{row['id']}", headers=AUTH).json()["data"]
+
+
+def test_rule_lines_between_sections_never_reach_a_field():
+    data = _real_shape_detail()
+
+    assert data["signals"] == ["New CIO in 2026 (confirmed).", "WAN contract ends 2027 (directional)."]
+    assert data["infra"]["complexity"] == "Forty sites on MPLS."
+    assert data["scoreRationale"] == "RuleCo has one cloud and a stable WAN."
+    assert data["entryPoints"][0]["proof"] == "40% lower run cost."
+    assert "---" not in "".join(
+        [data["startersMd"], data["referencesMd"], data["scoreRationale"], *data["infra"].values()]
+    )
+
+
+def test_the_confidentiality_marker_is_not_part_of_the_references():
+    data = _real_shape_detail()
+
+    assert data["referencesMd"] == "[1] RuleCo annual report — https://example.com/report"
+    assert data["labels"]["confidential"] == "CONFIDENTIAL"
+
+
+def test_each_questions_listening_note_stays_with_the_starters_text():
+    data = _real_shape_detail()
+
+    assert '1. "What happens when the WAN contract ends?"' in data["startersMd"]
+    assert "You're listening for: timeline pressure." in data["startersMd"]
+
+
+def test_a_rule_inside_running_text_is_left_alone():
+    """Only a line that is nothing but dashes is a divider."""
+    repo = FakeRepo()
+    md = REAL_SHAPE_BRIEF.replace("Forty sites on MPLS.", "Forty sites --- all on MPLS.")
+    row = repo.seed("partner@example.com", company="RuleCo", brief_md=md, score=3)
+    data = make_client(repo).get(f"/api/brief/briefs/{row['id']}", headers=AUTH).json()["data"]
+
+    assert data["infra"]["complexity"] == "Forty sites --- all on MPLS."

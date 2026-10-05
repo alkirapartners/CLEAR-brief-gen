@@ -110,6 +110,11 @@ def test_a_job_that_dies_abnormally_still_ends_the_stream():
         raise SystemExit(1)
 
     chunks = _collect(work, heartbeat_seconds=0.05)
+    # Let the job thread finish here, so its (expected) exit is reported
+    # against this test and not whichever one happens to run next.
+    for thread in threading.enumerate():
+        if thread.name == "brief-job":
+            thread.join(2)
 
     assert _data(chunks) == [
         {"type": "phase", "phase": "init"},
