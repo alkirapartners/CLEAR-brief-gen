@@ -15,7 +15,12 @@ MIN_QUOTE_CHARS = 20
 # a quote cannot be assembled from single words found here and there.
 MIN_PART_CHARS = 12
 # The address inside a markdown link, "](https://...)", is not page wording.
-_LINK_TARGET = re.compile(r"\]\([^)]*\)")
+# An address has no spaces, no "]" and a bounded length. Because it cannot
+# run past the next "]", no two attempts read the same text, and a page of
+# unclosed "](" is searched in time that grows with its length, not with
+# the square of it.
+MAX_LINK_TARGET_CHARS = 2048
+_LINK_TARGET = re.compile(rf"\]\([^)\]\s]{{0,{MAX_LINK_TARGET_CHARS}}}\)")
 _NOT_LETTER_OR_DIGIT = re.compile(r"[\W_]+")
 # How the model marks text it left out between two passages.
 _OMISSION = re.compile(r"\[\s*(?:\.{3,}|…)\s*\]|\.{3,}|…")

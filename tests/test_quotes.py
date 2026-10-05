@@ -52,3 +52,25 @@ def test_a_long_page_is_searched_to_the_end():
 
 def test_the_limits_are_named():
     assert quotes.MIN_QUOTE_CHARS >= 20 and quotes.MIN_PART_CHARS >= 10
+
+
+def test_a_page_built_to_stall_the_check_is_handled_in_linear_time():
+    """A page of unclosed link openings once took time that grew with the square of its length."""
+    import time
+    hostile = "](" * 400_000 + " The lubricants business will be separated by year end."
+    started = time.perf_counter()
+    found = quotes.is_on_page("The lubricants business will be separated by year end.", hostile)
+    assert found and time.perf_counter() - started < 3.0
+
+
+def test_a_link_target_is_still_removed_when_it_is_long_but_ordinary():
+    page = "Runs on [Virtual WAN](https://learn.example.com/" + "a" * 500 + ") hub-and-spoke in three regions."
+    assert quotes.is_on_page("Virtual WAN hub-and-spoke in three regions", page)
+
+
+def test_long_unclosed_openings_are_linear_too():
+    import time
+    hostile = ("](" + "a" * 2000) * 400 + " The lubricants business will be separated by year end."
+    started = time.perf_counter()
+    assert quotes.is_on_page("The lubricants business will be separated by year end.", hostile)
+    assert time.perf_counter() - started < 3.0
