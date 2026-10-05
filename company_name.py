@@ -7,15 +7,18 @@ that is named like a website ("Booking.com") is let through.
 """
 
 import re
+import unicodedata
 
 NOT_A_NAME_MESSAGE = "Enter a company name, not a web address."
 
-# A scheme ("http://"), a "www." prefix, a domain followed by a path, a query
-# or a port, or an email address.
+# A scheme ("http://"), a "www." prefix, a host followed by a path, a query
+# or a port (with or without a space before it), a numeric address, or an
+# email address. A host may end in a punycode top-level domain.
 _WEB_ADDRESS = re.compile(
     r"://"
     r"|(?:^|[\s(\[\"'])www\."
-    r"|\.[a-z]{2,24}[/?#:]\S"
+    r"|\.(?:[a-z]{2,24}|xn--[a-z0-9-]+)\s*[/?#:]\S"
+    r"|\b\d{1,3}(?:\.\d{1,3}){3}\b"
     r"|\S@\S+\.\S",
     re.IGNORECASE,
 )
@@ -23,8 +26,12 @@ _MARKUP_CHARS = frozenset("<>`{}\\")
 
 
 def is_company_name(name: str) -> bool:
-    """True when the text can be researched as a company name."""
-    text = name.strip()
+    """True when the text can be researched as a company name.
+
+    The text is folded to its plain form first, so an address written in
+    full-width or other look-alike characters is seen for what it is.
+    """
+    text = unicodedata.normalize("NFKC", name).strip()
     if not text or _MARKUP_CHARS & set(text):
         return False
     return _WEB_ADDRESS.search(text) is None
