@@ -311,6 +311,7 @@ def _turn(run: _Run, session: _Session) -> Step:
         calls, run.ledger, session.web, session.fence,
         accepting=session.elapsed() < SOFT_DEADLINE_SECONDS,
         time_left=lambda: session.started + WEB_DEADLINE_SECONDS - session.clock(),
+        company=session.company,
     )
     run = replace(run, ledger=ledger, messages=_after(run, response, results))
     return run, WEB_FAILED if ledger.failures_in_a_row >= MAX_FAILURES_IN_A_ROW else None, None

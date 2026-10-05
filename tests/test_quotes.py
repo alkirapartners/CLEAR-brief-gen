@@ -74,3 +74,43 @@ def test_long_unclosed_openings_are_linear_too():
     started = time.perf_counter()
     assert quotes.is_on_page("The lubricants business will be separated by year end.", hostile)
     assert time.perf_counter() - started < 3.0
+
+
+# ── A quote has to state the fact, not merely be on the page ─────
+
+COOKIES = "We use cookies to improve your experience."
+TITLE = "Senior Cisco ACI Engineer | Careers at Example Payments"
+
+
+@pytest.mark.parametrize("fact, quote, missing", [
+    ("The role needs Cisco ACI, BGP and Palo Alto firewalls across two data centers.", TITLE, ("BGP", "Palo", "Alto")),
+    ("The company runs 14 data centers on Cisco ACI.", COOKIES, ("14", "Cisco", "ACI")),
+    ("Revenue was $28.4 billion.", "Revenue was $26.9 billion in the year.", ("28.4",)),
+    ("The posting asks for AWS Direct Connect.", "experience with Azure ExpressRoute required", ("AWS", "Direct", "Connect")),
+    ("It closed 522 stores and opened 39.", "we closed 522 stores during the year", ("39",)),
+], ids=["title-only", "cookie-notice", "changed-figure", "other-cloud", "half-quoted"])
+def test_a_figure_or_a_name_the_quote_does_not_hold_is_reported(fact, quote, missing):
+    assert quotes.missing_from_quote(fact, quote) == missing
+
+
+@pytest.mark.parametrize("fact, quote", [
+    ("The posting asks for ExpressRoute, Virtual WAN and BGP.", "experience with ExpressRoute, Virtual WAN hub-and-spoke and BGP"),
+    ("It closed 522 stores and opened 39 in the year.", "we closed 522 stores and opened 39 new stores"),
+    ("Revenue was $26,869 million.", "Sales and other revenues 26,869"),
+    ("The FY2025 10-K says the lubricants business will be separated in Q2.", "the lubricants business will be separated"),
+    ("A role is listed.", TITLE),
+    ("The network runs SD-WAN at 5 refineries.", "our SD WAN connects 5 refineries"),
+    ("Azure is the primary cloud.", "Microsoft Azure is our primary cloud platform"),
+    ("Overseas revenue was 96.62% of the total.", "overseas revenue accounted for 96.62%"),
+], ids=["names", "figures", "thousands", "labels-and-years", "plain", "hyphen", "sentence-start", "percent"])
+def test_a_fact_whose_figures_and_names_are_in_its_quote_is_supported(fact, quote):
+    assert quotes.missing_from_quote(fact, quote) == ()
+
+
+def test_what_names_the_source_does_not_have_to_be_quoted():
+    """The company and the page are known from where the fact came from, not from the passage."""
+    fact = "HF Sinclair's Network Engineer posting in Dallas asks for ExpressRoute."
+    quote = "hybrid connectivity using ExpressRoute"
+    assert quotes.missing_from_quote(fact, quote) == ("HF", "Sinclair", "Dallas")
+    context = ("HF Sinclair", "https://careers.hfsinclair.com/job/Dallas-Network-Engineer-TX-75219/1387485900")
+    assert quotes.missing_from_quote(fact, quote, context) == ()

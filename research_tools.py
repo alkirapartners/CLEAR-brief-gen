@@ -95,8 +95,9 @@ _EVIDENCE_ITEM = {
             "type": "string",
             "description": (
                 "A passage copied word for word from the page that states this fact, one or two "
-                "sentences. Join separate passages with ' ... '. It is checked against the page: "
-                "a fact whose quote is not there is thrown away."
+                "sentences. Join separate passages with ' ... '. It must be on the page, and it "
+                "must hold every figure and every product, vendor, technology and place name in "
+                "the fact. A fact whose quote fails either check is thrown away."
             ),
         },
         "category": {
@@ -441,37 +442,62 @@ def _evidence_item(raw: Any) -> EvidenceItem | None:
     )
 
 
-def _split_by_quote(
-    items: Sequence[EvidenceItem], texts: Mapping[str, str],
-) -> tuple[list[EvidenceItem], list[EvidenceItem]]:
-    """Facts whose quote is on the page they cite, and facts whose quote is not."""
+def _sort_by_quote(
+    items: Sequence[EvidenceItem], texts: Mapping[str, str], company: str,
+) -> tuple[list[EvidenceItem], list[EvidenceItem], list[tuple[EvidenceItem, tuple[str, ...]]]]:
+    """Facts that are proven, facts whose quote is not on the page, and facts the quote does not state.
+
+    A fact is proven when its quote is on the page it cites and holds the
+    fact's own figures and names. The company's name and the page's address
+    are known without the quote, so they do not have to be in it.
+    """
     bare_pages: dict[str, str] = {}
     proven: list[EvidenceItem] = []
-    unproven: list[EvidenceItem] = []
+    off_page: list[EvidenceItem] = []
+    unstated: list[tuple[EvidenceItem, tuple[str, ...]]] = []
     for item in items:
         key = canonical_url(item.source_url)
         if key not in bare_pages:
             bare_pages[key] = quotes.bare(texts.get(key, ""))
-        (proven if quotes.is_in(item.quote, bare_pages[key]) else unproven).append(item)
-    return proven, unproven
+        if not quotes.is_in(item.quote, bare_pages[key]):
+            off_page.append(item)
+            continue
+        lacking = quotes.missing_from_quote(item.fact, item.quote, (company, item.source_url))
+        if lacking:
+            unstated.append((item, lacking))
+        else:
+            proven.append(item)
+    return proven, off_page, unstated
 
 
 def _echo(items: Sequence[EvidenceItem]) -> str:
     return ", ".join(f'"{item.fact[:ECHOED_FACT_CHARS]}"' for item in items[:MAX_ECHOED_FACTS])
 
 
-def _record(call: ToolCall, before: Ledger) -> Outcome:
-    """Keep facts quoted from a page opened before this turn. Say which were not kept."""
+def _echo_lacking(unstated: Sequence[tuple[EvidenceItem, tuple[str, ...]]]) -> str:
+    return "; ".join(
+        f'"{item.fact[:ECHOED_FACT_CHARS]}" lacks {", ".join(lacking[:MAX_ECHOED_FACTS])}'
+        for item, lacking in unstated[:MAX_ECHOED_FACTS]
+    )
+
+
+def _record(call: ToolCall, before: Ledger, company: str) -> Outcome:
+    """Keep facts quoted from a page opened before this turn. Say which were not kept, and why."""
     raw_items = call.input.get("items")
     parsed = [_evidence_item(raw) for raw in raw_items] if isinstance(raw_items, list) else []
     marked = mark_opened([item for item in parsed if item is not None], before.pages)
-    proven, unproven = _split_by_quote([item for item in marked if item.opened], before.texts)
+    proven, off_page, unstated = _sort_by_quote([item for item in marked if item.opened], before.texts, company)
     unopened = [item for item in marked if not item.opened]
     text = f"Recorded {len(proven)} fact(s)."
-    if unproven:
+    if off_page:
         text += (
-            f" Not kept: {len(unproven)} fact(s) whose quote is not on the page word for word"
-            f" ({_echo(unproven)}). Copy a passage exactly as the page has it, then record them again."
+            f" Not kept: {len(off_page)} fact(s) whose quote is not on the page word for word"
+            f" ({_echo(off_page)}). Copy a passage exactly as the page has it, then record them again."
+        )
+    if unstated:
+        text += (
+            f" Not kept: {len(unstated)} fact(s) whose quote does not state them ({_echo_lacking(unstated)})."
+            f" Quote the passage that holds every figure and name in the fact, or leave them out of the fact."
         )
     if unopened:
         addresses = ", ".join(sorted({item.source_url for item in unopened}))
@@ -479,19 +505,22 @@ def _record(call: ToolCall, before: Ledger) -> Outcome:
             f" Not kept: facts from pages you have not opened ({addresses})."
             f" Open a page with {READ} first, then record what it states."
         )
+    for item, lacking in unstated:
+        logger.info("fact refused, quote lacks %s: %s | quote: %s", ", ".join(lacking), item.fact, item.quote)
     # Only what was kept goes on the ledger, so refused facts use none of its room.
-    return Outcome(call.id, text, evidence=tuple(proven), facts_refused=len(unproven) + len(unopened))
+    refused = len(off_page) + len(unstated) + len(unopened)
+    return Outcome(call.id, text, evidence=tuple(proven), facts_refused=refused)
 
 
 def _execute(
     call: ToolCall, refusal: str | None, web: WebClient, fence: str, before: Ledger,
-    time_left: TimeLeft | None,
+    time_left: TimeLeft | None, company: str,
 ) -> Outcome:
     """Run one call against the ledger as it stood when the turn began."""
     if refusal is not None:
         return Outcome(call.id, refusal, is_error=True)
     if call.name == RECORD:
-        return _record(call, before)
+        return _record(call, before, company)
     try:
         if call.name == SEARCH:
             return _search(call, web, fence, web_timeout(time_left))
@@ -532,7 +561,7 @@ def _result_block(outcome: Outcome, footer: str) -> dict[str, Any]:
 
 def run_calls(
     calls: Sequence[ToolCall], ledger: Ledger, web: WebClient, fence: str,
-    accepting: bool = True, time_left: TimeLeft | None = None,
+    accepting: bool = True, time_left: TimeLeft | None = None, company: str = "",
 ) -> tuple[list[dict[str, Any]], Ledger]:
     """Run one turn's tool calls and return their results with the new ledger.
 
@@ -541,12 +570,14 @@ def run_calls(
     ``accepting`` is False once the research time is used up: searches and
     page reads are refused, evidence is still recorded. ``time_left`` gives
     the seconds until web calls must be over: no call is given longer.
+    ``company`` is the name being researched: a fact may name it without
+    its quote having to.
     """
     accepting = accepting and (time_left is None or time_left() >= MIN_WEB_TIMEOUT_SECONDS)
     admitted, refusals = _admit(calls, ledger, accepting)
 
     def work(pair: tuple[ToolCall, str | None]) -> Outcome:
-        return _execute(pair[0], pair[1], web, fence, ledger, time_left)
+        return _execute(pair[0], pair[1], web, fence, ledger, time_left, company)
 
     with futures.ThreadPoolExecutor(max_workers=MAX_PARALLEL_CALLS) as pool:
         outcomes = list(pool.map(work, zip(calls, refusals)))

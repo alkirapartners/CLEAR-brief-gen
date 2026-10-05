@@ -13,6 +13,7 @@ and adds one line of time and cost to metrics.jsonl in that directory.
 
 import argparse
 import json
+import logging
 import os
 import re
 import sys
@@ -28,6 +29,7 @@ import llm
 import pdf
 
 METRICS_FILE = "metrics.jsonl"
+VERBOSE_LOGGERS: tuple[str, ...] = ("research_loop", "research_tools", "generate", "brief_rules")
 
 
 def _slug(company: str) -> str:
@@ -100,6 +102,12 @@ def main(argv: list[str] | None = None) -> None:
     if not api_key or not tavily_key:
         print("Error: ANTHROPIC_API_KEY and TAVILY_API_KEY must be set.")
         sys.exit(1)
+
+    if args.verbose:
+        # Show what research kept and refused. Only this app's own loggers are turned up.
+        logging.basicConfig(level=logging.WARNING, format="%(name)s: %(message)s")
+        for name in VERBOSE_LOGGERS:
+            logging.getLogger(name).setLevel(logging.INFO)
 
     def status(phase: str) -> None:
         if args.verbose:

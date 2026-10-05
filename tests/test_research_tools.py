@@ -78,9 +78,9 @@ def _opened(url=JOB, text=PAGE_TEXT, **more):
     return Ledger(pages=(Page(url, len(text)),), texts={canonical_url(url): text}, **more)
 
 
-def _run(calls, ledger=None, web=None, accepting=True, time_left=None):
+def _run(calls, ledger=None, web=None, accepting=True, time_left=None, company=""):
     web = web if web is not None else FakeWeb()
-    results, after = tools.run_calls(calls, ledger or Ledger(), web, FENCE, accepting, time_left)
+    results, after = tools.run_calls(calls, ledger or Ledger(), web, FENCE, accepting, time_left, company)
     return results, after, web
 
 
@@ -341,6 +341,24 @@ def test_a_quote_from_another_opened_page_does_not_support_the_fact():
     assert after.evidence == () and "whose quote is not on the page" in results[0]["content"]
 
 
+def test_a_quote_that_is_on_the_page_but_does_not_state_the_fact_supports_nothing():
+    """A cookie notice is on the page too. The quote has to hold the fact's figures and names."""
+    page = "We use cookies to improve your experience. " + PAGE_TEXT
+    unsupported = _fact(fact="The company runs 14 data centers on Cisco ACI.", quote="We use cookies to improve your experience.")
+    results, after, _ = _run([_record([unsupported, _fact()])], ledger=_opened(text=page))
+    text = results[0]["content"]
+    assert [item.fact for item in after.evidence] == ["Runs ExpressRoute and Virtual WAN."]
+    assert 'Not kept: 1 fact(s) whose quote does not state them ("The company runs 14 data centers on Cisco ACI." lacks 14, Cisco, ACI)' in text
+    assert after.facts_refused == 1
+
+
+def test_the_company_s_name_and_the_page_address_do_not_have_to_be_in_the_quote():
+    named = _fact(fact="Acme Corp's posting on careers.example.com asks for ExpressRoute and BGP.")
+    _, without, _ = _run([_record([named])], ledger=_opened())
+    _, with_name, _ = _run([_record([named])], ledger=_opened(), company="Acme Corp")
+    assert without.evidence == () and len(with_name.evidence) == 1
+
+
 def test_a_page_that_showed_only_its_title_cannot_support_a_detailed_fact():
     """A posting that did not render holds a title and a cookie notice, so that is all it can prove."""
     shell = (
@@ -352,12 +370,13 @@ def test_a_page_that_showed_only_its_title_cannot_support_a_detailed_fact():
     ledger = _opened(url=posting, text=shell)
     detailed = _fact(
         url=posting, fact="The role needs Cisco ACI, BGP and Palo Alto firewalls across two data centers.",
-        quote="5+ years of Cisco ACI, BGP and Palo Alto firewall experience across our two data centers",
+        quote="Senior Cisco ACI Engineer | Careers at Example Payments",  # on the page, and no proof of the fact
     )
     titled = _fact(url=posting, fact="A Senior Cisco ACI Engineer role is listed.", quote="Senior Cisco ACI Engineer | Careers at Example Payments")
     results, after, _ = _run([_record([detailed, titled])], ledger=ledger)
     assert [item.fact for item in after.evidence] == ["A Senior Cisco ACI Engineer role is listed."]
-    assert "Not kept: 1 fact(s) whose quote is not on the page" in results[0]["content"]
+    assert "Not kept: 1 fact(s) whose quote does not state them" in results[0]["content"]
+    assert "lacks BGP, Palo, Alto" in results[0]["content"]
 
 
 def test_a_fact_from_a_page_that_was_never_opened_is_reported_and_not_kept():
