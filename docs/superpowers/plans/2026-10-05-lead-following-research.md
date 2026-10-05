@@ -6605,7 +6605,7 @@ git commit -m "feat: generate briefs by research then judge-and-write"
 
 Task 18 uses `--save-dir` to collect what Blake compares with his hand-made briefs, and `metrics.jsonl` for the measured time and cost.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `tests/test_cli.py`:
 
@@ -6739,12 +6739,12 @@ def test_without_keys_it_stops_before_generating(cli, monkeypatch, capsys):
     assert "must be set" in capsys.readouterr().out
 ```
 
-- [ ] **Step 2: Run it and confirm it fails**
+- [x] **Step 2: Run it and confirm it fails**
 
 Run: `.venv/bin/python -m pytest tests/test_cli.py -q`
 Expected: `1 error`, with `ModuleNotFoundError: No module named 'brief_text'`.
 
-- [ ] **Step 3: Write the text renderer**
+- [x] **Step 3: Write the text renderer**
 
 Create `brief_text.py`:
 
@@ -6826,7 +6826,7 @@ def render(doc: BriefDoc) -> str:
     return "\n".join(lines) + "\n"
 ```
 
-- [ ] **Step 4: Replace the command-line tool**
+- [x] **Step 4: Replace the command-line tool**
 
 Replace the whole of `generate_brief.py` with:
 
@@ -6953,7 +6953,7 @@ if __name__ == "__main__":
     main()
 ```
 
-- [ ] **Step 5: Keep saved briefs out of the repository**
+- [x] **Step 5: Keep saved briefs out of the repository**
 
 Apply this change to `.gitignore`, so a `--save-dir out/` run inside the checkout can never be committed:
 
@@ -6971,7 +6971,7 @@ Apply this change to `.gitignore`, so a `--save-dir out/` run inside the checkou
  .superpowers/
 ```
 
-- [ ] **Step 6: Run the tests**
+- [x] **Step 6: Run the tests**
 
 Run: `.venv/bin/python -m pytest tests/test_cli.py -q`
 Expected: `8 passed`.
@@ -6979,7 +6979,7 @@ Expected: `8 passed`.
 Run: `.venv/bin/python -m pytest -q`
 Expected: `461 passed, 2 skipped`.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add brief_text.py generate_brief.py tests/test_cli.py .gitignore
