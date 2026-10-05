@@ -2544,7 +2544,7 @@ How the new document maps onto the fields the current page reads:
 | `startersMd` | people, the lead line, the questions, then what could not be confirmed and what would raise the score |
 | `referencesMd` | one `[n] Title — URL` line per reference |
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `tests/test_brief_view.py`:
 
@@ -2741,12 +2741,12 @@ def test_a_json_brief_is_served_through_the_api():
     assert listed[0]["snippet"].startswith("Strong fit")
 ```
 
-- [ ] **Step 2: Run it and confirm it fails**
+- [x] **Step 2: Run it and confirm it fails**
 
 Run: `.venv/bin/python -m pytest tests/test_brief_view.py -q`
 Expected: `18 failed, 1 passed`. A JSON brief is still read by the markdown parsers, which find nothing in it.
 
-- [ ] **Step 3: Add the labels**
+- [x] **Step 3: Add the labels**
 
 Apply this change to `i18n.py`. No Spanish value may equal its English value (`tests/test_language.py` checks), and every Spanish value must survive Latin-1.
 
@@ -2832,7 +2832,7 @@ Apply this change to `i18n.py`. No Spanish value may equal its English value (`t
  
 ```
 
-- [ ] **Step 4: Write the mapping module**
+- [x] **Step 4: Write the mapping module**
 
 Create `brief_compat.py`:
 
@@ -2980,7 +2980,7 @@ def references_md(doc: BriefDoc, labels: Labels) -> str:
     return "\n".join(reference_text(reference, labels) for reference in doc["references"])
 ```
 
-- [ ] **Step 5: Branch the view on the stored format**
+- [x] **Step 5: Branch the view on the stored format**
 
 Apply this change to `brief_view.py`. The existing body of `to_detail` becomes `_legacy_detail` unchanged, apart from the two new keys at its end.
 
@@ -3090,7 +3090,7 @@ Apply this change to `brief_view.py`. The existing body of `to_detail` becomes `
      }
 ```
 
-- [ ] **Step 6: Run the tests**
+- [x] **Step 6: Run the tests**
 
 Run: `.venv/bin/python -m pytest tests/test_brief_view.py -q`
 Expected: `19 passed`.
@@ -3098,7 +3098,7 @@ Expected: `19 passed`.
 Run: `.venv/bin/python -m pytest -q`
 Expected: `396 passed, 2 skipped`.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add i18n.py brief_compat.py brief_view.py tests/test_brief_view.py
