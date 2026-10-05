@@ -18,10 +18,11 @@ import angle_rules
 import case_studies
 import fit_score
 import i18n
+import stat_tracing
 import ticker
 from brief_doc import (
     FORMAT_VERSION, SNAPSHOT_KEYS, Angle, BriefDoc, Company, EvidenceLine, Fit, Person, Question,
-    Reference, ResearchNote, Snapshot, SnapshotLine, Stats, Story, WriterOutput,
+    Reference, ResearchNote, Snapshot, SnapshotLine, Story, WriterOutput,
 )
 from evidence import FIRST_HAND, Source, clean_date, parse_date, safe_url, to_references
 from plain_text import plain
@@ -36,10 +37,6 @@ MAX_SCORE_WITHOUT_ANGLES = fit_score.MAX_SCORE_WITHOUT_ANGLES
 # The language the story table is written in.
 TABLE_LANGUAGE = "en"
 PLANT_NETWORKS = "plant_networks"
-# Basics that are figures: every figure in them has to be in the evidence.
-FIGURE_STATS: tuple[str, ...] = ("revenue", "employees")
-# A place name is checked by its words of at least this many letters.
-MIN_PLACE_WORD_CHARS = 3
 
 
 # The brief shows no links of the model's own making (plain_text.py). The
@@ -182,40 +179,6 @@ def _people(people: Sequence[Person], valid: frozenset[int], first_hand: frozens
     return checked
 
 
-_WORD = re.compile(r"[^\W\d_]+")
-
-
-def _words(text: str) -> frozenset[str]:
-    return frozenset(word.casefold() for word in _WORD.findall(text))
-
-
-def _stated(sources: Sequence[Source]) -> str:
-    """Everything the evidence says: each fact and the page wording under it."""
-    return "\n".join(f"{fact.fact}\n{fact.quote}" for source in sources for fact in source.facts)
-
-
-def _traced_figure(value: str, figures: frozenset[str]) -> str:
-    """The value, or nothing unless every figure in it is a figure in the evidence."""
-    wanted = _numbers(value)
-    return value if wanted and wanted <= figures else ""
-
-
-def _traced_place(value: str, words: frozenset[str]) -> str:
-    """The value, or nothing unless the evidence names the place before its first comma."""
-    place = [w for w in _words(value.split(",")[0]) if len(w) >= MIN_PLACE_WORD_CHARS]
-    return value if place and all(word in words for word in place) else ""
-
-
-def _stats(stats: Stats, stated: str) -> Stats:
-    """Headquarters, revenue and headcount as the evidence gives them, or empty.
-
-    The other basics are the writer's own summary of the evidence.
-    """
-    figures = _numbers(stated)
-    traced = {key: _traced_figure(stats[key].strip(), figures) for key in FIGURE_STATS}
-    return {**stats, **traced, "hq": _traced_place(stats["hq"].strip(), _words(stated))}
-
-
 def _questions(questions: Sequence[Question]) -> list[Question]:
     return [q for q in questions if q["question"].strip()][:MAX_QUESTIONS]
 
@@ -300,7 +263,7 @@ def finalize(
         "language": language,
         "generated": today.isoformat(),
         "company": _company(output["company"]),
-        "stats": _stats(output["stats"], _stated(sources)),
+        "stats": stat_tracing.traced(output["stats"], sources, language),
         "fit": fit,
         "angles": [_renumbered_angle(angle, order) for angle in angles],
         "snapshot": {

@@ -170,6 +170,38 @@ def test_a_headquarters_the_evidence_never_mentions_is_left_empty():
     assert _stats(hq="TX")["hq"] == ""  # too little to check
 
 
+def _stats_from(stated, language="en", **changes):
+    output = writer_output(stats={**SAMPLE_DOC["stats"], **changes})
+    return _finalize(output, sources=_sources(stated=stated), language=language)["stats"]
+
+
+def test_a_figure_has_to_come_from_a_fact_about_that_basic():
+    """Twelve stores opened is not twelve billion in revenue."""
+    stated = "The company opened 12 stores in Dallas. Headcount is not given."
+    assert _stats_from(stated, revenue="$12B")["revenue"] == ""
+    stores = "It runs 5,200 stores. Revenue was $28B."
+    assert _stats_from(stores, employees="5,200")["employees"] == ""
+    assert _stats_from(stores, revenue="$28B")["revenue"] == "$28B"
+
+
+def test_ten_point_zero_billion_is_ten_and_never_a_hundred():
+    stated = "Revenue was $10.0 billion. It has 7,400 employees in Dallas."
+    assert _stats_from(stated, revenue="$100")["revenue"] == ""
+    assert _stats_from(stated, revenue="$10 billion")["revenue"] == "$10 billion"
+    assert _stats_from(stated, revenue="$10.0B")["revenue"] == "$10.0B"
+
+
+def test_a_year_beside_the_figure_does_not_have_to_be_in_the_same_fact():
+    stated = "Sales and other revenues were $26,869 million. It has 5,165 employees in Dallas."
+    assert _stats_from(stated, revenue="$26,869 million, FY2025")["revenue"] == "$26,869 million, FY2025"
+
+
+def test_a_spanish_brief_may_write_its_thousands_with_a_point():
+    stated = "Revenue was $28B. It has 5,200 employees in Dallas."
+    assert _stats_from(stated, language="es", employees="5.200")["employees"] == "5.200"
+    assert _stats_from(stated, language="en", employees="5.200")["employees"] == ""
+
+
 def test_the_other_basics_are_the_writer_s_summary_and_are_left_alone():
     stats = _stats()
     assert stats["industry"] == "Refining" and stats["ownership"] == "Public"
