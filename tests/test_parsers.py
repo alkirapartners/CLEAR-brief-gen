@@ -1,6 +1,6 @@
 """Tests for brief markdown parsers."""
 
-from app import extract_entry_points, extract_infra_cells
+from briefparse import extract_entry_points, extract_infra_cells
 
 SAMPLE_BRIEF = """
 ## Three Alkira Entry Points

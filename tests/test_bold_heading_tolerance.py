@@ -15,7 +15,7 @@ for existing behavior and are intentionally left untouched.
 """
 
 import prompts
-from app import extract_entry_points, extract_infra_cells, extract_section
+from briefparse import extract_entry_points, extract_infra_cells, extract_section
 
 BOLD_INFRA_BRIEF = """
 **Infrastructure Snapshot**

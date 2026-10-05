@@ -594,8 +594,8 @@ def generate_brief_pdf(
     pdf = _BriefPDF(generated_at=when, language=language)
     pdf.add_page()
 
-    # Parse header (uses app.py parsers — imported lazily to avoid circular deps)
-    from app import extract_company_header
+    # Parse header
+    from briefparse import extract_company_header
     company_name, stats_line = extract_company_header(brief_md)
     if not company_name:
         company_name = company
@@ -603,7 +603,7 @@ def generate_brief_pdf(
     _draw_hero(pdf, company_name, stats_line)
 
     # Parse score + rationale
-    from app import extract_score
+    from briefparse import extract_score
     parsed_score, rationale = extract_score(brief_md)
     if not parsed_score:
         parsed_score = score
@@ -618,7 +618,7 @@ def generate_brief_pdf(
     _draw_score_tile(pdf, parsed_score, rationale, score_x, score_y, score_w, score_h)
 
     # Infrastructure grid (right of score tile, same height)
-    from app import extract_infra_cells
+    from briefparse import extract_infra_cells
     infra_w = content_w - score_w - 4
     infra_x = score_x + score_w + 4
     cells = extract_infra_cells(brief_md)
@@ -628,11 +628,11 @@ def generate_brief_pdf(
     pdf.set_y(score_y + score_h + 4)
 
     # Signals & Timing tile (full width)
-    from app import extract_section
+    from briefparse import extract_section
     signals = extract_section(brief_md, "Signals & Timing") or extract_section(brief_md, "Signals and Timing")
     _draw_signals(pdf, signals)
 
-    from app import extract_entry_points
+    from briefparse import extract_entry_points
     points = extract_entry_points(brief_md)
     _draw_entry_points(pdf, points)
 
