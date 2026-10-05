@@ -12,9 +12,11 @@ import llm
 import prompts
 import research_loop
 from errors import GENERIC_ERROR
-from tests.api_fakes import AUTH, FakeRepo, events, make_client
+from dataclasses import replace
+
+from tests.api_fakes import AUTH, TEST_SETTINGS, FakeRepo, events, make_client
 from tests.brief_fixtures import writer_output
-from tests.llm_fakes import FakeClient, reply, text, thinking
+from tests.llm_fakes import FakeClient, reply, text, thinking, timed_out
 from tests.test_research_loop import FOUND_SOMETHING, Clock
 from tests.test_research_tools import JOB, FakeWeb
 
@@ -277,5 +279,20 @@ def test_research_that_finds_nothing_reaches_the_partner_as_an_error_and_saves_n
     repo = FakeRepo()
     api = make_client(repo, generator=_api_generator([]))
     got = events(api.post("/api/brief/briefs", json={"company": "Asdfgh", "language": "en"}, headers=AUTH))
-    assert got[-1] == {"type": "error", "message": GENERIC_ERROR}
+    assert got[-1] == {"type": "error", "message": research_loop.NOTHING_CITABLE_MESSAGE}
+    assert "Check the spelling" in got[-1]["message"] and "Asdfgh" not in got[-1]["message"]
     assert repo.rows == []
+
+
+def test_research_that_finds_nothing_still_uses_the_day_s_slot():
+    """The research was paid for. Giving the slot back would make such runs unlimited."""
+    api = make_client(FakeRepo(), generator=_api_generator([]), settings=replace(TEST_SETTINGS, daily_limit=1))
+    events(api.post("/api/brief/briefs", json={"company": "Asdfgh", "language": "en"}, headers=AUTH))
+    again = api.post("/api/brief/briefs", json={"company": "Asdfgh", "language": "en"}, headers=AUTH)
+    assert again.status_code == 429
+
+
+def test_a_service_failure_during_research_is_not_blamed_on_the_company_name():
+    api = make_client(FakeRepo(), generator=_api_generator([timed_out()]))
+    got = events(api.post("/api/brief/briefs", json={"company": "Acme", "language": "en"}, headers=AUTH))
+    assert got[-1] == {"type": "error", "message": GENERIC_ERROR}

@@ -9,6 +9,7 @@ import llm
 import prompts
 import research_loop
 import research_tools as tools
+from errors import UserFacingError
 from research_loop import ResearchError
 from tests.llm_fakes import FakeClient, reply, text, thinking, timed_out, tool_use, usage
 from tests.test_research_tools import JOB, FakeWeb
@@ -114,12 +115,27 @@ def test_tokens_are_added_up_across_turns():
 # ── Research that finds nothing is an error, never a brief ───────
 
 def test_no_recorded_evidence_is_an_error():
-    with pytest.raises(ResearchError, match="nothing citable for 'Asdfgh'"):
+    with pytest.raises(ResearchError) as raised:
         _run([SEARCH], company="Asdfgh")
+    assert "nothing citable for 'Asdfgh'" in raised.value.detail
+
+
+def test_finding_nothing_is_an_error_a_partner_can_be_shown():
+    with pytest.raises(research_loop.NothingCitable) as raised:
+        _run([SEARCH], company="Asdfgh")
+    assert isinstance(raised.value, UserFacingError) and isinstance(raised.value, ResearchError)
+    assert str(raised.value) == research_loop.NOTHING_CITABLE_MESSAGE
+    assert "searches=1" in raised.value.detail and "'Asdfgh'" in raised.value.detail
+
+
+def test_a_failing_service_is_not_reported_as_an_unknown_company():
+    with pytest.raises(ResearchError) as raised:
+        _run([_five_searches()], web=FakeWeb(fail=True))
+    assert not isinstance(raised.value, research_loop.NothingCitable)
 
 
 def test_evidence_only_from_pages_that_were_never_opened_is_an_error():
-    with pytest.raises(ResearchError, match="nothing citable"):
+    with pytest.raises(research_loop.NothingCitable):
         _run([SEARCH, RECORD])  # recorded from the search summary, page never read
 
 
@@ -189,8 +205,9 @@ def test_a_deadline_with_nothing_gathered_is_an_error():
     def tick(_request_number):
         clock.now += research_loop.HARD_DEADLINE_SECONDS
 
-    with pytest.raises(ResearchError, match="stopped by deadline"):
+    with pytest.raises(ResearchError) as raised:
         _run([SEARCH], then=SEARCH, clock=clock, on_request=tick)
+    assert "stopped by deadline" in raised.value.detail
 
 
 def test_after_the_soft_deadline_the_web_is_closed_but_evidence_is_still_recorded():

@@ -19,6 +19,7 @@ import anthropic
 
 import llm
 import prompts
+from errors import UserFacingError
 from evidence import Source, build_sources, new_fence
 from research_tools import (
     MAX_PAGES, MAX_SEARCHES, TAVILY_TIMEOUT_SECONDS, TOOLS, Ledger, ToolCall, WebClient, run_calls,
@@ -78,8 +79,26 @@ _FAILURES: dict[str, str] = {
 Clock = Callable[[], float]
 
 
+NOTHING_CITABLE_MESSAGE = (
+    "The research found nothing it could cite for that name. Check the spelling, or add "
+    "what sets the company apart, such as its country or its ticker, then try again. "
+    "This attempt counts toward today's limit."
+)
+
+
 class ResearchError(RuntimeError):
     """Research failed. A brief is never written without cited evidence."""
+
+
+class NothingCitable(UserFacingError, ResearchError):
+    """Research ran, and no page it opened gave a usable fact.
+
+    The message is safe to show a partner. ``detail`` is for the log.
+    """
+
+    def __init__(self, detail: str) -> None:
+        super().__init__(NOTHING_CITABLE_MESSAGE)
+        self.detail = detail
 
 
 @dataclass(frozen=True)
@@ -149,13 +168,16 @@ def _ending(response: Any, calls: list[ToolCall], company: str) -> str | None:
 
 
 def _nothing_citable(company: str, ledger: Ledger, reason: str) -> ResearchError:
+    """The error for a run that ended with no source: a failed service, or an unknown name."""
     failure = _FAILURES.get(reason)
     if failure is not None:
         return ResearchError(failure.format(company=company))
-    return ResearchError(
+    detail = (
         f"Research found nothing citable for {company!r} (searches={ledger.searches}, "
         f"pages opened={len(ledger.pages)}, stopped by {reason})."
     )
+    logger.warning(detail)
+    return NothingCitable(detail)
 
 
 def _result(
