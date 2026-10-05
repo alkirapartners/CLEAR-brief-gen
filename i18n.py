@@ -41,6 +41,7 @@ LABELS: dict[str, dict[str, str]] = {
         "generated": "Generated",
         # Briefs stored as a JSON document (brief_doc.py).
         "not_found": "Not found",
+        "not_found_public": "Not found in public sources.",
         "identity": "Which company",
         "stat_entity": "Entity",
         "stat_hq": "HQ",
@@ -101,6 +102,7 @@ LABELS: dict[str, dict[str, str]] = {
         "of": "de",
         "generated": "Generado",
         "not_found": "No encontrado",
+        "not_found_public": "No se encontró en fuentes públicas.",
         "identity": "Qué empresa",
         "stat_entity": "Entidad",
         "stat_hq": "Sede",

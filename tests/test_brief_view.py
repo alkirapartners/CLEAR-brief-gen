@@ -73,12 +73,46 @@ def test_a_stat_that_was_not_found_is_left_out_of_the_stats_line():
     assert "Revenue" not in line and "Employees" not in line and "| |" not in line
 
 
-def test_the_six_snapshot_lines_all_reach_the_four_cells():
-    infra = _detail()["infra"]
-    assert infra["cloudPlatforms"] == "Azure is the primary cloud. [1]"
-    assert infra["deployment"] == "ExpressRoute into a Virtual WAN hub-and-spoke. [1]"
-    assert infra["onPrem"] == "Data centers: Not found Plant networks: Plant networks at five refineries. [2]"
-    assert infra["complexity"] == "WAN: SD-WAN at refineries and terminals. [1] Firewalls: Palo Alto or Fortinet. [1]"
+def _snapshot(**lines):
+    snapshot = make_doc()["snapshot"]
+    for key, text in lines.items():
+        snapshot[key] = {"text": text, "sources": [1] if text else []}
+    return snapshot
+
+
+def test_the_six_snapshot_lines_reach_the_four_cells_as_sentences():
+    infra = _detail(snapshot=_snapshot(data_centers="Two leased data centers in Dallas"))["infra"]
+    assert infra == {
+        "cloudPlatforms": "Azure is the primary cloud.",
+        "onPrem": "Two leased data centers in Dallas. Plant networks at five refineries.",
+        "deployment": "ExpressRoute into a Virtual WAN hub-and-spoke.",
+        "complexity": "SD-WAN at refineries and terminals. Palo Alto or Fortinet.",
+    }
+
+
+def test_a_line_that_was_not_found_is_left_out_of_a_cell_that_has_something_to_say():
+    infra = _detail(snapshot=_snapshot(wan=""))["infra"]
+    assert infra["onPrem"] == "Plant networks at five refineries."  # the sample has no data-center line
+    assert infra["complexity"] == "Palo Alto or Fortinet."
+    assert "Not found" not in " ".join([infra["onPrem"], infra["complexity"]])
+
+
+def test_a_cell_with_nothing_found_says_so_once():
+    infra = _detail(snapshot=_snapshot(wan="", firewalls="", clouds=""))["infra"]
+    assert infra["complexity"] == "Not found in public sources."
+    assert infra["cloudPlatforms"] == "Not found in public sources."
+    assert _detail(snapshot=_snapshot(wan="", firewalls=""), language="es")["infra"]["complexity"] == (
+        "No se encontró en fuentes públicas."
+    )
+
+
+def test_when_nothing_at_all_was_found_the_cells_are_empty_and_the_page_closes_the_block():
+    empty = _snapshot(clouds="", cloud_connectivity="", wan="", firewalls="", data_centers="", plant_networks="")
+    assert set(_detail(snapshot=empty)["infra"].values()) == {""}
+
+
+def test_no_citation_marker_reaches_the_infrastructure_cells():
+    assert "[" not in " ".join(_detail()["infra"].values())
 
 
 def _three_line_angle():
@@ -211,7 +245,7 @@ def test_a_spanish_json_brief_gets_spanish_labels_inside_its_text():
     data = _detail(language="es")
     assert data["language"] == "es" and data["labels"] is i18n.LABELS["es"]
     assert data["statsLine"].startswith("Sede: Dallas, TX | Ingresos: ")
-    assert "Centros de datos: No encontrado" in data["infra"]["onPrem"]
+    assert data["infra"]["onPrem"] == "Plant networks at five refineries."
     assert "**Interlocutores:**" in data["startersMd"]
 
 

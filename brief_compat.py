@@ -87,19 +87,30 @@ def snippet(doc: BriefDoc, max_chars: int = SNIPPET_CHARS) -> str:
     return text[:max_chars].rsplit(" ", 1)[0] + "..."
 
 
+# Which snapshot lines each of the page's four infrastructure cells holds.
+INFRA_CELLS: dict[str, tuple[str, ...]] = {
+    "cloudPlatforms": ("clouds",),
+    "onPrem": ("data_centers", "plant_networks"),
+    "deployment": ("cloud_connectivity",),
+    "complexity": ("wan", "firewalls"),
+}
+
+
 def infra_cells(doc: BriefDoc, labels: Labels) -> dict[str, str]:
-    """The six snapshot lines folded into the four cells the page has."""
+    """The six snapshot lines as the four cells the page has, each written as sentences.
+
+    A line that was not found is left out of a cell that has something to
+    say. A cell with nothing says so once. When nothing at all was found
+    every cell is empty, and the page leaves the block out.
+    """
     snapshot = doc["snapshot"]
-
-    def labelled(key: str) -> str:
-        return f"{labels['snap_' + key]}: {snapshot_text(snapshot[key], labels)}"
-
-    return {
-        "cloudPlatforms": snapshot_text(snapshot["clouds"], labels),
-        "onPrem": f"{labelled('data_centers')} {labelled('plant_networks')}",
-        "deployment": snapshot_text(snapshot["cloud_connectivity"], labels),
-        "complexity": f"{labelled('wan')} {labelled('firewalls')}",
+    cells = {
+        cell: " ".join(_sentence(snapshot[key]["text"]) for key in keys if snapshot[key]["text"].strip())
+        for cell, keys in INFRA_CELLS.items()
     }
+    if not any(cells.values()):
+        return cells
+    return {cell: text or labels["not_found_public"] for cell, text in cells.items()}
 
 
 # ── The current page: plain sentences, no citation markers ──────────────────
