@@ -7,6 +7,7 @@ the cache lifetime and the refusal fallback are set in one place.
 from dataclasses import dataclass
 from typing import Any
 
+import anthropic
 from anthropic import Anthropic
 
 MODEL = "claude-sonnet-5-5"
@@ -19,6 +20,11 @@ CACHE_TTL = "1h"
 # recommended substitute inside the same call. Set to False to turn it off.
 USE_REFUSAL_FALLBACK = True
 REFUSAL_FALLBACK_BETA = "server-side-fallback-2026-07-01"
+# The SDK's own retries are switched off (max_retries=0): it sleeps for as
+# long as a Retry-After header asks, which can be longer than a brief has.
+# Callers retry themselves, after this pause, when their deadline allows.
+RETRY_PAUSE_SECONDS = 2
+RATE_LIMITED = 429
 
 TOKENS_PER_MILLION = 1_000_000
 # US dollars per million tokens for Claude Sonnet 5.5.
@@ -68,6 +74,15 @@ def request_settings(system_text: str, max_tokens: int) -> dict[str, Any]:
     if USE_REFUSAL_FALLBACK:
         settings.update(betas=[REFUSAL_FALLBACK_BETA], fallbacks="default")
     return settings
+
+
+def is_retryable(error: BaseException) -> bool:
+    """True for a failure worth one more try: no connection, a timeout, a busy or broken server."""
+    if isinstance(error, anthropic.APIConnectionError):
+        return True
+    if isinstance(error, anthropic.APIStatusError):
+        return error.status_code == RATE_LIMITED or error.status_code >= 500
+    return False
 
 
 def refusal(message: Any) -> str | None:

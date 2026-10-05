@@ -4,6 +4,7 @@ import json
 from datetime import date
 from types import SimpleNamespace
 
+import anthropic
 import pytest
 
 import brief_doc
@@ -17,7 +18,7 @@ from dataclasses import replace
 
 from tests.api_fakes import AUTH, TEST_SETTINGS, FakeRepo, events, make_client
 from tests.brief_fixtures import writer_output
-from tests.llm_fakes import FakeClient, reply, text, thinking, timed_out
+from tests.llm_fakes import FakeClient, overloaded, reply, text, thinking, timed_out
 from tests.test_research_loop import FOUND_SOMETHING, Clock
 from tests.test_research_tools import JOB, FakeWeb
 
@@ -28,6 +29,12 @@ TODAY = date(2026, 10, 5)
 def no_floor(monkeypatch):
     """The fake research is three turns long. The floor is tested with the research loop."""
     monkeypatch.setattr(research_floor, "MAX_NUDGES", 0)
+
+
+@pytest.fixture(autouse=True)
+def no_waiting(monkeypatch):
+    """A retry pauses for two seconds. No test waits for it."""
+    monkeypatch.setattr(generate.time, "sleep", lambda _seconds: None)
 
 
 def _output(**changes):
@@ -58,12 +65,26 @@ def _generate(writer=None, turns=FOUND_SOMETHING, language="en", company="Northw
 
 # ── The writer cannot outrun the clock ───────────────────────────
 
-def test_the_writer_request_has_a_stall_limit_and_one_retry():
+def test_the_writer_request_has_a_stall_limit_and_leaves_no_retry_to_the_sdk():
     _, client, _ = _generate()
-    assert client.options[-1] == {
-        "timeout": generate.WRITER_STALL_SECONDS, "max_retries": generate.WRITER_RETRIES,
-    }
-    assert generate.WRITER_RETRIES == 1
+    assert client.options[-1] == {"timeout": generate.WRITER_STALL_SECONDS, "max_retries": 0}
+
+
+def test_a_writer_request_that_fails_once_is_tried_again_after_a_short_pause(monkeypatch):
+    pauses = []
+    monkeypatch.setattr(generate.time, "sleep", pauses.append)
+    client = FakeClient(list(FOUND_SOMETHING), writer=_written(), writer_failures=[overloaded(retry_after="600")])
+    result, _, _ = _generate(client=client)
+    assert result.doc["fit"]["score"] == 4 and len(client.writer_requests) == 2
+    assert pauses == [llm.RETRY_PAUSE_SECONDS]  # never the ten minutes the header asked for
+
+
+def test_a_writer_request_that_keeps_failing_is_an_error_after_one_retry(monkeypatch):
+    monkeypatch.setattr(generate.time, "sleep", lambda _seconds: None)
+    client = FakeClient(list(FOUND_SOMETHING), writer=_written(), writer_failures=[timed_out(), timed_out()])
+    with pytest.raises(anthropic.APITimeoutError):
+        _generate(client=client)
+    assert len(client.writer_requests) == generate.WRITER_RETRIES + 1
 
 
 def test_a_writer_that_runs_past_its_deadline_is_stopped_and_its_stream_closed():
@@ -307,6 +328,6 @@ def test_research_that_finds_nothing_still_uses_the_day_s_slot():
 
 
 def test_a_service_failure_during_research_is_not_blamed_on_the_company_name():
-    api = make_client(FakeRepo(), generator=_api_generator([timed_out()]))
+    api = make_client(FakeRepo(), generator=_api_generator([timed_out(), timed_out()]))
     got = events(api.post("/api/brief/briefs", json={"company": "Acme", "language": "en"}, headers=AUTH))
     assert got[-1] == {"type": "error", "message": GENERIC_ERROR}

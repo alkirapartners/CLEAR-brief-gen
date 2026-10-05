@@ -12,7 +12,9 @@ import research_loop
 import research_tools as tools
 from errors import UserFacingError
 from research_loop import ResearchError
-from tests.llm_fakes import FakeClient, reply, text, thinking, timed_out, tool_use, usage
+from tests.llm_fakes import (
+    FakeClient, bad_request, overloaded, reply, text, thinking, timed_out, tool_use, usage,
+)
 from tests.test_research_tools import JOB, FakeWeb
 
 TODAY = date(2026, 10, 5)
@@ -25,6 +27,7 @@ SEARCH = reply(thinking(), tool_use("s1", "web_search", {"query": "acme careers 
 READ = reply(tool_use("r1", "read_page", {"url": JOB, "find": ""}))
 RECORD = reply(tool_use("e1", "record_evidence", {"items": [FACT]}))
 FOUND_SOMETHING = [SEARCH, READ, RECORD]
+DONE = reply(text("Research complete."))
 
 
 @pytest.fixture(autouse=True)
@@ -48,7 +51,7 @@ def _run(turns=FOUND_SOMETHING, then=None, web=None, clock=None, on_request=None
     phases = []
     result = research_loop.research(
         company, phases.append, client, web if web is not None else FakeWeb(),
-        clock=clock or Clock(), today=TODAY,
+        clock=clock or Clock(), today=TODAY, sleep=lambda _seconds: None,
     )
     return result, client, phases
 
@@ -171,7 +174,7 @@ def test_a_web_service_that_keeps_failing_is_an_error():
 def test_a_model_request_that_fails_with_nothing_gathered_is_an_error():
     failure = timed_out()
     with pytest.raises(ResearchError, match="request to the model failed while researching 'Acme'") as raised:
-        _run([SEARCH, failure])
+        _run([SEARCH, timed_out(), failure])  # the first attempt and its one retry
     assert raised.value.__cause__ is failure
 
 
@@ -190,10 +193,11 @@ def test_a_web_service_that_fails_late_keeps_the_evidence_already_recorded():
 
 
 def test_a_model_request_that_fails_late_keeps_the_evidence_already_recorded():
-    result, client, _ = _run([READ, RECORD, timed_out()])
+    result, client, _ = _run([READ, RECORD, timed_out(), timed_out()])
     assert result.stopped_by == "model_failed"
     assert len(result.sources) == 1
-    assert result.usage.requests == 2  # the failed request billed nothing
+    assert result.usage.requests == 2  # the failed requests billed nothing
+    assert len(client.requests) == 4  # tried once more, then stopped
 
 
 # ── Budgets and the clock ────────────────────────────────────────
@@ -277,36 +281,66 @@ def test_only_abnormal_stops_are_worded_for_the_writer():
 
 # ── No single request can outrun the clock ───────────────────────
 
-@pytest.mark.parametrize("elapsed, timeout, retries", [
-    (0, 90, 1),      # early: the usual limit and one retry
-    (100, 70, 1),    # both attempts end by the hard deadline
-    (120, 60, 1),
-    (121, 60, 0),    # late: one attempt, long enough to record what was read
-    (239, 60, 0),
+@pytest.mark.parametrize("elapsed, timeout", [
+    (0, 90), (150, 90), (210, 90), (230, 70), (239, 61), (280, 20), (281, None), (300, None),
 ])
-def test_a_turn_is_given_a_time_limit_that_ends_the_run_on_time(elapsed, timeout, retries):
-    assert research_loop.turn_limits(elapsed) == (timeout, retries)
+def test_an_attempt_is_given_only_the_time_left_before_the_ceiling(elapsed, timeout):
+    assert research_loop.attempt_timeout(elapsed) == timeout
 
 
-def test_no_turn_can_end_later_than_the_research_ceiling():
-    for elapsed in range(0, research_loop.HARD_DEADLINE_SECONDS):
-        timeout, retries = research_loop.turn_limits(elapsed)
-        assert elapsed + timeout * (retries + 1) <= research_loop.RESEARCH_CEILING_SECONDS
+def _stalling(clock, turns, start_at=0.0):
+    """Run research against a model whose every request takes all the time it is allowed."""
+    clock.now += start_at
+    holder = {}
+
+    def stall(_request_number):
+        clock.now += holder["client"].options[-1]["timeout"]
+
+    client = FakeClient(turns, then=timed_out(), on_request=stall)
+    holder["client"] = client
+    started = clock.now - start_at
+
+    def pause(seconds):
+        clock.now += seconds
+
+    try:
+        research_loop.research("Acme", lambda _phase: None, client, FakeWeb(), clock=clock, today=TODAY, sleep=pause)
+    except ResearchError:
+        pass
+    return clock.now - started, client
 
 
-def test_every_research_request_is_sent_with_its_own_time_limit():
+@pytest.mark.parametrize("turns", [[], [READ, RECORD], [SEARCH, READ, RECORD, SEARCH]], ids=["at-once", "late", "later"])
+def test_research_never_runs_past_its_ceiling_however_the_model_stalls(turns):
+    elapsed, client = _stalling(Clock(), [timed_out() if not turns else turns[0], *turns[1:]])
+    assert elapsed <= research_loop.RESEARCH_CEILING_SECONDS
+    assert all(options["max_retries"] == 0 for options in client.options)  # the SDK never sleeps on our behalf
+
+
+def test_a_busy_api_s_long_retry_after_is_not_obeyed():
+    """The SDK would sleep for the ten minutes the header asks for. The loop pauses two seconds."""
     clock = Clock()
+    pauses = []
 
-    def tick(request_number):
-        clock.now += 70  # each request takes 70 seconds
+    def pause(seconds):
+        pauses.append(seconds)
+        clock.now += seconds
 
-    _, client, _ = _run(clock=clock, on_request=tick)
-    assert client.options == [
-        {"timeout": 90, "max_retries": 1},
-        {"timeout": 85, "max_retries": 1},
-        {"timeout": 60, "max_retries": 0},
-        {"timeout": 60, "max_retries": 0},
-    ]
+    client = FakeClient([READ, RECORD, overloaded(retry_after="600"), DONE])
+    result = research_loop.research("Acme", lambda _phase: None, client, FakeWeb(), clock=clock, today=TODAY, sleep=pause)
+    assert pauses == [research_loop.RETRY_PAUSE_SECONDS]
+    assert result.stopped_by == "finished" and len(client.requests) == 4
+
+
+def test_a_request_the_api_rejects_outright_is_not_tried_again():
+    result, client, _ = _run([READ, RECORD, bad_request()])
+    assert result.stopped_by == "model_failed" and len(client.requests) == 3
+
+
+def test_every_research_request_is_sent_with_its_own_time_limit_and_no_sdk_retries():
+    _, client, _ = _run()
+    assert client.options[0] == {"timeout": 90, "max_retries": 0}
+    assert len(client.options) == len(client.requests)
 
 
 def test_pages_read_just_before_the_web_closes_are_still_recorded():
@@ -348,8 +382,12 @@ def test_research_stops_at_the_spending_ceiling_and_keeps_what_it_gathered():
     assert len(client.requests) < 10
 
 
-def test_the_spending_ceiling_is_far_below_what_an_unchecked_run_could_cost():
-    assert 1.0 <= research_loop.MAX_RESEARCH_COST_DOLLARS <= 2.0
+def test_the_spending_ceiling_stops_a_run_at_a_fraction_of_what_it_would_have_cost():
+    """Unchecked, a model that never stops bills every one of its turns."""
+    turns = [READ, RECORD, *[_costly(f"c{i}") for i in range(research_loop.MAX_TURNS)]]
+    result, _, _ = _run(turns)
+    unchecked = research_loop.MAX_TURNS * llm.token_cost(llm.add_usage(llm.Usage(), _costly("x").usage))
+    assert llm.token_cost(result.usage) < unchecked / 4
 
 
 def test_ordinary_research_is_nowhere_near_the_ceiling():
@@ -359,9 +397,6 @@ def test_ordinary_research_is_nowhere_near_the_ceiling():
 
 
 # ── The model may not stop until the floor is covered ────────────
-
-DONE = reply(text("Research complete."))
-
 
 def _aimed(call_id, query, site=""):
     return reply(tool_use(call_id, "web_search", {"query": query, "site": site, "recent_news": False}))

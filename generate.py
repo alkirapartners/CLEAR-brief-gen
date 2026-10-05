@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Any, Callable
 
+import anthropic
 from tavily import TavilyClient
 
 import brief_doc
@@ -57,19 +58,12 @@ def _starts_text(event: Any) -> bool:
     return getattr(event, "type", "") == "content_block_start" and getattr(block, "type", "") == "text"
 
 
-def _write(
-    client: Any, company: str, found: research_loop.ResearchResult,
-    today: date, language: str, status_callback: StatusCallback, clock: Clock,
+def _stream_once(
+    client: Any, company: str, content: str, status_callback: StatusCallback, clock: Clock, started: float,
 ) -> Any:
-    """The judge-and-write call. Reports "analyze" while it thinks, "compose" once it writes."""
-    status_callback("analyze")
-    fence = evidence.new_fence()
-    content = prompts.build_writer_message(
-        company, fence, evidence.format_payload(found.sources, fence), today, language,
-        research_loop.EARLY_STOPS.get(found.stopped_by, ""), "; ".join(found.not_covered),
-    )
-    composing, started = False, clock()
-    bounded = client.with_options(timeout=WRITER_STALL_SECONDS, max_retries=WRITER_RETRIES)
+    """One attempt at the writing call. Reports "compose" when the reply's text starts."""
+    composing = False
+    bounded = client.with_options(timeout=WRITER_STALL_SECONDS, max_retries=0)
     with bounded.beta.messages.stream(
         **llm.request_settings(prompts.build_writer_prefix(), MAX_TOKENS),
         output_config={
@@ -91,6 +85,34 @@ def _write(
     if not composing:
         status_callback("compose")
     return message
+
+
+def _write(
+    client: Any, company: str, found: research_loop.ResearchResult,
+    today: date, language: str, status_callback: StatusCallback, clock: Clock,
+) -> Any:
+    """The judge-and-write call. Reports "analyze" while it thinks, "compose" once it writes.
+
+    A failed attempt is tried again once, after a short pause, while the
+    deadline still leaves room for a stalled stream to be noticed.
+    """
+    status_callback("analyze")
+    fence = evidence.new_fence()
+    content = prompts.build_writer_message(
+        company, fence, evidence.format_payload(found.sources, fence), today, language,
+        research_loop.EARLY_STOPS.get(found.stopped_by, ""), "; ".join(found.not_covered),
+    )
+    started = clock()
+    for attempt in range(WRITER_RETRIES + 1):
+        try:
+            return _stream_once(client, company, content, status_callback, clock, started)
+        except anthropic.APIError as exc:
+            out_of_time = clock() - started + WRITER_STALL_SECONDS > WRITER_DEADLINE_SECONDS
+            if attempt == WRITER_RETRIES or out_of_time or not llm.is_retryable(exc):
+                raise
+            logger.warning("writer request failed for %s, trying again: %s", company, type(exc).__name__)
+            time.sleep(llm.RETRY_PAUSE_SECONDS)
+    raise AssertionError("unreachable: the last attempt returns or raises")
 
 
 def _reply_text(company: str, message: Any) -> str:

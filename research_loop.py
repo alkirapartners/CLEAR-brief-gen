@@ -40,13 +40,17 @@ BUDGET_MINUTES = HARD_DEADLINE_SECONDS // 60
 # A web call started just before the soft deadline is over by this point,
 # which leaves a model turn before the hard deadline to record what it returned.
 WEB_DEADLINE_SECONDS = SOFT_DEADLINE_SECONDS + TAVILY_TIMEOUT_SECONDS
-# One request to the model. Early in a run a stalled request is retried once,
-# and both attempts end by the hard deadline. Late in a run there is a single
-# attempt, long enough to record what was just read.
+# One request to the model gets this long at most, and never longer than
+# the time left before the ceiling. A failed request is tried once more when
+# there is still room for an attempt. The SDK's own retries are off, because
+# they sleep for as long as a Retry-After header asks.
 TURN_TIMEOUT_SECONDS = 90
 TURN_RETRIES = 1
+RETRY_PAUSE_SECONDS = llm.RETRY_PAUSE_SECONDS
+MIN_ATTEMPT_SECONDS = 20
 LAST_TURN_TIMEOUT_SECONDS = 60
-# Research cannot run longer than this, whatever the model or the web does.
+# Research cannot run longer than this, whatever the model or the web does:
+# no turn starts after the hard deadline, and no attempt may outlast this.
 RESEARCH_CEILING_SECONDS = HARD_DEADLINE_SECONDS + LAST_TURN_TIMEOUT_SECONDS
 MAX_TURNS = 40
 MAX_FAILURES_IN_A_ROW = 5
@@ -143,18 +147,14 @@ def _stop_before_turn(elapsed: float, usage: llm.Usage, ledger: Ledger) -> str |
     return None
 
 
-def turn_limits(elapsed: float) -> tuple[float, int]:
-    """Seconds per attempt, and retries, for a model turn that starts now."""
-    remaining = HARD_DEADLINE_SECONDS - elapsed
-    attempts = TURN_RETRIES + 1
-    if remaining >= attempts * LAST_TURN_TIMEOUT_SECONDS:
-        return min(TURN_TIMEOUT_SECONDS, remaining / attempts), TURN_RETRIES
-    return LAST_TURN_TIMEOUT_SECONDS, 0
+def attempt_timeout(elapsed: float) -> float | None:
+    """Seconds one request may take so it ends by the ceiling, or None when there is no room."""
+    room = RESEARCH_CEILING_SECONDS - elapsed
+    return min(TURN_TIMEOUT_SECONDS, room) if room >= MIN_ATTEMPT_SECONDS else None
 
 
-def _ask(client: Any, messages: list[dict[str, Any]], elapsed: float) -> Any:
-    timeout, retries = turn_limits(elapsed)
-    return client.with_options(timeout=timeout, max_retries=retries).beta.messages.create(
+def _send(client: Any, messages: list[dict[str, Any]], timeout: float) -> Any:
+    return client.with_options(timeout=timeout, max_retries=0).beta.messages.create(
         **llm.request_settings(prompts.build_research_prefix(), MAX_TOKENS),
         output_config={"effort": EFFORT},
         tools=list(TOOLS),
@@ -162,6 +162,25 @@ def _ask(client: Any, messages: list[dict[str, Any]], elapsed: float) -> Any:
         cache_control={"type": "ephemeral"},
         messages=messages,
     )
+
+
+def _ask(session: "_Session", messages: list[dict[str, Any]]) -> Any:
+    """One model turn, tried again once if it fails and the ceiling leaves room."""
+    failure: anthropic.APIError | None = None
+    for attempt in range(TURN_RETRIES + 1):
+        if attempt:
+            session.sleep(RETRY_PAUSE_SECONDS)
+        timeout = attempt_timeout(session.elapsed())
+        if timeout is None:
+            break
+        try:
+            return _send(session.client, messages, timeout)
+        except anthropic.APIError as exc:
+            failure = exc
+            if not llm.is_retryable(exc):
+                break
+    assert failure is not None  # a turn only starts with room for its first attempt
+    raise failure
 
 
 def _tool_calls(response: Any) -> list[ToolCall]:
@@ -258,6 +277,7 @@ class _Session:
     fence: str
     started: float
     clock: Clock
+    sleep: Callable[[float], None]
 
     def elapsed(self) -> float:
         return self.clock() - self.started
@@ -273,7 +293,7 @@ def _turn(run: _Run, session: _Session) -> Step:
     if halted is not None:
         return run, halted, None
     try:
-        response = _ask(session.client, list(run.messages), elapsed)
+        response = _ask(session, list(run.messages))
     except anthropic.APIError as exc:
         logger.warning("research request failed for %s: %s: %s", session.company, type(exc).__name__, exc)
         return run, MODEL_FAILED, exc
@@ -303,6 +323,7 @@ def research(
     web: WebClient,
     clock: Clock = time.monotonic,
     today: date | None = None,
+    sleep: Callable[[float], None] | None = None,
 ) -> ResearchResult:
     """Follow leads on the web until they run out or the budget does.
 
@@ -313,7 +334,7 @@ def research(
     before the research floor is covered is sent back to it.
     """
     status_callback("research")
-    session = _Session(company, client, web, new_fence(), clock(), clock)
+    session = _Session(company, client, web, new_fence(), clock(), clock, sleep or time.sleep)
     opening = prompts.build_research_message(
         company, session.fence, today or date.today(), MAX_SEARCHES, MAX_PAGES, BUDGET_MINUTES,
     )

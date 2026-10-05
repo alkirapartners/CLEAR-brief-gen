@@ -11,6 +11,18 @@ def timed_out():
     return anthropic.APITimeoutError(request=httpx.Request("POST", "https://api.anthropic.com/v1/messages"))
 
 
+def overloaded(retry_after="600"):
+    """The error for a busy API, telling the caller to wait far longer than a brief has."""
+    request = httpx.Request("POST", "https://api.anthropic.com/v1/messages")
+    response = httpx.Response(529, request=request, headers={"retry-after": retry_after})
+    return anthropic.APIStatusError("Overloaded", response=response, body=None)
+
+
+def bad_request():
+    request = httpx.Request("POST", "https://api.anthropic.com/v1/messages")
+    return anthropic.BadRequestError("invalid", response=httpx.Response(400, request=request), body=None)
+
+
 def usage(input_tokens=100, output_tokens=20, cache_read=0, cache_write=0):
     return SimpleNamespace(
         input_tokens=input_tokens, output_tokens=output_tokens,
@@ -80,8 +92,11 @@ class FakeClient:
     event of the writer's stream, so a test can move a clock.
     """
 
-    def __init__(self, turns=(), then=None, writer=None, on_request=None, on_writer_event=None):
+    def __init__(self, turns=(), then=None, writer=None, on_request=None, on_writer_event=None,
+                 writer_failures=()):
         self.turns = list(turns)
+        # Errors raised by the first writer requests, one each, before the writer answers.
+        self.writer_failures = list(writer_failures)
         self.then = then or reply(text("Research complete."))
         self.writer = writer
         self.on_request = on_request
@@ -109,6 +124,8 @@ class FakeClient:
 
     def _stream(self, **kwargs):
         self.writer_requests.append(kwargs)
+        if self.writer_failures:
+            raise self.writer_failures.pop(0)
         events = [block_start(block.type) for block in self.writer.content]
         self.stream = FakeStream(self.writer, events, self.on_writer_event)
         return self.stream
