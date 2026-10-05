@@ -423,7 +423,8 @@ def _record(call: ToolCall, before: Ledger) -> Outcome:
             f" Not kept: facts from pages you have not opened ({addresses})."
             f" Open a page with {READ} first, then record what it states."
         )
-    return Outcome(call.id, text, evidence=(*proven, *unopened))
+    # Only what was kept goes on the ledger, so refused facts use none of its room.
+    return Outcome(call.id, text, evidence=tuple(proven))
 
 
 def _execute(

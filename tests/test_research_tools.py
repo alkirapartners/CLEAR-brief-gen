@@ -312,11 +312,11 @@ def test_a_page_that_showed_only_its_title_cannot_support_a_detailed_fact():
     assert "Not kept: 1 fact(s) whose quote is not on the page" in results[0]["content"]
 
 
-def test_a_fact_from_a_page_that_was_never_opened_is_flagged_and_reported():
+def test_a_fact_from_a_page_that_was_never_opened_is_reported_and_not_kept():
     results, after, _ = _run([_record([_fact("https://example.com/unread")])])
     assert "Recorded 0 fact(s)." in results[0]["content"]
     assert "Not kept: facts from pages you have not opened (https://example.com/unread)" in results[0]["content"]
-    assert after.evidence[0].opened is False
+    assert after.evidence == ()
 
 
 def test_a_source_address_echoed_back_to_the_model_cannot_add_a_line():
@@ -329,7 +329,7 @@ def test_a_source_address_echoed_back_to_the_model_cannot_add_a_line():
 def test_a_fact_recorded_in_the_same_turn_as_the_read_is_not_kept():
     """The model had not seen the page yet, so the fact came from a summary."""
     _, after, _ = _run([_read(), _record([_fact()])])
-    assert after.pages != () and after.evidence[0].opened is False
+    assert after.pages != () and after.evidence == ()
 
 
 def test_unusable_entries_are_skipped_and_text_is_tidied():
@@ -357,6 +357,15 @@ def test_the_evidence_list_cannot_grow_without_limit():
     ))
     _, after, _ = _run([_record([_fact()])], ledger=full)
     assert len(after.evidence) == tools.MAX_EVIDENCE_ITEMS
+
+
+def test_facts_that_were_not_kept_take_no_room_from_facts_that_are():
+    """A model that keeps recording from search summaries must not fill the list with nothing."""
+    unread = [_fact(f"https://example.com/unread-{i}") for i in range(tools.MAX_EVIDENCE_ITEMS)]
+    _, after, _ = _run([_record(unread)], ledger=_opened())
+    assert after.evidence == ()
+    _, after, _ = _run([_record([_fact()])], ledger=after)
+    assert len(after.evidence) == 1 and after.evidence[0].opened is True
 
 
 # ── Budgets ──────────────────────────────────────────────────────
