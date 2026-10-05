@@ -1885,7 +1885,7 @@ git commit -m "feat: add the JSON brief document and its schema"
 
 `candidates` are the opened pages, numbered as the writer saw them. `finalize` removes citations of numbers that are not in `candidates`, drops evidence lines, angles, snapshot text and names that are left without a source, takes the customer name from the story table (and, for a brief in English, the story's result too, so proof is never the model's own wording), caps the score by the surviving angles, keeps only cited pages as references, and renumbers them from 1 in citation order.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `tests/test_brief_rules.py`:
 
@@ -2070,12 +2070,12 @@ def test_blank_list_items_are_dropped():
     assert doc["unconfirmed"] == ["Who owns the WAN."] and doc["raise_score"] == []
 ```
 
-- [ ] **Step 2: Run it and confirm it fails**
+- [x] **Step 2: Run it and confirm it fails**
 
 Run: `.venv/bin/python -m pytest tests/test_brief_rules.py -q`
 Expected: `1 error`, with `ModuleNotFoundError: No module named 'brief_rules'`.
 
-- [ ] **Step 3: Write the module**
+- [x] **Step 3: Write the module**
 
 Create `brief_rules.py`:
 
@@ -2254,7 +2254,7 @@ def finalize(
     }
 ```
 
-- [ ] **Step 4: Run the tests**
+- [x] **Step 4: Run the tests**
 
 Run: `.venv/bin/python -m pytest tests/test_brief_rules.py -q`
 Expected: `19 passed`.
@@ -2262,7 +2262,7 @@ Expected: `19 passed`.
 Run: `.venv/bin/python -m pytest -q`
 Expected: `367 passed, 2 skipped`.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add brief_rules.py tests/test_brief_rules.py
