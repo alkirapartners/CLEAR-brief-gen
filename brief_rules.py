@@ -9,23 +9,24 @@ score cannot claim more than the angles that survive support.
 import logging
 import re
 from datetime import date
-from typing import Any, Iterable, Sequence
+from typing import Any, Iterable, Mapping, Sequence
 
 import case_studies
+import fit_score
+import i18n
 from brief_doc import (
-    FORMAT_VERSION, SNAPSHOT_KEYS, Angle, BriefDoc, EvidenceLine, Person, Question,
+    FORMAT_VERSION, SNAPSHOT_KEYS, Angle, BriefDoc, EvidenceLine, Fit, Person, Question,
     Reference, ResearchNote, Snapshot, SnapshotLine, Stats, Story, WriterOutput,
 )
-from evidence import Source, safe_url, to_references
+from evidence import Source, clean_date, parse_date, safe_url, to_references
 
 logger = logging.getLogger(__name__)
 
 MAX_ANGLES = 3
 MAX_QUESTIONS = 4
-# The scoring table: 3 and up need an evidenced use case, 5 needs two, and a
-# 1 or 2 presents no angle at all.
-MAX_SCORE_WITHOUT_ANGLES = 2
-MAX_SCORE_WITH_ONE_ANGLE = 4
+# The scoring table: a 1 or 2 presents no angle at all. How high the angles
+# that are presented let the score go is worked out in fit_score.py.
+MAX_SCORE_WITHOUT_ANGLES = fit_score.MAX_SCORE_WITHOUT_ANGLES
 # The language the story table is written in.
 TABLE_LANGUAGE = "en"
 # Basics that are figures: every figure in them has to be in the evidence.
@@ -67,9 +68,34 @@ def _known(numbers: Iterable[int], valid: frozenset[int]) -> list[int]:
     return kept
 
 
-def _evidence(lines: Sequence[EvidenceLine], valid: frozenset[int]) -> list[EvidenceLine]:
-    checked = [{**line, "sources": _known(line["sources"], valid)} for line in lines]
-    return [line for line in checked if line["sources"] and line["text"].strip()]
+# The date each source gives for itself, by source number. Empty when it gives none.
+Dates = Mapping[int, str]
+
+
+def _line_date(written: str, sources: Sequence[int], dates: Dates, today: date) -> str:
+    """The date an evidence line carries: always one its own sources give.
+
+    The writer's date is kept when a cited source gives exactly that date.
+    Otherwise the newest date among the cited sources is used, and a line
+    whose sources give none is undated. A date after today dates nothing.
+    """
+    days = {text: parse_date(text) for text in (dates.get(n, "") for n in sources)}
+    usable = {text: day for text, day in days.items() if day is not None and day <= today}
+    if clean_date(written) in usable:
+        return clean_date(written)
+    return max(usable, key=usable.__getitem__, default="")
+
+
+def _evidence(
+    lines: Sequence[EvidenceLine], dates: Dates, today: date,
+) -> list[EvidenceLine]:
+    """Lines that still cite an opened page, each dated by the pages it cites."""
+    checked: list[EvidenceLine] = []
+    for line in lines:
+        sources = _known(line["sources"], frozenset(dates))
+        if sources and line["text"].strip():
+            checked.append({**line, "sources": sources, "date": _line_date(line["date"], sources, dates, today)})
+    return checked
 
 
 _NUMBER = re.compile(r"\d[\d.,]*\d|\d")
@@ -97,12 +123,12 @@ def _story(story: Story, language: str) -> Story:
     return {"id": known.id, "customer": known.customer, "result": translated or known.result}
 
 
-def _angles(angles: Sequence[Angle], valid: frozenset[int], language: str) -> list[Angle]:
+def _angles(angles: Sequence[Angle], dates: Dates, language: str, today: date) -> list[Angle]:
     """Angles that still have evidence, strongest first as written, three at most."""
     checked = [
         {
             **angle,
-            "evidence": _evidence(angle["evidence"], valid),
+            "evidence": _evidence(angle["evidence"], dates, today),
             "story": _story(angle["story"], language),
         }
         for angle in angles
@@ -176,12 +202,12 @@ def _questions(questions: Sequence[Question]) -> list[Question]:
     return [q for q in questions if q["question"].strip()][:MAX_QUESTIONS]
 
 
-def _score(score: int, angle_count: int) -> int:
-    if angle_count == 0:
-        return min(score, MAX_SCORE_WITHOUT_ANGLES)
-    if angle_count == 1:
-        return min(score, MAX_SCORE_WITH_ONE_ANGLE)
-    return score
+def _fit(fit: Fit, ceiling: fit_score.Ceiling, language: str) -> Fit:
+    """The fit as written, or lowered to what the sources support, with the reason added."""
+    if fit["score"] <= ceiling.score:
+        return fit
+    reason = i18n.labels(language)[ceiling.reason].format(score=ceiling.score) if ceiling.reason else ""
+    return {**fit, "score": ceiling.score, "verdict": f"{fit['verdict'].strip()} {reason}".strip()}
 
 
 def _cited(angles: Sequence[Angle], snapshot: Snapshot, people: Sequence[Person]) -> list[int]:
@@ -233,12 +259,13 @@ def finalize(
     output = _scrub(output)
     candidates = to_references(sources)
     valid = frozenset(ref["n"] for ref in candidates)
+    dates = {ref["n"]: ref["date"] for ref in candidates}
     wanted = output["angles"] if output["fit"]["score"] > MAX_SCORE_WITHOUT_ANGLES else []
-    angles = _angles(wanted, valid, language)
+    angles = _angles(wanted, dates, language, today)
     snapshot = _snapshot(output["snapshot"], valid)
     people = _people(output["people"], valid)
-    score = _score(output["fit"]["score"], len(angles))
-    _log_adjustment(output, angles, score)
+    fit = _fit(output["fit"], fit_score.ceiling(angles, candidates, today), language)
+    _log_adjustment(output, angles, fit["score"])
     order = {old: new for new, old in enumerate(_cited(angles, snapshot, people), start=1)}
     return {
         "format": FORMAT_VERSION,
@@ -246,7 +273,7 @@ def finalize(
         "generated": today.isoformat(),
         "company": {**output["company"], "website": safe_url(output["company"]["website"]) or ""},
         "stats": _stats(output["stats"], _stated(sources)),
-        "fit": {**output["fit"], "score": score},
+        "fit": fit,
         "angles": [_renumbered_angle(angle, order) for angle in angles],
         "snapshot": {
             key: {**snapshot[key], "sources": _renumber(snapshot[key]["sources"], order)}

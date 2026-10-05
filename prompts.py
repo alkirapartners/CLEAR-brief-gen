@@ -51,8 +51,8 @@ evidence into a brief, and the writer sees only what you record.
    next search from what you just learned. The best facts usually come from
    a second or third search. Prefer the company's own careers site and job
    postings, then filings and the annual report, then press releases, then
-   cloud-vendor case studies, then trade press. Use a data broker only as a
-   last resort, and say so in the fact.
+   cloud-vendor case studies, then trade press. An encyclopedia or a data
+   broker is a last resort, for a basic fact nothing else gives.
 3. **Record as you go.** After you read a page, call `record_evidence` with
    what it states before you do anything else. Whatever is not recorded
    when the budget runs out is lost.
@@ -89,7 +89,15 @@ outstanding and stop.
 - One fact per item, specific and short. Keep the page's own technical
   terms: ExpressRoute, Virtual WAN, Transit Gateway, BGP, Palo Alto.
 - Give the date the page gives for itself: a job posting's posted date, a
-  filing's period, a press release's date.
+  filing's period, a press release's date. For "posted 3 days ago", work
+  the date out from today's date. When the page gives no date, leave it
+  empty: an undated page is labelled undated, and a guessed date is worse.
+- Say what each page is. `first_hand` is the company speaking: its own
+  site, careers pages and job postings, its filings, its press releases, a
+  cloud vendor's case study about it, an executive's own interview.
+  `second_hand` is anyone else writing about it: news, trade press,
+  analysts, a job board's copy of a posting. The fit score depends on this,
+  so do not call a page first-hand unless the company published it.
 - People: record a name only when a first-hand source gives it (the
   company's own site, a filing, a press release, the person's own
   interview). Otherwise record the role.
@@ -145,6 +153,10 @@ before or after it.
   the company. If the evidence does not say it, the brief does not say it.
 - Each fact is the researcher's summary with the page's own wording under
   it. Where the two differ, the page's wording wins.
+- Each source is marked first-hand, second-hand or last resort, and gives
+  its date or says it is undated. Score from those marks, by the scoring
+  table. The score is checked against the sources afterwards and lowered
+  when they do not support it, so a generous score gains nothing.
 - "The research did not find it" is different from "it is not there". What
   was looked for and not found goes in `unconfirmed`.
 
@@ -167,8 +179,9 @@ before or after it.
   complete brief. For a score of 1 or 2 return an empty list. Each angle
   has a `title`, the `use_case` ID from the Fit Rules, its `evidence`, what
   Alkira does about it in `alkira` (two sentences at most), and a `story`.
-- `evidence` lines: one sentence each, with the source's `date` (empty when
-  it gives none) and the `sources` numbers the sentence rests on.
+- `evidence` lines: one sentence each, with the `date` its source gives
+  (empty when the source is undated: never a date of your own) and the
+  `sources` numbers the sentence rests on.
 - `story`: choose from the Story Matching Table. Match the situation first,
   then the industry. Give the story's `id`. Leave `customer` and `result`
   empty: both are filled in from the table, unless the user message asks

@@ -23,7 +23,7 @@ Work in this order. Drop a line of enquiry when it stops producing dated, specif
 | 3 | Press releases | Dated triggers: a deal closed, sites opened, a programme announced |
 | 4 | Cloud-vendor case studies | Which clouds, since when, and for what |
 | 5 | Trade press | Second-hand confirmation and executive interviews |
-| 6 | Data brokers | Last resort only. Say in the fact that it comes from a data broker |
+| 6 | Data brokers and encyclopedias | Last resort only, for a basic nothing else gives. They are labelled as a last resort in the brief |
 
 3. **Technical snapshot.** Clouds, cloud connectivity, WAN, firewalls, data centers, plant networks. Keep the specific terms the source uses.
 4. **People.** Who owns the network and the infrastructure. Give a name only when a first-hand source gives it. Otherwise give the role.
@@ -39,11 +39,13 @@ The score reflects the strength and freshness of the best use case, never the nu
 
 | Score | Meaning |
 |---|---|
-| 5 | A clear use case with first-hand, current evidence and a dated trigger, plus at least one more evidenced use case |
-| 4 | One clear use case with first-hand, current evidence |
-| 3 | One clear use case whose evidence is older or indirect |
+| 5 | Two different use cases, each resting on a first-hand source of its own, and at least one of those sources dated within the last two years |
+| 4 | One use case resting on a first-hand source dated within the last two years |
+| 3 | A use case whose evidence is second-hand, undated or older than two years |
 | 2 | A plausible use case with no evidence found |
 | 1 | No use case |
+
+A dated first-hand source is the trigger: a job posting with its posted date, a filing, a press release. An angle that rests only on trade press or another second-hand source cannot lift the score above 3, however many such angles there are. Two angles that lean on the same single page are one use case told twice. These limits are checked against the sources after the brief is written, and a score they do not support is lowered.
 
 "Could not find out" is different from "weak fit". What the research looked for and did not find belongs under What we couldn't confirm, and stays out of the score reasoning.
 

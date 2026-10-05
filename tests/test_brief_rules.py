@@ -17,11 +17,11 @@ NOTE = {"searches": 21, "pages": 17, "seconds": 203, "stopped_by": "finished"}
 STATED = "Northwind Energy Corporation is headquartered in Dallas, Texas. Revenue was $28B. It has 5,200 employees."
 
 
-def _sources(count=4, stated=STATED):
+def _sources(count=4, stated=STATED, source_type="first_hand", dated="2026-09-01"):
     """The opened pages, numbered as the writer saw them, each stating the same basics."""
     return tuple(
         Source(
-            n=n, url=f"https://example.com/{n}", title=f"Page {n}", date="", source_type="first_hand",
+            n=n, url=f"https://example.com/{n}", title=f"Page {n}", date=dated, source_type=source_type,
             facts=(EvidenceItem("Company basics.", "basics", f"https://example.com/{n}", opened=True, quote=stated),),
         )
         for n in range(1, count + 1)
@@ -202,6 +202,68 @@ def test_a_score_of_one_or_two_carries_no_angles():
         assert doc["angles"] == [] and doc["fit"]["score"] == low
     kept = _finalize(writer_output(angles=[_angle([1])], fit={"score": 3, "verdict": "v", "lead": "l"}))
     assert len(kept["angles"]) == 1
+
+
+# ── The score cannot outrun the sources ──────────────────────────
+
+FIVE = {"score": 5, "verdict": "Strong fit.", "lead": "Call the CIO."}
+
+
+def test_an_angle_resting_on_second_hand_sources_holds_the_score_at_three_and_the_brief_says_why():
+    doc = _finalize(writer_output(fit=FIVE), sources=_sources(source_type="second_hand"))
+    assert doc["fit"]["score"] == 3 and len(doc["angles"]) == 2
+    assert doc["fit"]["verdict"] == (
+        "Strong fit. Score held at 3: no use case has first-hand evidence dated in the last two years."
+    )
+
+
+def test_undated_first_hand_sources_hold_the_score_at_three():
+    assert _finalize(writer_output(fit=FIVE), sources=_sources(dated=""))["fit"]["score"] == 3
+
+
+def test_one_first_hand_use_case_holds_the_score_at_four_and_the_brief_says_why():
+    doc = _finalize(writer_output(angles=[_angle([1])], fit=FIVE))
+    assert doc["fit"]["score"] == 4
+    assert doc["fit"]["verdict"].startswith("Strong fit. Score held at 4: a higher score needs two use cases")
+
+
+def test_the_reason_is_given_in_the_language_of_the_brief():
+    doc = _finalize(writer_output(angles=[_angle([1])], fit=FIVE), language="es")
+    assert "Puntuación limitada a 4" in doc["fit"]["verdict"]
+
+
+def test_a_score_the_sources_support_is_left_as_written_with_no_note():
+    doc = _finalize(writer_output(fit=FIVE))
+    assert doc["fit"] == FIVE
+    lower = {"score": 3, "verdict": "A fair fit.", "lead": "l"}
+    assert _finalize(writer_output(fit=lower))["fit"] == lower
+
+
+# ── An evidence line carries its source's date, not one of the model's own ──
+
+def _dated_line(written, cited, **kwargs):
+    angle = _angle(cited)
+    angle["evidence"][0]["date"] = written
+    fit = {"score": 3, "verdict": "v", "lead": "l"}
+    return _finalize(writer_output(angles=[angle], fit=fit), **kwargs)["angles"][0]["evidence"][0]["date"]
+
+
+def test_a_line_keeps_a_date_that_is_its_source_s_date():
+    assert _dated_line("2026-09-01", [1]) == "2026-09-01"
+
+
+def test_a_date_the_source_does_not_give_is_replaced_by_the_one_it_does():
+    assert _dated_line("2026-10-04", [1]) == "2026-09-01"
+    assert _dated_line("", [1]) == "2026-09-01"
+    assert _dated_line("last month", [1]) == "2026-09-01"
+
+
+def test_a_line_whose_sources_give_no_date_is_undated_whatever_the_model_wrote():
+    assert _dated_line("2026-09-30", [1], sources=_sources(dated="")) == ""
+
+
+def test_a_source_dated_in_the_future_dates_nothing():
+    assert _dated_line("2027-03-01", [1], sources=_sources(dated="2027-03-01")) == ""
 
 
 # ── Customer stories come from the knowledge base ────────────────

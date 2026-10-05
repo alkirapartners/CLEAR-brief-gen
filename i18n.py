@@ -71,6 +71,13 @@ LABELS: dict[str, dict[str, str]] = {
         "source_second_hand": "second-hand",
         "source_last_resort": "last-resort source",
         "undated": "undated",
+        "score_held_evidence": (
+            "Score held at {score}: no use case has first-hand evidence dated in the last two years."
+        ),
+        "score_held_use_cases": (
+            "Score held at {score}: a higher score needs two use cases, each with its own "
+            "first-hand source, one of them dated in the last two years."
+        ),
         "stakeholders": "Stakeholders",
         "best_first_question": "Best First Question",
     },
@@ -123,6 +130,14 @@ LABELS: dict[str, dict[str, str]] = {
         "source_second_hand": "fuente indirecta",
         "source_last_resort": "fuente de último recurso",
         "undated": "sin fecha",
+        "score_held_evidence": (
+            "Puntuación limitada a {score}: ningún caso de uso tiene evidencia de primera mano "
+            "fechada en los últimos dos años."
+        ),
+        "score_held_use_cases": (
+            "Puntuación limitada a {score}: una puntuación mayor requiere dos casos de uso, cada uno "
+            "con su propia fuente de primera mano, y uno de ellos fechado en los últimos dos años."
+        ),
         "stakeholders": "Interlocutores",
         "best_first_question": "Mejor pregunta inicial",
     },

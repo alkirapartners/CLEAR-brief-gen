@@ -32,15 +32,21 @@ def test_every_use_case_has_an_id_in_the_fit_rules(use_case):
 
 
 @pytest.mark.parametrize("row", [
-    "| 5 | A clear use case with first-hand, current evidence and a dated trigger, plus at least one more evidenced use case |",
-    "| 4 | One clear use case with first-hand, current evidence |",
-    "| 3 | One clear use case whose evidence is older or indirect |",
+    "| 5 | Two different use cases, each resting on a first-hand source of its own, and at least one of those sources dated within the last two years |",
+    "| 4 | One use case resting on a first-hand source dated within the last two years |",
+    "| 3 | A use case whose evidence is second-hand, undated or older than two years |",
     "| 2 | A plausible use case with no evidence found |",
     "| 1 | No use case |",
 ])
 def test_the_template_scores_the_best_use_case_not_the_volume_of_evidence(row):
     assert row in TEMPLATE
     assert "never the number of boxes checked" in TEMPLATE
+
+
+def test_the_template_says_what_second_hand_evidence_can_and_cannot_do():
+    assert "cannot lift the score above 3" in TEMPLATE
+    assert "one use case told twice" in TEMPLATE
+    assert "a score they do not support is lowered" in TEMPLATE
 
 
 def test_the_template_never_asks_for_three_entry_points():
