@@ -1328,7 +1328,7 @@ The document's field names are fixed here and used by every later task:
 
 The model writes `company` through `raise_score`. The code adds `format`, `language`, `generated`, `references` and `research`.
 
-- [ ] **Step 1: Raise the SDK floor and name the typing dependency**
+- [x] **Step 1: Raise the SDK floor and name the typing dependency**
 
 Apply this change to `requirements.txt`:
 
@@ -1351,7 +1351,7 @@ Apply this change to `requirements.txt`:
 Run: `.venv/bin/pip install -q -r requirements.txt && .venv/bin/python -c "import anthropic, typing_extensions; print(anthropic.__version__)"`
 Expected: a version of `1.11.0` or higher.
 
-- [ ] **Step 2: Write the fixture and the failing test**
+- [x] **Step 2: Write the fixture and the failing test**
 
 Create `tests/brief_fixtures.py`:
 
@@ -1649,12 +1649,12 @@ def test_a_damaged_or_unknown_document_loads_as_nothing(damaged):
     assert brief_doc.load(damaged) is None
 ```
 
-- [ ] **Step 3: Run the test and confirm it fails**
+- [x] **Step 3: Run the test and confirm it fails**
 
 Run: `.venv/bin/python -m pytest tests/test_brief_doc.py -q`
 Expected: `1 error`, with `ModuleNotFoundError: No module named 'brief_doc'`.
 
-- [ ] **Step 4: Write the module**
+- [x] **Step 4: Write the module**
 
 Create `brief_doc.py`:
 
@@ -1853,7 +1853,7 @@ def dump(doc: BriefDoc) -> str:
     return json.dumps(doc, ensure_ascii=False)
 ```
 
-- [ ] **Step 5: Run the tests**
+- [x] **Step 5: Run the tests**
 
 Run: `.venv/bin/python -m pytest tests/test_brief_doc.py -q`
 Expected: `27 passed`.
@@ -1861,7 +1861,7 @@ Expected: `27 passed`.
 Run: `.venv/bin/python -m pytest -q`
 Expected: `348 passed, 2 skipped`.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add requirements.txt brief_doc.py tests/brief_fixtures.py tests/test_brief_doc.py

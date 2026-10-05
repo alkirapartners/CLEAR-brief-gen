@@ -1,4 +1,4 @@
-anthropic>=0.95.0
+anthropic>=1.11.0
 python-dotenv>=1.0.0
 supabase==2.18.0
 fpdf2>=2.7.9
@@ -6,3 +6,4 @@ tavily-python>=0.8.0
 fastapi>=0.115.0
 uvicorn>=0.32.0
 pydantic>=2.9.0
+typing_extensions>=4.12.0
