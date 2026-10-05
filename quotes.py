@@ -46,11 +46,14 @@ def is_on_page(quote: str, page_text: str) -> bool:
     return is_in(quote, bare(page_text))
 
 
-# ── Does the quote state the fact? ───────────────────────────────
+# ── Does the page bear the fact out? ─────────────────────────────
 # A quote that is on the page proves the page says the quote. It does not
-# prove the fact: a cookie notice is on the page too. So the figures in a
-# fact, and the names in it (products, vendors, technologies, places), have
-# to be in its quote.
+# prove the fact: a cookie notice is on the page too. So two more things are
+# asked of a fact. Every figure in it has to be in its quote, because a
+# figure belongs to the sentence it came from. And every name in it (a
+# product, a vendor, a technology, a place, a company) has to be somewhere
+# on the page: a press release names its city in the dateline and the deal
+# three paragraphs down, and both are true of the same fact.
 
 # Labels that hold digits and are not figures: a filing form, a fiscal period.
 _DESIGNATOR = re.compile(r"\b(?:10-[KQ]|20-F|40-F|8-K|S-1|FY\s?\d{2,4}|Q[1-4]|H[12]|24/7)\b", re.IGNORECASE)
@@ -105,27 +108,56 @@ def _is_name(token: str, starts_sentence: bool) -> bool:
     return token[0].isupper() and not starts_sentence
 
 
-def missing_from_quote(fact: str, quote: str, context: tuple[str, ...] = ()) -> tuple[str, ...]:
-    """The figures and names in a fact that its quote does not hold, in the order they appear.
+def missing_figures(fact: str, quote: str) -> tuple[str, ...]:
+    """The figures in a fact that its quote does not hold, in the order they appear.
 
-    ``context`` is what is known without the quote: the company's name and
-    the page's address. A name found there does not have to be quoted. Years,
-    dates and labels such as "FY2025" or "10-K" are not figures.
+    Years, dates and labels such as "FY2025" or "10-K" are not figures.
+    """
+    quoted = _figures(quote)
+    missing: list[str] = []
+    for token in _TOKEN.findall(_without_labels(fact)):
+        if token[0].isdigit() and not _YEAR.match(_plain_number(token)):
+            if _plain_number(token) not in quoted and token not in missing:
+                missing.append(token)
+    return tuple(missing)
+
+
+_CAPITALISED_WORD = re.compile(r"\b[A-Z][A-Za-z0-9]*")
+# An acronym short enough to be spelled out by the first letters of a name.
+MAX_ACRONYM_CHARS = 6
+
+
+def initials(text: str) -> str:
+    """The first letter of every capitalised word, in order: where a page spells an acronym out."""
+    return "".join(word[0] for word in _CAPITALISED_WORD.findall(text)).casefold()
+
+
+def _spelled_out(token: str, page_initials: str) -> bool:
+    """True for an acronym the page gives in full: NYSE for "New York Stock Exchange"."""
+    return token.isupper() and 2 <= len(token) <= MAX_ACRONYM_CHARS and token.casefold() in page_initials
+
+
+def missing_names(
+    fact: str, bare_page: str, context: tuple[str, ...] = (), page_initials: str = "",
+) -> tuple[str, ...]:
+    """The names in a fact that the page never says, in the order they appear.
+
+    ``bare_page`` is the page reduced by ``bare`` and ``page_initials`` the
+    same page through ``initials``. ``context`` is what is known without the
+    page: the company's name and the page's address. A name found there
+    does not have to be on the page.
     """
     text = _without_labels(fact)
-    quoted, quoted_figures = bare(quote), _figures(quote)
     known = tuple(bare(item) for item in context)
     missing: list[str] = []
     for match in _TOKEN.finditer(text):
         token = match.group(0)
-        if token[0].isdigit():
-            number = _plain_number(token)
-            absent = not _YEAR.match(number) and number not in quoted_figures
-        else:
-            before = text[: match.start()].rstrip()
-            starts = not before or before[-1] in _ENDS_A_SENTENCE
-            name = bare(token)
-            absent = _is_name(token, starts) and name not in quoted and not any(name in item for item in known)
-        if absent and token not in missing:
+        before = text[: match.start()].rstrip()
+        starts = not before or before[-1] in _ENDS_A_SENTENCE
+        name = bare(token)
+        if token[0].isdigit() or not _is_name(token, starts) or token in missing:
+            continue
+        on_page = name in bare_page or _spelled_out(token, page_initials)
+        if not on_page and not any(name in item for item in known):
             missing.append(token)
     return tuple(missing)

@@ -351,18 +351,33 @@ def test_a_quote_from_another_opened_page_does_not_support_the_fact():
     assert after.evidence == () and "whose quote is not on the page" in results[0]["content"]
 
 
-def test_a_quote_that_is_on_the_page_but_does_not_state_the_fact_supports_nothing():
-    """A cookie notice is on the page too. The quote has to hold the fact's figures and names."""
-    page = "We use cookies to improve your experience. " + PAGE_TEXT
+def test_a_figure_that_is_not_in_the_quote_supports_nothing_even_when_the_quote_is_on_the_page():
+    """A cookie notice is on the page too. A fact's figures have to be in its quote."""
+    page = "We use cookies to improve your experience. Cisco ACI fabric. " + PAGE_TEXT
     unsupported = _fact(fact="The company runs 14 data centers on Cisco ACI.", quote="We use cookies to improve your experience.")
     results, after, _ = _run([_record([unsupported, _fact()])], ledger=_opened(text=page))
     text = results[0]["content"]
     assert [item.fact for item in after.evidence] == ["Runs ExpressRoute and Virtual WAN."]
-    assert 'Not kept: 1 fact(s) whose quote does not state them ("The company runs 14 data centers on Cisco ACI." lacks 14, Cisco, ACI)' in text
+    assert 'Not kept: 1 fact(s) the page does not bear out ("The company runs 14 data centers on Cisco ACI.": 14 is not in the quote)' in text
     assert after.facts_refused == 1
 
 
-def test_the_company_s_name_and_the_page_address_do_not_have_to_be_in_the_quote():
+def test_a_name_may_come_from_anywhere_on_the_page_not_only_from_the_quote():
+    """A press release names the city in its dateline and the deal three paragraphs down."""
+    page = "DALLAS, Jul. 28, 2026. Northwind (NYSE: NWE) today announced a separation. " + PAGE_TEXT
+    fact = _fact(fact="Northwind, Dallas (NYSE: NWE), runs ExpressRoute and a Virtual WAN hub-and-spoke.")
+    _, after, _ = _run([_record([fact])], ledger=_opened(text=page))
+    assert len(after.evidence) == 1
+
+
+def test_a_name_the_page_never_says_is_refused():
+    fact = _fact(fact="Runs ExpressRoute, Virtual WAN and Palo Alto firewalls in Houston.")
+    results, after, _ = _run([_record([fact])], ledger=_opened())
+    assert after.evidence == ()
+    assert "Palo, Alto, Houston are not on the page" in results[0]["content"]
+
+
+def test_the_company_s_name_and_the_page_address_do_not_have_to_be_on_the_page():
     named = _fact(fact="Zenith Corp's posting on Northwind asks for ExpressRoute and BGP.")
     _, without, _ = _run([_record([named])], ledger=_opened())
     _, with_name, _ = _run([_record([named])], ledger=_opened(), company="Zenith Corp")
@@ -385,8 +400,8 @@ def test_a_page_that_showed_only_its_title_cannot_support_a_detailed_fact():
     titled = _fact(url=posting, fact="A Senior Cisco ACI Engineer role is listed.", quote="Senior Cisco ACI Engineer | Careers at Example Payments")
     results, after, _ = _run([_record([detailed, titled])], ledger=ledger)
     assert [item.fact for item in after.evidence] == ["A Senior Cisco ACI Engineer role is listed."]
-    assert "Not kept: 1 fact(s) whose quote does not state them" in results[0]["content"]
-    assert "lacks BGP, Palo, Alto" in results[0]["content"]
+    assert "Not kept: 1 fact(s) the page does not bear out" in results[0]["content"]
+    assert "BGP, Palo, Alto are not on the page" in results[0]["content"]
 
 
 def test_a_fact_from_a_page_that_was_never_opened_is_reported_and_not_kept():

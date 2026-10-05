@@ -95,9 +95,9 @@ _EVIDENCE_ITEM = {
             "type": "string",
             "description": (
                 "A passage copied word for word from the page that states this fact, one or two "
-                "sentences. Join separate passages with ' ... '. It must be on the page, and it "
-                "must hold every figure and every product, vendor, technology and place name in "
-                "the fact. A fact whose quote fails either check is thrown away."
+                "sentences. Join separate passages with ' ... '. It must be on the page and hold "
+                "every figure in the fact. Every product, vendor, technology, place and company "
+                "the fact names must be somewhere on the page. A fact that fails is thrown away."
             ),
         },
         "category": {
@@ -428,32 +428,44 @@ def _evidence_item(raw: Any) -> EvidenceItem | None:
     )
 
 
+@dataclass(frozen=True)
+class _Unborne:
+    """A fact whose quote is on the page, and which the page still does not bear out."""
+
+    item: EvidenceItem
+    figures: tuple[str, ...]  # in the fact, not in its quote
+    names: tuple[str, ...]  # in the fact, nowhere on the page
+
+
 def _sort_by_quote(
     items: Sequence[EvidenceItem], texts: Mapping[str, str], company: str,
-) -> tuple[list[EvidenceItem], list[EvidenceItem], list[tuple[EvidenceItem, tuple[str, ...]]]]:
-    """Facts that are proven, facts whose quote is not on the page, and facts the quote does not state.
+) -> tuple[list[EvidenceItem], list[EvidenceItem], list[_Unborne]]:
+    """Facts that are proven, facts whose quote is not on the page, and facts the page does not bear out.
 
-    A fact is proven when its quote is on the page it cites and holds the
-    fact's own figures and names. The company's name and the page's address
-    are known without the quote, so they do not have to be in it.
+    A fact is proven when its quote is on the page it cites, every figure
+    in the fact is in that quote, and every name in the fact is somewhere on
+    the page. The company's name and the page's address are known without
+    the page, so they do not have to be on it.
     """
-    bare_pages: dict[str, str] = {}
+    reduced: dict[str, tuple[str, str]] = {}  # each page once: its bare text and its initials
     proven: list[EvidenceItem] = []
     off_page: list[EvidenceItem] = []
-    unstated: list[tuple[EvidenceItem, tuple[str, ...]]] = []
+    unborne: list[_Unborne] = []
     for item in items:
         key = canonical_url(item.source_url)
-        if key not in bare_pages:
-            bare_pages[key] = quotes.bare(texts.get(key, ""))
-        if not quotes.is_in(item.quote, bare_pages[key]):
+        if key not in reduced:
+            reduced[key] = (quotes.bare(texts.get(key, "")), quotes.initials(texts.get(key, "")))
+        bare_page, page_initials = reduced[key]
+        if not quotes.is_in(item.quote, bare_page):
             off_page.append(item)
             continue
-        lacking = quotes.missing_from_quote(item.fact, item.quote, (company, item.source_url))
-        if lacking:
-            unstated.append((item, lacking))
+        figures = quotes.missing_figures(item.fact, item.quote)
+        names = quotes.missing_names(item.fact, bare_page, (company, item.source_url), page_initials)
+        if figures or names:
+            unborne.append(_Unborne(item, figures, names))
         else:
             proven.append(replace(item, source_date=_date_on_page(item.source_date, texts.get(key, ""))))
-    return proven, off_page, unstated
+    return proven, off_page, unborne
 
 
 def _date_on_page(stated: str, page_text: str) -> str:
@@ -465,11 +477,15 @@ def _echo(items: Sequence[EvidenceItem]) -> str:
     return ", ".join(f'"{item.fact[:ECHOED_FACT_CHARS]}"' for item in items[:MAX_ECHOED_FACTS])
 
 
-def _echo_lacking(unstated: Sequence[tuple[EvidenceItem, tuple[str, ...]]]) -> str:
-    return "; ".join(
-        f'"{item.fact[:ECHOED_FACT_CHARS]}" lacks {", ".join(lacking[:MAX_ECHOED_FACTS])}'
-        for item, lacking in unstated[:MAX_ECHOED_FACTS]
-    )
+def _why(fact: _Unborne) -> str:
+    reasons: list[str] = []
+    if fact.figures:
+        verb = "is" if len(fact.figures) == 1 else "are"
+        reasons.append(f"{', '.join(fact.figures[:MAX_ECHOED_FACTS])} {verb} not in the quote")
+    if fact.names:
+        verb = "is" if len(fact.names) == 1 else "are"
+        reasons.append(f"{', '.join(fact.names[:MAX_ECHOED_FACTS])} {verb} not on the page")
+    return f'"{fact.item.fact[:ECHOED_FACT_CHARS]}": {"; ".join(reasons)}'
 
 
 def _record(call: ToolCall, before: Ledger, company: str) -> Outcome:
@@ -477,7 +493,7 @@ def _record(call: ToolCall, before: Ledger, company: str) -> Outcome:
     raw_items = call.input.get("items")
     parsed = [_evidence_item(raw) for raw in raw_items] if isinstance(raw_items, list) else []
     marked = mark_opened([item for item in parsed if item is not None], before.pages)
-    proven, off_page, unstated = _sort_by_quote([item for item in marked if item.opened], before.texts, company)
+    proven, off_page, unborne = _sort_by_quote([item for item in marked if item.opened], before.texts, company)
     unopened = [item for item in marked if not item.opened]
     text = f"Recorded {len(proven)} fact(s)."
     if off_page:
@@ -485,10 +501,11 @@ def _record(call: ToolCall, before: Ledger, company: str) -> Outcome:
             f" Not kept: {len(off_page)} fact(s) whose quote is not on the page word for word"
             f" ({_echo(off_page)}). Copy a passage exactly as the page has it, then record them again."
         )
-    if unstated:
+    if unborne:
+        shown = "; ".join(_why(fact) for fact in unborne[:MAX_ECHOED_FACTS])
         text += (
-            f" Not kept: {len(unstated)} fact(s) whose quote does not state them ({_echo_lacking(unstated)})."
-            f" Quote the passage that holds every figure and name in the fact, or leave them out of the fact."
+            f" Not kept: {len(unborne)} fact(s) the page does not bear out ({shown})."
+            f" Quote the passage that holds the figure, and name only what the page names."
         )
     if unopened:
         addresses = ", ".join(sorted({item.source_url for item in unopened}))
@@ -496,10 +513,10 @@ def _record(call: ToolCall, before: Ledger, company: str) -> Outcome:
             f" Not kept: facts from pages you have not opened ({addresses})."
             f" Open a page with {READ} first, then record what it states."
         )
-    for item, lacking in unstated:
-        logger.info("fact refused, quote lacks %s: %s | quote: %s", ", ".join(lacking), item.fact, item.quote)
+    for fact in unborne:
+        logger.info("fact refused (%s) | quote: %s", _why(fact), fact.item.quote)
     # Only what was kept goes on the ledger, so refused facts use none of its room.
-    refused = len(off_page) + len(unstated) + len(unopened)
+    refused = len(off_page) + len(unborne) + len(unopened)
     return Outcome(call.id, text, evidence=tuple(proven), facts_refused=refused)
 
 

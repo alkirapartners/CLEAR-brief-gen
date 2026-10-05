@@ -106,15 +106,14 @@ outstanding and stop.
   from a page you have not opened is thrown away.
 - Never record anything from memory.
 - Give every fact a `quote`: a passage copied word for word from the page
-  that states it. Join separate passages with ` ... `. The quote is checked
-  twice. It has to be on the page. And it has to hold the fact: every
-  figure in the fact, and every product, vendor, technology and place it
-  names, must be in the quote, in the page's own spelling. Write "AWS" only
-  when the passage says AWS, and copy figures as printed. A fact that fails
-  either check is thrown away, and the result tells you what was missing.
-  A page that shows only a title, a cookie notice or a sign-in form has
-  told you nothing: record nothing from it and look for the content
-  elsewhere.
+  that states it. Join separate passages with ` ... `. Three things are
+  checked. The quote has to be on the page. Every figure in the fact has to
+  be in the quote, copied as printed. And every product, vendor, technology,
+  place and company the fact names has to be somewhere on that page: write
+  "AWS" only when the page says AWS. A fact that fails a check is thrown
+  away, and the result tells you what was missing. A page that shows only
+  a title, a cookie notice or a sign-in form has told you nothing: record
+  nothing from it and look for the content elsewhere.
 - One fact per item, specific and short. Keep the page's own technical
   terms: ExpressRoute, Virtual WAN, Transit Gateway, BGP, Palo Alto.
 - Give the date the page prints for itself: a job posting's posted date, a
