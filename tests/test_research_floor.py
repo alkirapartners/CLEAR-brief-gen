@@ -147,3 +147,9 @@ def test_open_items_are_named_in_one_line_and_explained_in_full():
     assert "4 searches and 3 pages so far" in full
     assert "recent_news" in full and "revenue" in full
     assert len(full.splitlines()) == 5 and all(line.startswith("- ") for line in full.splitlines())
+
+
+def test_every_item_that_can_be_open_has_a_name_and_an_instruction():
+    everything = _open(searches=0)
+    assert len(floor.names(everything)) == len(everything)
+    assert len(floor.instructions(everything, 0, 0).splitlines()) == len(everything)

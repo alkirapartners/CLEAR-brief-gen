@@ -126,7 +126,7 @@ def _story(story: Story, use_case: str, told: frozenset[str], language: str) -> 
     """
     known = case_studies.story_by_id(story["id"])
     if known is None or use_case not in known.situations or known.id in told:
-        return _NO_STORY
+        return {**_NO_STORY}
     translated = story["result"].strip() if language != TABLE_LANGUAGE else ""
     if _numbers(translated) != _numbers(known.result):
         translated = ""  # a translation may change the words, never the figures
@@ -147,7 +147,7 @@ def _angles(angles: Sequence[Angle], dates: Dates, language: str, today: date) -
     told: frozenset[str] = frozenset()
     for angle in [angle for angle in checked if angle_rules.stands(angle)][:MAX_ANGLES]:
         story = _story(angle["story"], angle["use_case"], told, language)
-        told = told | {story["id"]} - {case_studies.NO_STORY}
+        told = told | ({story["id"]} - {case_studies.NO_STORY})
         kept.append({**angle, "story": story})
     return kept
 
