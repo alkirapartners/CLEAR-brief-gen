@@ -183,12 +183,23 @@ def _questions(questions: Sequence[Question]) -> list[Question]:
     return [q for q in questions if q["question"].strip()][:MAX_QUESTIONS]
 
 
-def _fit(fit: Fit, ceiling: fit_score.Ceiling, language: str) -> Fit:
-    """The fit as written, or lowered to what the sources support, with the reason added."""
+def _fit(fit: Fit, ceiling: fit_score.Ceiling, language: str, has_angles: bool) -> Fit:
+    """The fit as written, or the code's own when the sources do not support the score.
+
+    A lowered score cannot keep the writer's verdict: "Strong fit" over a 2
+    would contradict it. The verdict becomes the code's label for the new
+    score, followed by the reason. The lead goes too when no angle is left
+    for it to point at.
+    """
     if fit["score"] <= ceiling.score:
         return fit
-    reason = i18n.labels(language)[ceiling.reason].format(score=ceiling.score) if ceiling.reason else ""
-    return {**fit, "score": ceiling.score, "verdict": f"{fit['verdict'].strip()} {reason}".strip()}
+    labels = i18n.labels(language)
+    reason = labels[ceiling.reason].format(score=ceiling.score)
+    return {
+        "score": ceiling.score,
+        "verdict": f"{labels[f'verdict_{ceiling.score}']} {reason}",
+        "lead": fit["lead"] if has_angles else "",
+    }
 
 
 def _cited(angles: Sequence[Angle], snapshot: Snapshot, people: Sequence[Person]) -> list[int]:
@@ -255,7 +266,7 @@ def finalize(
     snapshot = _snapshot(output["snapshot"], valid)
     first_hand = frozenset(ref["n"] for ref in candidates if ref["source_type"] == FIRST_HAND)
     people = _people(output["people"], valid, first_hand)
-    fit = _fit(output["fit"], fit_score.ceiling(angles, candidates, today), language)
+    fit = _fit(output["fit"], fit_score.ceiling(angles, candidates, today), language, bool(angles))
     _log_adjustment(output, angles, fit["score"])
     order = {old: new for new, old in enumerate(_cited(angles, snapshot, people), start=1)}
     return {

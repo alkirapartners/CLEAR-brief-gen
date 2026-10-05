@@ -20,6 +20,7 @@ MAX_SCORE_WITHOUT_ANGLES = 2
 MAX_SCORE_WITHOUT_CURRENT_FIRST_HAND = 3
 MAX_SCORE_WITH_ONE_USE_CASE = 4
 # Label keys (i18n) for the sentence that says why a score was held down.
+HELD_BY_NO_ANGLES = "score_held_no_angles"
 HELD_BY_EVIDENCE = "score_held_evidence"
 HELD_BY_USE_CASES = "score_held_use_cases"
 
@@ -57,7 +58,7 @@ def ceiling(angles: Sequence[Angle], references: Sequence[Reference], today: dat
     within the window.
     """
     if not angles:
-        return Ceiling(MAX_SCORE_WITHOUT_ANGLES)
+        return Ceiling(MAX_SCORE_WITHOUT_ANGLES, HELD_BY_NO_ANGLES)
     first_hand = frozenset(ref["n"] for ref in references if ref["source_type"] == FIRST_HAND)
     current = frozenset(ref["n"] for ref in references if ref["n"] in first_hand and is_current(ref["date"], today))
     backed = [(angle["use_case"], _cited(angle) & first_hand) for angle in angles]

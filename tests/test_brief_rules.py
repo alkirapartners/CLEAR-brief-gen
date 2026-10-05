@@ -259,8 +259,11 @@ def test_an_angle_resting_on_second_hand_sources_holds_the_score_at_three_and_th
     doc = _finalize(writer_output(fit=FIVE), sources=_sources(source_type="second_hand"))
     assert doc["fit"]["score"] == 3 and len(doc["angles"]) == 2
     assert doc["fit"]["verdict"] == (
-        "Strong fit. Score held at 3: no use case has first-hand evidence dated in the last two years."
+        "A use case without current first-hand evidence. "
+        "Score held at 3: no use case has first-hand evidence dated in the last two years."
     )
+    assert "Strong fit" not in doc["fit"]["verdict"]  # the writer's claim went with its score
+    assert doc["fit"]["lead"] == "Call the CIO."  # the angles stand, so the advice does
 
 
 def test_a_use_case_whose_first_hand_source_is_undated_is_held_at_three():
@@ -278,7 +281,19 @@ def test_a_use_case_whose_first_hand_source_is_undated_is_held_at_three():
 def test_one_first_hand_use_case_holds_the_score_at_four_and_the_brief_says_why():
     doc = _finalize(writer_output(angles=[_angle([1])], fit=FIVE))
     assert doc["fit"]["score"] == 4
-    assert doc["fit"]["verdict"].startswith("Strong fit. Score held at 4: a higher score needs two use cases")
+    assert doc["fit"]["verdict"].startswith(
+        "One use case with current first-hand evidence. Score held at 4: a higher score needs two use cases"
+    )
+
+
+def test_when_no_angle_stands_the_claim_and_the_advice_built_on_it_are_replaced():
+    doc = _finalize(writer_output(angles=[_angle([99])], fit=FIVE))
+    assert doc["angles"] == [] and doc["fit"]["score"] == 2
+    assert doc["fit"]["verdict"] == (
+        "No use case with evidence that stands. "
+        "Score held at 2: no angle is left with a dated fact from an opened page."
+    )
+    assert doc["fit"]["lead"] == ""
 
 
 def test_the_reason_is_given_in_the_language_of_the_brief():

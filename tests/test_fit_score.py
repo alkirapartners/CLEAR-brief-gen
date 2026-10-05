@@ -28,7 +28,7 @@ def _cap(angles, references):
 # ── What each score needs ────────────────────────────────────────
 
 def test_with_no_angle_the_score_stops_at_two():
-    assert _cap([], [_ref(1)]) == fit_score.Ceiling(2, "")
+    assert _cap([], [_ref(1)]) == fit_score.Ceiling(2, "score_held_no_angles")
 
 
 @pytest.mark.parametrize("references", [
