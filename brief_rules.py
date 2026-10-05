@@ -15,6 +15,7 @@ from brief_doc import (
     FORMAT_VERSION, SNAPSHOT_KEYS, Angle, BriefDoc, EvidenceLine, Person, Question,
     Reference, ResearchNote, Snapshot, SnapshotLine, Story, WriterOutput,
 )
+from evidence import safe_url
 
 logger = logging.getLogger(__name__)
 
@@ -150,7 +151,7 @@ def finalize(
         "format": FORMAT_VERSION,
         "language": language,
         "generated": today.isoformat(),
-        "company": output["company"],
+        "company": {**output["company"], "website": safe_url(output["company"]["website"]) or ""},
         "stats": output["stats"],
         "fit": {**output["fit"], "score": score},
         "angles": [

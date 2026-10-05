@@ -176,3 +176,17 @@ def test_questions_are_capped_at_four_and_blanks_are_dropped():
 def test_blank_list_items_are_dropped():
     doc = _finalize(writer_output(unconfirmed=["  ", "Who owns the WAN. "], raise_score=[""]))
     assert doc["unconfirmed"] == ["Who owns the WAN."] and doc["raise_score"] == []
+
+
+# ── Links ────────────────────────────────────────────────────────
+
+def test_a_website_that_is_not_a_public_web_address_is_dropped():
+    for bad in ("javascript:alert(1)", "http://127.0.0.1/admin", "ftp://files.example.com", "not a url"):
+        company = {**SAMPLE_DOC["company"], "website": bad}
+        assert _finalize(writer_output(company=company))["company"]["website"] == ""
+
+
+def test_a_real_website_is_kept_rebuilt_from_its_parts():
+    company = {**SAMPLE_DOC["company"], "website": " HTTPS://WWW.Northwind.example/about#team "}
+    doc = _finalize(writer_output(company=company))
+    assert doc["company"]["website"] == "https://www.northwind.example/about"
