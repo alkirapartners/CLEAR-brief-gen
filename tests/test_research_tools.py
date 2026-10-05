@@ -185,6 +185,21 @@ def test_find_with_no_match_says_so_and_the_page_is_still_opened():
     assert len(after.pages) == 1
 
 
+def test_a_common_word_does_not_crowd_out_a_rare_one_and_the_model_is_told_what_was_cut():
+    filing = "https://example.com/10-k"
+    text = "The network is large. " * 4_000 + "We will exit the Reno data center in March. " + "Other text. " * 3_000
+    results, _, _ = _run([_read(filing, find="network, Reno data center")], web=FakeWeb(pages={filing: text}))
+    shown = results[0]["content"]
+    assert "exit the Reno data center in March" in shown
+    assert "Showing " in shown and " matching passages" in shown and "narrower" in shown
+    assert len(shown) < tools.MAX_PAGE_CHARS + 600
+
+
+def test_a_find_that_shows_everything_says_nothing_about_cutting():
+    results, _, _ = _run([_read(REPORT, find="acquisition")], web=FakeWeb(pages={REPORT: REPORT_TEXT}))
+    assert "Showing " not in results[0]["content"]
+
+
 def test_many_matches_never_return_more_than_one_page_of_text():
     busy = "https://example.com/busy"
     results, _, _ = _run([_read(busy, find="network")], web=FakeWeb(pages={busy: "The network team. " * 60_000}))

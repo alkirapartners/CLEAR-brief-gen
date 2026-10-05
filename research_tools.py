@@ -250,32 +250,59 @@ def _search(call: ToolCall, web: WebClient, fence: str) -> Outcome:
     return Outcome(call.id, f"{_fenced(body, fence)}\n{LEADS_ONLY}", web_failed=False)
 
 
-def _passages(content: str, find: str) -> str:
-    """The text around each place a wanted word appears, in page order."""
-    lowered = content.lower()
-    spans: list[tuple[int, int]] = []
-    for term in (part.strip().lower() for part in find.split(",")):
-        at = lowered.find(term) if term else -1
-        while at != -1 and len(spans) < MAX_PASSAGES:
-            spans.append((max(0, at - PASSAGE_BEFORE_CHARS), min(len(content), at + PASSAGE_AFTER_CHARS)))
-            at = lowered.find(term, at + len(term))
-    pieces: list[str] = []
-    end_of_last = -1
-    for start, end in sorted(spans):
-        if start <= end_of_last:
-            continue  # this match is already inside the passage before it
-        pieces.append(content[start:end])
-        end_of_last = end
-    return PASSAGE_BREAK.join(pieces)[:MAX_PAGE_CHARS]
+Span = tuple[int, int]
+
+
+def _term_spans(lowered: str, term: str) -> list[Span]:
+    """Where one wanted word appears, as passages that do not overlap each other."""
+    spans: list[Span] = []
+    at = lowered.find(term)
+    while at != -1 and len(spans) < MAX_PASSAGES:
+        if not spans or at >= spans[-1][1]:
+            spans.append((max(0, at - PASSAGE_BEFORE_CHARS), min(len(lowered), at + PASSAGE_AFTER_CHARS)))
+        at = lowered.find(term, at + len(term))
+    return spans
+
+
+def _overlaps(span: Span, others: list[Span]) -> bool:
+    return any(span[0] < other[1] and other[0] < span[1] for other in others)
+
+
+def _passages(content: str, find: str) -> tuple[str, int, int]:
+    """The text around the wanted words, with how many passages are shown and exist.
+
+    Every word gets its first passage before any word gets a second, so a
+    common word cannot crowd out a rare one.
+    """
+    terms = [part.strip().lower() for part in find.split(",") if part.strip()]
+    per_term = [_term_spans(content.lower(), term) for term in terms]
+    chosen: list[Span] = []
+    distinct: list[Span] = []
+    room = MAX_PAGE_CHARS
+    for rank in range(max((len(spans) for spans in per_term), default=0)):
+        for span in (spans[rank] for spans in per_term if rank < len(spans)):
+            if _overlaps(span, distinct):
+                continue
+            distinct.append(span)
+            size = span[1] - span[0] + len(PASSAGE_BREAK)
+            if size <= room:
+                chosen.append(span)
+                room -= size
+    text = PASSAGE_BREAK.join(content[start:end] for start, end in sorted(chosen))
+    return text, len(chosen), len(distinct)
 
 
 def _page_view(url: str, content: str, find: str) -> tuple[str, str]:
     """The part of a page to show, and the note that goes with it."""
     if find:
-        found = _passages(content, find)
+        found, shown, total = _passages(content, find)
         if not found:
             return "", f"None of those words appear on {url}. It is opened; try other words."
-        return found, f"These are the passages of {url} around the words you asked for."
+        cut = (
+            f" Showing {shown} of {total} matching passages: ask for fewer or narrower words to see the rest."
+            if shown < total else ""
+        )
+        return found, f"These are the passages of {url} around the words you asked for.{cut}"
     if len(content) > MAX_PAGE_CHARS:
         return content[:MAX_PAGE_CHARS], (
             f"{url} is opened. It is long ({len(content):,} characters) and this is its first part: "
