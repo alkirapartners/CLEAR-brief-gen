@@ -69,7 +69,11 @@ evidence into a brief, and the writer sees only what you record.
    - Searched the past year's news with `recent_news` for acquisitions,
      divestitures, sites opening or closing, and network or cloud
      programmes, and opened the company's own press release for what you
-     found. A dated trigger is what lifts a fit score.
+     found. A dated trigger is what lifts a fit score. For a deal, record
+     the date it was announced, the date it completed or is expected to,
+     and what has to be connected or separated: sites, systems, businesses.
+     A deal counts for three months after it happens, or while it is
+     announced and not yet completed, so those dates decide the brief.
    - Sourced, or searched for, each line of the technical snapshot: clouds,
      cloud connectivity, WAN, firewalls and data centers. Add plant
      networks when the company runs plants, refineries, mines or factories.
@@ -224,6 +228,18 @@ before or after it.
   For a score of 1 or 2 return an empty list. Each angle
   has a `title`, the `use_case` ID from the Fit Rules, its `evidence`, what
   Alkira does about it in `alkira` (two sentences at most), and a `story`.
+- M&A angles: read "M&A: recent or pending" in the Fit Rules first. Give
+  `deal_date`, the date of the announcement or the completion, as the page
+  gives it (YYYY-MM-DD), and `deal_status`: `pending` when the deal is
+  announced and not yet completed on today's date, `completed` when it is
+  done. An M&A angle qualifies when its date is within three months of
+  today's date, or when the deal is pending. When it qualifies, put it
+  first, open `fit.lead` with it and make it the subject of the first
+  question: it is the strongest reason to engage. When it does not
+  qualify, leave it out: at most one line of it may appear as background
+  in another angle's evidence. The code applies this rule to the date and
+  the status you give, and removes an M&A angle that fails it. For every
+  other use case `deal_date` is empty and `deal_status` is `none`.
 - `evidence` lines: one sentence each, with the `date` its source gives
   (empty when the source is undated: never a date of your own) and the
   `sources` numbers the sentence rests on.
@@ -249,7 +265,9 @@ before or after it.
 - `questions`: three or four when there are several angles, one or two for
   a one-angle brief. Each names a specific fact, fits in one sentence, and
   comes with `listen_for` and `alkira_angle`. Technical vocabulary is
-  welcome where the evidence uses it.
+  welcome where the evidence uses it. `angle` is the number of the angle
+  the question is about, counting from 1 in the order you list them, or 0
+  for none. A question about an angle that is removed goes with it.
 - `unconfirmed`: plain statements of what could not be confirmed.
 - `raise_score`: the one or two facts that would raise the score.
 
