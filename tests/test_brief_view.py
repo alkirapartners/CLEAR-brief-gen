@@ -170,17 +170,50 @@ def test_dates_are_written_the_spanish_way_in_a_spanish_brief():
     assert data["entryPoints"][0]["signal"].endswith("(feb 2026).")
 
 
-def test_starters_hold_people_the_lead_questions_and_what_is_unconfirmed():
-    text = _detail()["startersMd"]
-    assert text.startswith(
-        "**Stakeholders:** Director of Network Engineering, Chief Information Officer (Dana Ruiz)"
+def test_starters_hold_people_the_first_question_pointer_and_the_questions():
+    lines = _detail()["startersMd"].splitlines()
+    assert lines[0] == "**Stakeholders:** Director of Network Engineering · Chief Information Officer (Dana Ruiz)"
+    assert lines[1] == "**Best First Question:** Lead with question 1."
+    assert '1. "Who builds a new Virtual WAN hub today, and how long does one take?"' in lines
+    assert "Open with the Azure hub build" not in "\n".join(lines)  # the lead is in the score rationale, once
+
+
+def test_what_to_listen_for_and_the_alkira_angle_are_separate_sentences():
+    """The page joins a question's notes with a space, so each has to end in a full stop."""
+    lines = _detail()["startersMd"].splitlines()
+    at = lines.index('1. "Who builds a new Virtual WAN hub today, and how long does one take?"')
+    assert lines[at + 1 : at + 3] == [
+        "   *(Listen for: hand-built hubs, weeks of lead time.)*",
+        "   *(Alkira angle: A new region is a design change deployed in a day.)*",
+    ]
+
+
+def test_a_role_with_a_comma_in_it_cannot_be_mistaken_for_two_people():
+    people = [
+        {"name": "", "role": "EVP, Chief Digital and Technology Officer", "note": "", "sources": []},
+        {"name": "", "role": "Head of network engineering", "note": "", "sources": []},
+    ]
+    first = _detail(people=people)["startersMd"].splitlines()[0]
+    assert first == "**Stakeholders:** EVP, Chief Digital and Technology Officer · Head of network engineering"
+
+
+def test_what_could_not_be_confirmed_becomes_the_validate_early_bullets():
+    unconfirmed = ["Who owns the WAN contract.", "Whether a second cloud is in use", "The MPLS term.", "A fourth thing."]
+    text = _detail(unconfirmed=unconfirmed)["startersMd"]
+    assert text.endswith(
+        "**Validate early:**\n- Who owns the WAN contract.\n- Whether a second cloud is in use.\n- The MPLS term."
     )
-    assert "**Best First Question:** Lead with question 1." in text
-    assert "Open with the Azure hub build" not in text  # the lead is in the score rationale, once
-    assert '1. "Who builds a new Virtual WAN hub today, and how long does one take?"' in text
-    assert "*(Listen for: hand-built hubs, weeks of lead time Alkira angle: A new region" in text
-    assert "**What we couldn't confirm:**\n- Who owns the WAN contract." in text
-    assert "**What would raise the score:**\n- A dated SD-WAN or MPLS renewal." in text
+    assert "couldn't confirm" not in text and "A fourth thing" not in text
+
+
+def test_what_would_raise_the_score_stays_out_of_the_page_and_in_the_document():
+    data = _detail()
+    assert "raise the score" not in data["startersMd"] and "A dated SD-WAN or MPLS renewal" not in data["startersMd"]
+    assert data["doc"]["raiseScore"] == ["A dated SD-WAN or MPLS renewal."]
+
+
+def test_a_brief_with_nothing_unconfirmed_has_no_validate_early_heading():
+    assert "Validate early" not in _detail(unconfirmed=[])["startersMd"]
 
 
 def test_references_are_one_per_line_with_their_urls():
@@ -246,7 +279,8 @@ def test_a_spanish_json_brief_gets_spanish_labels_inside_its_text():
     assert data["language"] == "es" and data["labels"] is i18n.LABELS["es"]
     assert data["statsLine"].startswith("Sede: Dallas, TX | Ingresos: ")
     assert data["infra"]["onPrem"] == "Plant networks at five refineries."
-    assert "**Interlocutores:**" in data["startersMd"]
+    assert "**Interlocutores:**" in data["startersMd"] and "**Validar primero:**" in data["startersMd"]
+    assert "*(Qué escuchar: hand-built hubs, weeks of lead time.)*" in data["startersMd"]
 
 
 def test_the_summary_reads_the_verdict_and_the_language_from_the_document():

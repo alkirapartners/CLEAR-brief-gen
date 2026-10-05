@@ -1,16 +1,21 @@
 """A JSON brief in the shape the current front end already reads.
 
-The page shows a company, a stats line, a score with its rationale, four
+The page shows a company, stat pills, a score with its rationale, four
 infrastructure cells, signals, up to three entry points, conversation
 starters and references. These functions fill every one of those from a
 brief document, so the page keeps working until it learns the new layout.
+The page gets plain sentences: no citation markers, dates in words, and
+nothing said twice. The short stat pills are in stat_pills.py.
+
+The PDF and the text rendering share the helpers at the top (evidence
+lines with their markers, the full stats line, people, stories).
 """
 
 import re
 
 import i18n
 import ticker
-from brief_doc import Angle, BriefDoc, EvidenceLine, Person, SnapshotLine, Story
+from brief_doc import Angle, BriefDoc, EvidenceLine, Person, Question, SnapshotLine, Story
 
 SNIPPET_CHARS = 120
 Labels = dict[str, str]
@@ -176,25 +181,41 @@ def entry_points(doc: BriefDoc) -> list[dict[str, str]]:
     return points
 
 
-def _bullets(title: str, items: list[str]) -> list[str]:
-    if not items:
-        return []
-    return ["", f"**{title}:**", *[f"- {item}" for item in items]]
+# Between stakeholders. A comma would not do: a role can hold one.
+STAKEHOLDER_SEPARATOR = " · "
+# The older briefs asked for two or three things to validate early.
+MAX_VALIDATE_EARLY = 3
+
+
+def _question_lines(number: int, item: Question, labels: Labels) -> list[str]:
+    """A question and its two notes. The page joins the notes, so each ends in a full stop."""
+    return [
+        "",
+        f'{number}. "{item["question"]}"',
+        f"   *({labels['listen_for']}: {_sentence(item['listen_for'])})*",
+        f"   *({labels['alkira_angle']}: {_sentence(item['alkira_angle'])})*",
+    ]
 
 
 def starters_md(doc: BriefDoc, labels: Labels) -> str:
+    """The conversation starters as the page reads them.
+
+    Who to talk to, which question to lead with, the questions with their
+    notes, then what to validate early: the first things the brief could
+    not confirm. What would raise the score is left to the document.
+    """
     lines: list[str] = []
     people = [person_text(person) for person in doc["people"]]
     if people:
-        lines.append(f"**{labels['stakeholders']}:** {', '.join(people)}")
+        lines.append(f"**{labels['stakeholders']}:** {STAKEHOLDER_SEPARATOR.join(people)}")
     if doc["questions"]:
         # The lead itself is in the score rationale. Here the page is pointed at the question.
         lines.append(f"**{labels['best_first_question']}:** {labels['lead_with_first_question']}")
     for number, item in enumerate(doc["questions"], start=1):
-        note = f"{labels['listen_for']}: {item['listen_for']} {labels['alkira_angle']}: {item['alkira_angle']}"
-        lines += ["", f'{number}. "{item["question"]}"', f"   *({note})*"]
-    lines += _bullets(labels["unconfirmed"], doc["unconfirmed"])
-    lines += _bullets(labels["raise_score"], doc["raise_score"])
+        lines += _question_lines(number, item, labels)
+    to_validate = [_sentence(item) for item in doc["unconfirmed"][:MAX_VALIDATE_EARLY]]
+    if to_validate:
+        lines += ["", f"**{labels['validate_early']}:**", *[f"- {item}" for item in to_validate]]
     return "\n".join(lines).strip()
 
 

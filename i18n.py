@@ -82,6 +82,7 @@ LABELS: dict[str, dict[str, str]] = {
         "stakeholders": "Stakeholders",
         "best_first_question": "Best First Question",
         "lead_with_first_question": "Lead with question 1.",
+        "validate_early": "Validate early",
     },
     "es": {
         "alkira_fit": "Ajuste Alkira",
@@ -144,6 +145,7 @@ LABELS: dict[str, dict[str, str]] = {
         "stakeholders": "Interlocutores",
         "best_first_question": "Mejor pregunta inicial",
         "lead_with_first_question": "Empiece con la pregunta 1.",
+        "validate_early": "Validar primero",
     },
 }
 
