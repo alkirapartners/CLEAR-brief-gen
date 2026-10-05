@@ -8,7 +8,7 @@ and returns the blocking job to run; the job saves the brief itself.
 import logging
 import threading
 from datetime import datetime, timezone
-from typing import Callable
+from typing import Any, Callable
 
 import i18n
 from briefparse import clean_brief, extract_company_header, extract_score
@@ -50,7 +50,7 @@ class InFlightGuard:
 
 
 class BriefService:
-    def __init__(self, repo, generator: Callable[..., str], settings: Settings) -> None:
+    def __init__(self, repo: Any, generator: Callable[..., str], settings: Settings) -> None:
         self._repo = repo
         self._generator = generator
         self._settings = settings
