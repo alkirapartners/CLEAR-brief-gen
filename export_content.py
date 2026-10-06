@@ -203,7 +203,9 @@ class Proof(NamedTuple):
 
 _QUALIFIED_NAME = re.compile(r"^(.+?)\s*\(([^()]+)\)$")
 # "80%", "40-60%", "Up to 1650%", then whatever follows it.
-_FIGURE = re.compile(r"^((?:up to |about |over )?\d[\d.,]*(?:\s?[-–]\s?\d[\d.,]*)?\s?(?:%|x|×)?\+?)\s*(.*)$", re.IGNORECASE)
+_FIGURE = re.compile(
+    r"^((?:up to |about |over )?\d[\d.,]*(?:\s?[-–]\s?\d[\d.,]*)?\s?(?:%|x|×)?\+?)\s*(.*)$", re.IGNORECASE,
+)
 _NAME_SEPARATOR = ": "
 
 
