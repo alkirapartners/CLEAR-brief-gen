@@ -18,7 +18,6 @@ from starlette.responses import StreamingResponse
 
 import brief_doc
 import db
-import docx_doc
 import generate
 import i18n
 import pdf
@@ -28,7 +27,7 @@ from brief_service import BriefService, Clock, _utc_now
 from brief_view import to_detail, to_summary
 from briefparse import clean_company_prefill
 from company_name import NOT_A_NAME_MESSAGE, is_company_name
-from errors import GENERIC_ERROR, ExportUnavailable, UserFacingError
+from errors import GENERIC_ERROR, ExportNotInstalled, ExportUnavailable, UserFacingError
 from settings import Settings, load_settings
 from streaming import Work, stream_job
 from usage_ledger import UsageLedger
@@ -42,6 +41,7 @@ DOCX_MEDIA_TYPE = "application/vnd.openxmlformats-officedocument.wordprocessingm
 NO_WORD_EXPORT = (
     "This brief was written before the Word export. Update the brief to get a Word version, or download the PDF."
 )
+WORD_EXPORT_DOWN = "The Word export is not available on this server right now. The PDF download still works."
 # no-transform and X-Accel-Buffering keep proxies from compressing or buffering
 # the stream, either of which would deliver every event in one lump at the end.
 STREAM_HEADERS = {"Cache-Control": "no-cache, no-transform", "X-Accel-Buffering": "no"}
@@ -136,6 +136,22 @@ def _download(content: bytes, media_type: str, filename: str) -> Response:
     )
 
 
+def _word_renderer() -> Callable[..., bytes]:
+    """The Word renderer, loaded the first time a Word file is asked for.
+
+    python-docx needs a compiled library (lxml). It is imported here and not
+    at the top of this module, so an install of it that failed on a server
+    cannot keep the rest of the API from starting: briefs and PDFs are
+    served as before, and only the Word export answers 503.
+    """
+    try:
+        import docx_doc
+    except Exception as exc:  # a missing or broken install does not only raise ImportError
+        logger.exception("The Word export could not be loaded (import docx_doc failed): %s", exc)
+        raise ExportNotInstalled(WORD_EXPORT_DOWN) from exc
+    return docx_doc.render
+
+
 def _install_export_routes(app: FastAPI, repo: Any) -> None:
     @app.get("/api/brief/briefs/{brief_id}/pdf")
     def brief_pdf(brief_id: UUID, email: str = Depends(require_email)) -> Response:
@@ -163,7 +179,7 @@ def _install_export_routes(app: FastAPI, repo: Any) -> None:
         language = i18n.normalize(doc["language"])
         now = datetime.now()
         filename = pdf.build_filename(company, now.strftime("%Y-%m"), language, extension="docx")
-        return _download(docx_doc.render(doc, now, language), DOCX_MEDIA_TYPE, filename)
+        return _download(_word_renderer()(doc, now, language), DOCX_MEDIA_TYPE, filename)
 
 
 def _install_generation_routes(

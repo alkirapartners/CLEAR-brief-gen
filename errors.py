@@ -21,6 +21,12 @@ class ExportUnavailable(UserFacingError):
     status_code = 409
 
 
+class ExportNotInstalled(UserFacingError):
+    """This server cannot make the export at all: what it is built with did not load."""
+
+    status_code = 503
+
+
 class DailyLimitReached(UserFacingError):
     status_code = 429
 

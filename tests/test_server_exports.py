@@ -1,6 +1,10 @@
 """The two download routes: the PDF of any brief, and the Word file of a JSON brief."""
 
+import logging
+import subprocess
+import sys
 from datetime import datetime
+from pathlib import Path
 from uuid import uuid4
 
 import pdf
@@ -10,6 +14,7 @@ from tests.brief_fixtures import SAMPLE_JSON_BRIEF, stored
 
 DOCX_TYPE = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 ZIP_MAGIC = b"PK\x03\x04"
+REPO_ROOT = Path(__file__).parent.parent
 
 
 def _seed(brief_md=SAMPLE_JSON_BRIEF, company="Northwind Energy"):
@@ -103,3 +108,64 @@ def test_the_pdf_route_still_serves_both_stored_formats():
 def test_build_filename_takes_another_extension_and_keeps_pdf_as_its_own():
     assert pdf.build_filename("Cemex", "2026-08", "es") == "AlkiraBrief_Cemex_2026-08_ES.pdf"
     assert pdf.build_filename("Cemex", "2026-08", "es", extension="docx") == "AlkiraBrief_Cemex_2026-08_ES.docx"
+
+
+def test_the_word_export_answers_503_when_its_renderer_cannot_be_loaded(monkeypatch, caplog):
+    monkeypatch.setitem(sys.modules, "docx_doc", None)  # makes "import docx_doc" fail, as a broken install would
+    repo, row = _seed()
+    client = make_client(repo)
+    with caplog.at_level(logging.ERROR):
+        resp = client.get(f"/api/brief/briefs/{row['id']}/docx", headers=AUTH)
+    assert resp.status_code == 503
+    body = resp.json()
+    assert body["success"] is False and body["data"] is None
+    assert "Word" in body["error"] and "PDF" in body["error"]
+    assert "docx_doc" not in body["error"]  # the detail is for the server's log, not the partner
+    assert "docx_doc" in caplog.text
+    # Nothing else is touched: the same brief still opens and still downloads as a PDF.
+    assert client.get(f"/api/brief/briefs/{row['id']}", headers=AUTH).status_code == 200
+    assert client.get(f"/api/brief/briefs/{row['id']}/pdf", headers=AUTH).status_code == 200
+
+
+def test_a_legacy_brief_is_still_told_it_has_no_word_export_when_the_renderer_is_missing(monkeypatch):
+    monkeypatch.setitem(sys.modules, "docx_doc", None)
+    repo, row = _seed(brief_md=SAMPLE_BRIEF, company="TestCo Holdings")
+    assert _docx(repo, row).status_code == 409
+
+
+# Run in a fresh interpreter in which python-docx and lxml cannot be imported at all.
+_WITHOUT_PYTHON_DOCX = """
+import sys
+
+
+class _NotInstalled:
+    def find_spec(self, name, path=None, target=None):
+        if name.split(".")[0] in ("docx", "lxml"):
+            raise ImportError(f"No module named {name!r}")
+        return None
+
+
+sys.meta_path.insert(0, _NotInstalled())
+
+from tests.api_fakes import AUTH, FakeRepo, make_client
+from tests.brief_fixtures import SAMPLE_JSON_BRIEF
+
+repo = FakeRepo()
+row = repo.seed("partner@example.com", brief_md=SAMPLE_JSON_BRIEF)
+client = make_client(repo)
+brief = f"/api/brief/briefs/{row['id']}"
+print(
+    client.get("/api/brief/health").status_code,
+    client.get(brief, headers=AUTH).status_code,
+    client.get(brief + "/pdf", headers=AUTH).status_code,
+    client.get(brief + "/docx", headers=AUTH).status_code,
+    "docx" in sys.modules,
+)
+"""
+
+
+def test_the_api_starts_and_serves_briefs_and_pdfs_when_python_docx_cannot_be_imported():
+    result = subprocess.run(
+        [sys.executable, "-c", _WITHOUT_PYTHON_DOCX], capture_output=True, text=True, cwd=REPO_ROOT, timeout=120,
+    )
+    assert result.stdout.split() == ["200", "200", "200", "503", "False"], result.stderr[-3000:]

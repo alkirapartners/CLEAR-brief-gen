@@ -127,6 +127,8 @@ A brief's text comes from a model reading other people's pages, so both exports 
 
 A legacy markdown brief keeps the older tiled PDF (`pdf.py`) and has no Word export.
 
+The Word renderer is loaded the first time a Word file is asked for, not when the API starts. If python-docx or its compiled lxml ever fails to install on a server, briefs and PDFs are served as before and only the Word route answers 503, with the cause in the log.
+
 ---
 
 ## Admin management
