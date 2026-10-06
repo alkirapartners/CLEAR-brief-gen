@@ -106,6 +106,12 @@ def test_the_document_carries_its_title_author_and_language():
     assert properties.created == WHEN.astimezone(timezone.utc)  # the local time it was made, as UTC
 
 
+def test_word_does_not_open_the_file_in_compatibility_mode():
+    settings = readers.docx_xml(_render(make_doc()))["word/settings.xml"]
+    assert 'w:name="compatibilityMode"' in settings
+    assert 'w:name="compatibilityMode" w:uri="http://schemas.microsoft.com/office/word" w:val="15"' in settings
+
+
 def test_a_very_long_company_name_still_fits_the_title_property():
     company = {**SAMPLE_DOC["company"], "name": "Northwind " * 60}
     title = Document(io.BytesIO(_render(make_doc(company=company)))).core_properties.title

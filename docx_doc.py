@@ -51,6 +51,8 @@ LANGUAGE_TAGS: dict[str, str] = {"en": "en-US", "es": "es-ES"}
 SEPARATOR = " · "
 BULLET, NUMBERED, CONTINUED, QUOTE = "List Bullet", "List Number", "List Continue", "Quote"
 THUMBNAIL = "http://schemas.openxmlformats.org/package/2006/relationships/metadata/thumbnail"
+# The file format of Word 2013 and later. The template python-docx starts from is marked as Word 2010's.
+WORD_FORMAT = "15"
 # Characters XML 1.0 cannot hold: control codes, lone surrogates and the two non-characters.
 _NOT_XML = re.compile("[\x00-\x08\x0b\x0c\x0e-\x1f\ud800-\udfff\ufffe\uffff]")
 
@@ -314,6 +316,13 @@ def _set_language(document: WordDocument, tag: str) -> None:
     document.core_properties.language = tag
 
 
+def _current_format(document: WordDocument) -> None:
+    """Mark the file as a current Word document, so Word does not open it in "Compatibility Mode"."""
+    for setting in document.settings.element.iter(qn("w:compatSetting")):
+        if setting.get(qn("w:name")) == "compatibilityMode":
+            setting.set(qn("w:val"), WORD_FORMAT)
+
+
 def _drop_thumbnail(document: WordDocument) -> None:
     """The template carries a picture of an empty page as its preview. Leave it out."""
     relations = document.part.package.rels
@@ -326,6 +335,7 @@ def _new_document(title: str, generated_at: datetime, language: str, confidentia
     document = Document()
     _plain_fonts(document)
     _set_language(document, LANGUAGE_TAGS.get(language, LANGUAGE_TAGS[i18n.DEFAULT_LANGUAGE]))
+    _current_format(document)
     _drop_thumbnail(document)
     properties = document.core_properties
     properties.title = clean(title)[:MAX_PROPERTY_CHARS]
