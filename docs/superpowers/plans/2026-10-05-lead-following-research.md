@@ -7469,3 +7469,23 @@ Checked live at commit `af0ce76` (suite: 1007 passed, 2 skipped):
 
 HF Sinclair's second angle was removed by the code because its network posting was recorded without a date, which held the score at 4.
 
+### Fifth pass: open postings, standards, stored versions, pending deals
+
+- **Open postings.** An undated job page on the company's own careers host, or on its own hosted job site, whose text does not say the job is filled or closed, is dated the day the research opened it (`evidence.dated_as_open`). The reference carries `open_posting`, and the brief prints "open posting, seen 6 Oct 2026". A job board's copy stays undated.
+- **Dates.** A date is kept only when the page prints all of it: year, month and day, by name, as a numeric date, run together as in a news item number, or in the page's own address (`evidence.date_is_printed`).
+- **Standards and models.** The number in "IEC 62443", "NIST SP 800-82", "SOC 2" or "Catalyst 9300" is part of a name and is looked for on the page. Money, counts and percentages are figures and stay in the quote.
+- **Names.** A compound such as "Dallas-based" is checked by its naming part. A quote that is mostly not in Latin script is not searched for English names; its figures are still checked.
+- **Stored versions.** `brief_doc.DOC_VERSION` (4) is stored as `version`. `FIRST_FIELDS` is the shape of the first stored briefs and `ADDED_FIELDS` gives every later field a default at load. Briefs from all earlier evaluation rounds load, render and print again.
+- **Pending deals.** `deal_pending_quote` must be wording from a cited first-hand page that says the deal has yet to complete. Without it the deal is treated as completed on its date (`deal_rules.status`).
+- **Logging.** When a rule removes an angle the log names it and says why.
+
+Checked live at commit `9401ec4` (suite: 1097 passed, 2 skipped):
+
+| Company | Score | Angles, in order | Seconds | Cost | Credits | Facts kept / refused |
+|---|---|---|---|---|---|---|
+| HF Sinclair | 5 | Lubricants separation (pending, announced 28 July), then the Azure network (open posting) | 96 | $0.54 | 30 | 12 / 1 |
+| Advance Auto Parts | 4 | Multi-cloud and SD-WAN network (open posting), then network modernization | 121 | $0.67 | 36 | 11 / 2 |
+| Anker | 2 | None: the one angle had no dated line | 90 | $0.51 | 28 | 5 / 4 |
+
+Three earlier runs of the same three companies during this pass are kept beside the final one. In one of them HF Sinclair lost the separation: the announcement page prints its date only in a news item number, which the date check did not read at that commit. It does now.
+
