@@ -103,7 +103,7 @@ def questions(ctx: Context) -> list[Block]:
     rows = [(0.0, canvas.words(ctx.labels["ask_this"], theme.HEADING, INNER_W))]
     rows += [
         (3.6 if number == 1 else 0.0, _question(ctx, number, item))
-        for number, item in enumerate(ctx.doc["questions"], start=1)
+        for number, item in enumerate(export_content.asked(ctx.doc), start=1)
     ]
     places = canvas.placed(rows)
     body = canvas.stack(*rows)

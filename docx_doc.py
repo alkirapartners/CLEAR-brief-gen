@@ -117,13 +117,17 @@ def _link(paragraph: Paragraph, text: str, url: str) -> None:
     run.font.underline = True
 
 
-def _address(paragraph: Paragraph, shown: str, url: str) -> None:
-    """An address: a link when it is a public web page, plain text when it is anything else."""
+def _address(paragraph: Paragraph, url: str) -> None:
+    """An address: a link when it is a public web page, plain text as written when it is anything else.
+
+    A link shows the address it opens (export_content.full_address), so it can never read as one
+    site and open another.
+    """
     target = export_content.link_target(url)
     if target is None:
-        _write(paragraph, shown)
-    elif clean(shown):
-        _link(paragraph, shown, target)
+        _write(paragraph, url)
+    else:
+        _link(paragraph, export_content.full_address(url), target)
 
 
 # ── Sections ─────────────────────────────────────────────────────────────────
@@ -135,7 +139,7 @@ def _opening(ctx: _Context) -> None:
     researched = i18n.readable_date(doc["generated"], ctx.language)
     when = labels["researched_on"].format(date=researched) if researched else ""
     _line(ctx, SEPARATOR.join(part for part in (labels["brief_title"], when) if part), muted=True)
-    identity = export_content.identity(doc, labels)
+    identity = export_content.identity(doc)
     if identity.facts or identity.site_url:
         paragraph = ctx.document.add_paragraph()
         _write(paragraph, SEPARATOR.join(identity.facts))
@@ -207,9 +211,8 @@ def _question(ctx: _Context, item: Question) -> None:
 
 
 def _questions(ctx: _Context) -> None:
-    for item in ctx.doc["questions"]:
-        if clean(item["question"]):
-            _question(ctx, item)
+    for item in export_content.asked(ctx.doc):
+        _question(ctx, item)
 
 
 def _engineer_sheet(ctx: _Context) -> None:
@@ -255,7 +258,7 @@ def _reference(ctx: _Context, reference: Reference) -> None:
     _write(paragraph, f" ({kind}; {dated})")
     if clean(reference["url"]):
         paragraph.add_run().add_break()
-        _address(paragraph, reference["url"], reference["url"])
+        _address(paragraph, reference["url"])
 
 
 def _references(ctx: _Context) -> None:

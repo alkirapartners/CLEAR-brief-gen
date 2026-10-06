@@ -90,3 +90,13 @@ def test_both_exports_link_the_same_pages(exported):
     expected = [doc["company"]["website"], *(reference["url"] for reference in doc["references"])]
     assert readers.docx_links(word) == expected
     assert sorted(readers.pdf_web_links(pdf_bytes)) == sorted(expected)
+
+
+def test_a_question_with_no_text_is_left_out_of_both_exports():
+    doc = make_doc()
+    doc["questions"][0].update(question="  ", listen_for="Orphaned note to listen for.")
+    pdf_text = readers.pdf_text(pdf_doc.render(doc, WHEN))
+    word = docx_doc.render(doc, WHEN)
+    assert "Orphaned note to listen for." not in pdf_text
+    assert "Orphaned note to listen for." not in readers.docx_text(word)
+    assert "01 Which network services stay shared" in pdf_text  # the one question left is the first

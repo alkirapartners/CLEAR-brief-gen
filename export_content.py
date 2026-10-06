@@ -9,12 +9,12 @@ words them. Nothing here draws anything.
 
 import re
 from typing import Literal, NamedTuple, Sequence
-from urllib.parse import urlsplit
+from urllib.parse import quote, urlsplit, urlunsplit
 
 import brief_compat
 import i18n
 import stat_pills
-from brief_doc import Angle, BriefDoc, EvidenceLine, Reference, Story
+from brief_doc import Angle, BriefDoc, EvidenceLine, Question, Reference, Story
 from evidence import safe_url
 
 Labels = dict[str, str]
@@ -25,6 +25,8 @@ FIT_SCALE = 5
 STRONG_FROM = 4
 MODERATE_FROM = 3
 MAX_INITIALS = 2
+# What a link keeps as written: everything a URL is built from. Anything else is percent-encoded.
+_KEPT_IN_LINKS = "/:?#[]@!$&'()*+,;=%-._~"
 
 
 class Section(NamedTuple):
@@ -39,7 +41,7 @@ def outline(doc: BriefDoc, labels: Labels) -> list[Section]:
     sections = [
         ("fit", labels["alkira_fit"], True),
         ("why_now", labels["why_now"], bool(doc["angles"])),
-        ("ask_this", labels["ask_this"], bool(doc["questions"])),
+        ("ask_this", labels["ask_this"], bool(asked(doc))),
         ("for_engineer", labels["for_engineer"], True),
         ("who_to_talk_to", labels["who_to_talk_to"], bool(doc["people"])),
         ("unconfirmed", labels["unconfirmed"], bool(doc["unconfirmed"])),
@@ -51,6 +53,11 @@ def outline(doc: BriefDoc, labels: Labels) -> list[Section]:
 
 def sentence_case(text: str) -> str:
     return text[:1].upper() + text[1:]
+
+
+def asked(doc: BriefDoc) -> list[Question]:
+    """The questions that have a question in them. One with no text is left out of both exports."""
+    return [item for item in doc["questions"] if item["question"].strip()]
 
 
 # ── The verdict ──────────────────────────────────────────────────────────────
@@ -160,29 +167,55 @@ def reference_title(reference: Reference, labels: Labels) -> str:
 
     The row gives that as its date, so it is not said twice.
     """
-    if not reference["open_posting"]:
+    title = reference["title"].strip()
+    start = title.rfind("(")
+    if not reference["open_posting"] or start == -1 or not title.endswith(")"):
         return reference["title"]
-    lead = labels["open_posting_seen"].split("{date}")[0].strip()
-    note = re.compile(rf"\s*\({re.escape(lead)}[^)]*\)\s*$", re.IGNORECASE)
-    return note.sub("", reference["title"]).strip() or reference["title"]
+    lead = labels["open_posting_seen"].split("{date}")[0].strip().casefold()
+    if not title[start + 1:].casefold().startswith(lead):
+        return reference["title"]
+    return title[:start].strip() or reference["title"]
 
 
 def link_target(url: str) -> str | None:
     """The address a link may point at, or None: only a public http(s) page is ever linked.
 
-    Every address in a brief was written by a model from other people's pages.
+    Every address in a brief was written by a model from other people's
+    pages. It is rebuilt from its parts (evidence.safe_url), then written in
+    plain ASCII, as a PDF link has to be: an accented path is
+    percent-encoded and a host outside ASCII takes its ``xn--`` form.
     """
-    return safe_url(url)
+    safe = safe_url(url)
+    if safe is None:
+        return None
+    parts = urlsplit(safe)
+    try:
+        host = (parts.hostname or "").encode("idna").decode("ascii")
+    except UnicodeError:
+        return None
+    netloc = host if parts.port is None else f"{host}:{parts.port}"
+    path, query = quote(parts.path, safe=_KEPT_IN_LINKS), quote(parts.query, safe=_KEPT_IN_LINKS)
+    return urlunsplit((parts.scheme, netloc, path, query, ""))
+
+
+def full_address(url: str) -> str:
+    """The address as it is shown beside its link: the page the link opens, never one dressed up as another.
+
+    An address such as ``https://bank.example@other.example/`` opens
+    other.example, so that is what is shown. One that is never linked is
+    shown as it was written.
+    """
+    return safe_url(url) or url
 
 
 def display_url(url: str) -> str:
     """An address as a reader wants it: no scheme, no "www.", no bare trailing slash."""
-    if link_target(url) is None:
+    safe = safe_url(url)
+    if safe is None:
         return url
-    parts = urlsplit(url.strip())
-    host = (parts.hostname or "").removeprefix("www.")
+    parts = urlsplit(safe)
     path = "" if parts.path == "/" else parts.path
-    return f"{host}{path}{f'?{parts.query}' if parts.query else ''}"
+    return f"{parts.netloc.removeprefix('www.')}{path}{f'?{parts.query}' if parts.query else ''}"
 
 
 # ── Proof ────────────────────────────────────────────────────────────────────
@@ -201,7 +234,6 @@ class Proof(NamedTuple):
     note: str
 
 
-_QUALIFIED_NAME = re.compile(r"^(.+?)\s*\(([^()]+)\)$")
 # "80%", "40-60%", "Up to 1650%", then whatever follows it.
 _FIGURE = re.compile(
     r"^((?:up to |about |over )?\d[\d.,]*(?:\s?[-–]\s?\d[\d.,]*)?\s?(?:%|x|×)?\+?)\s*(.*)$", re.IGNORECASE,
@@ -219,6 +251,15 @@ def _split_metric(result: str) -> tuple[str, str, str]:
     return name.strip(), match.group(1).strip().rstrip(".,"), match.group(2).strip()
 
 
+def _split_customer(customer: str) -> tuple[str, str]:
+    """"A software company (Nemertes study)" as who it is and where the story comes from."""
+    start = customer.rfind("(")
+    qualifier = customer[start + 1:-1].strip() if start > 0 and customer.endswith(")") else ""
+    if not qualifier or ")" in qualifier:
+        return customer, ""
+    return customer[:start].strip(), qualifier
+
+
 def proof(story: Story, labels: Labels) -> Proof | None:
     """An angle's proof, or None when it has none.
 
@@ -232,8 +273,7 @@ def proof(story: Story, labels: Labels) -> Proof | None:
         name, figure, rest = _split_metric(result)
         note = labels["no_story_note"] if is_figure else ""
         return Proof("metric", labels["proof_point"], "", "", figure, name, rest, note)
-    named = _QUALIFIED_NAME.match(customer)
-    who, qualifier = (named.group(1), named.group(2)) if named else (customer, "")
+    who, qualifier = _split_customer(customer)
     return Proof("story", labels["customer_story"], who, qualifier, "", "", result, "")
 
 
@@ -272,7 +312,7 @@ class Identity(NamedTuple):
     note: str
 
 
-def identity(doc: BriefDoc, labels: Labels) -> Identity:
+def identity(doc: BriefDoc) -> Identity:
     company = doc["company"]
     legal_name = company["legal_name"].strip()
     # The legal name is left out when it only repeats the company name above it.
@@ -280,7 +320,7 @@ def identity(doc: BriefDoc, labels: Labels) -> Identity:
     ownership = stat_pills.ownership(doc["stats"]["ownership"], company["ticker"])
     facts = tuple(fact for fact in ("" if repeats_name else legal_name, ownership) if fact)
     site_url = link_target(company["website"])
-    site = (urlsplit(site_url).hostname or "").removeprefix("www.") if site_url else ""
+    site = (urlsplit(full_address(company["website"])).hostname or "").removeprefix("www.") if site_url else ""
     return Identity(facts, site, site_url, company["identity_note"].strip())
 
 

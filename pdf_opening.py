@@ -71,7 +71,7 @@ def masthead(ctx: Context) -> Block:
     labels = ctx.labels
     name = ctx.doc["company"]["name"].strip() or labels["brief_title"]
     room = theme.CONTENT_W - ASIDE_W - GUTTER
-    identity = export_content.identity(ctx.doc, labels)
+    identity = export_content.identity(ctx.doc)
     company = canvas.stack(
         (0, canvas.words(name, theme.COMPANY, room)),
         (2.2, canvas.text(_identity_runs(identity), room)),

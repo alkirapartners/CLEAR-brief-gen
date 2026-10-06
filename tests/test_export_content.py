@@ -146,7 +146,7 @@ def test_the_numbers_in_a_result_are_marked_for_emphasis():
 
 
 def test_the_identity_line_gives_the_entity_its_listing_and_its_site():
-    identity = export_content.identity(make_doc(), EN)
+    identity = export_content.identity(make_doc())
     assert identity.facts == ("Northwind Energy Corporation", "Public (NYSE: NWE)")
     assert (identity.site, identity.site_url) == ("northwind.example", "https://www.northwind.example")
     assert identity.note.startswith("Researched Northwind Energy Corporation")
@@ -154,7 +154,7 @@ def test_the_identity_line_gives_the_entity_its_listing_and_its_site():
 
 def test_the_identity_line_does_not_repeat_the_name_or_link_a_bad_address():
     company = {**make_doc()["company"], "legal_name": "northwind energy", "website": "javascript:alert(1)"}
-    identity = export_content.identity(make_doc(company=company), EN)
+    identity = export_content.identity(make_doc(company=company))
     assert identity.facts == ("Public (NYSE: NWE)",)
     assert (identity.site, identity.site_url) == ("", None)
 
@@ -179,3 +179,33 @@ def test_technology_terms_are_found_and_everyday_capitals_are_not():
     tokens = tech_terms.tokenize("ExpressRoute into Azure Virtual WAN for the US CIO, with SSE/SASE and BGP.")
     assert [text for text, is_term in tokens if is_term] == ["ExpressRoute", "Azure Virtual WAN", "SSE/SASE", "BGP"]
     assert "".join(text for text, _ in tokens) == "ExpressRoute into Azure Virtual WAN for the US CIO, with SSE/SASE and BGP."
+
+
+def test_a_link_points_where_its_text_says_and_is_plain_ascii():
+    assert export_content.link_target("https://es.wikipedia.example/wiki/México?q=año") == (
+        "https://es.wikipedia.example/wiki/M%C3%A9xico?q=a%C3%B1o"
+    )
+    assert export_content.link_target("https://münchen.example/stadt") == "https://xn--mnchen-3ya.example/stadt"
+    # Credentials are dropped from the link, so they are dropped from what is shown as well.
+    hidden = "https://paypal.example@evil.example:8443/login"
+    assert export_content.link_target(hidden) == "https://evil.example:8443/login"
+    assert export_content.display_url(hidden) == "evil.example:8443/login"
+    assert export_content.display_url("https://es.wikipedia.example/wiki/México") == "es.wikipedia.example/wiki/México"
+
+
+def test_an_open_posting_note_is_found_without_searching_a_long_title_over_and_over():
+    reference = {**make_doc()["references"][0], "open_posting": True, "date": "2026-10-06"}
+    spaced = {**reference, "title": "Careers: Network Engineer   (Open Posting, seen 2026-10-06)  "}
+    assert export_content.reference_title(spaced, EN) == "Careers: Network Engineer"
+    assert export_content.reference_title({**reference, "title": "(open posting, seen 2026-10-06)"}, EN) == (
+        "(open posting, seen 2026-10-06)"
+    )
+    assert export_content.reference_title({**reference, "title": "Plain (PDF)"}, EN) == "Plain (PDF)"
+
+
+def test_a_question_with_no_text_is_not_asked():
+    doc = make_doc()
+    doc["questions"][0]["question"] = "   "
+    assert [item["question"] for item in export_content.asked(doc)] == [doc["questions"][1]["question"]]
+    doc["questions"][1]["question"] = ""
+    assert "ask_this" not in _keys(doc)

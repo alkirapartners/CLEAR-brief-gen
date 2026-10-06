@@ -143,6 +143,19 @@ def test_an_address_that_is_not_a_public_web_page_is_never_a_link(address):
     assert address.replace("\x00", "") in readers.docx_text(data)  # still shown, as plain text
 
 
+def test_a_link_shows_the_address_it_opens_never_one_dressed_up_as_another():
+    doc = make_doc()
+    doc["references"][0]["url"] = "https://paypal.example@evil.example/login"
+    doc["references"][1]["url"] = "https://es.wikipedia.example/wiki/México"
+    document = Document(io.BytesIO(_render(doc)))
+    links = [link for paragraph in document.paragraphs for link in paragraph.hyperlinks][1:]
+    assert [(link.text, link.address) for link in links] == [
+        ("https://evil.example/login", "https://evil.example/login"),
+        ("https://es.wikipedia.example/wiki/México", "https://es.wikipedia.example/wiki/M%C3%A9xico"),
+    ]
+    assert "paypal.example" not in readers.docx_text(_render(doc))
+
+
 def test_the_document_is_plain_no_fields_tables_text_boxes_columns_or_macros():
     data = _render(make_doc())
     parts = readers.docx_xml(data)
