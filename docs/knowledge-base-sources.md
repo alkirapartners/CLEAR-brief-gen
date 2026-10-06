@@ -29,6 +29,13 @@ Customers that no published source names, labelled as their source labels them.
 - `fortune50-healthcare` — "Alkira Partner Win Wire", with the customer given as a Fortune 50 healthcare company, Alkira, 2025, p. 1: every statement. It gives no result figure. Not used: the deal value and the competition line.
 - `finserv-egress` — "Alkira Partners Guide: Lower TCO with Alkira (40-60%)", Alkira, 2025, p. 1: "saved over $800,000 annually in cloud egress fees alone".
 - `retail-colocation` — The same guide, Alkira, 2025, p. 1: "avoided $3M in upfront costs per colocation hub".
+- `airline-hub` — Alkira use-case stories deck, internal, undated; customer anonymised at the owner's direction. p. 2: 5 weeks and 4 people sent to set up a hub; 1 hour, remotely.
+- `railroad-multicloud` — Alkira use-case stories deck, internal, undated; customer anonymised at the owner's direction. p. 8: over a year of struggling in one cloud; two regions, 3 clouds, highly available firewalls and SD-WAN in two days. p. 3: remote access to be used for 30,000 users.
+- `retailer-latam` — Alkira use-case stories deck, internal, undated; customer anonymised at the owner's direction. p. 6: a hub in Brazil in an hour; 200 retail stores in Latin America; a cloud region in the US. Not used: any claim about another provider, which the page says is only under discussion.
+- `clearing-house` — Alkira use-case stories deck, internal, undated; customer anonymised at the owner's direction. p. 7: thousands of banks; partner connectivity automated through a self-service portal. It carries no figure. Not used: the page's claim about profit.
+- `food-distributor` — Alkira use-case stories deck, internal, undated; customer anonymised at the owner's direction. p. 10: can eliminate 4 of its 6 connections to the cloud, across three cloud providers. The page says both "can" and "is saving"; the row says "can".
+
+The deck stories leave out every dollar figure and the names of other vendors and their products.
 
 ## Nemertes study
 

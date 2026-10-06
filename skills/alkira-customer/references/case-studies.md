@@ -17,6 +17,11 @@ Situations: `multi_cloud` (multi-cloud or hybrid cloud connectivity), `china_glo
 | fortune50-healthcare | A Fortune 50 healthcare company | no | multi_cloud, m_and_a, partner_connectivity | Healthcare | Runs primarily in Azure with cross-cloud communication among Azure, Google Cloud and Oracle Cloud, no longer depends on colocation facilities or legacy ExpressRoute circuits, integrates acquisitions that have overlapping networks, and connects business partners over IPsec, SD-WAN or private circuits. |
 | finserv-egress | A global financial services company | no | multi_cloud | Financial services | Saved over $800,000 annually in cloud egress fees. |
 | retail-colocation | A retail customer | no | multi_cloud | Retail | Avoided $3M in upfront costs per colocation hub while expanding its cloud presence. |
+| airline-hub | A large airline | no | multi_cloud, network_modernization | Airline | A communications hub to the cloud that took 5 weeks and 4 people sent on site can now be brought up in 1 hour, remotely. |
+| railroad-multicloud | A large railroad | no | multi_cloud, firewall_consolidation | Rail | After struggling for over a year in one cloud, a trial with Alkira brought up 2 regions, 3 clouds, highly available firewalls and SD-WAN in 2 days. |
+| retailer-latam | A large retailer | no | multi_cloud, network_modernization | Retail | A regional hub in Brazil was brought up in 1 hour, connecting its 200 retail stores in Latin America to its cloud in the US. |
+| clearing-house | A financial clearing house | no | partner_connectivity | Financial services | Partner connectivity for thousands of banks is automated through a self-service portal: a partner asks, the clearing house approves, and the partner connects itself. |
+| food-distributor | A large food distributor | no | multi_cloud | Food distribution | With three cloud providers, can eliminate 4 of its 6 connections to the cloud. |
 | michaels | Michaels | yes | site_rollout, network_modernization, multi_cloud | Retail | About 1,400 stores in the U.S. and Canada connected to Google Cloud in three weeks, ahead of peak season, with no new network infrastructure. |
 | software-datacenter | A very large software company (Nemertes study) | no | multi_cloud, network_modernization | Software | 90% less network engineer time needed across its data centers and cloud regions, and a new data center stood up in a month. |
 | nemertes-healthcare-provider | A large healthcare provider (Nemertes study) | no | multi_cloud, firewall_consolidation | Healthcare | 300% more cloud environments after expanding to a second cloud region, with fewer firewalls and firewall as a service in place of over-provisioning. |
@@ -92,6 +97,7 @@ When no story's Situations include the angle's use case, use the ID `none` rathe
 Use an anonymous story's Customer label exactly as the table gives it. Never add a rank, a place or a partner's name to it, and never guess or hint at who the customer is.
 
 - **`canada-professional-services`:** thousands of employees, cloud-first, with a lean networking team. One security and segmentation policy across every environment.
+- **`railroad-multicloud`:** remote access for 30,000 users is planned on the same platform.
 
 ---
 
