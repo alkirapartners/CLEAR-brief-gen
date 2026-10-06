@@ -234,7 +234,7 @@ class Proof(NamedTuple):
     note: str
 
 
-# "80%", "40-60%", "Up to 1650%", then whatever follows it.
+# "80%", "40-60%", "about 5x", then whatever follows it.
 _FIGURE = re.compile(
     r"^((?:up to |about |over )?\d[\d.,]*(?:\s?[-–]\s?\d[\d.,]*)?\s?(?:%|x|×)?\+?)\s*(.*)$", re.IGNORECASE,
 )
@@ -242,7 +242,7 @@ _NAME_SEPARATOR = ": "
 
 
 def _split_metric(result: str) -> tuple[str, str, str]:
-    """"Firewall reduction: 73% (up to 82%)." as its name, its figure and the rest."""
+    """"TCO reduction: 40-60%." as its name, its figure and the rest: an older brief may hold words after the figure."""
     text = result.strip()
     name, separator, value = text.partition(_NAME_SEPARATOR)
     match = _FIGURE.match(value.rstrip(".,")) if separator else None
@@ -280,7 +280,7 @@ def proof(story: Story, labels: Labels) -> Proof | None:
 _NUMBER = r"\d+(?:,\d{3})*(?:\.\d+)?"
 _NUMBER_WORDS = "one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve"
 _TIME_UNITS = "minutes?|hours?|days?|weeks?|months?|years?"
-# A length of time ("three weeks", "2 days"), or a figure with its sign ("1,400", "1650%", "99%+", "60-88%").
+# A length of time ("three weeks", "2 days"), or a figure with its sign ("1,400", "1650%", "10+", "40-60%").
 _NUMBERS = re.compile(
     rf"\b(?:{_NUMBER_WORDS}|{_NUMBER}) (?:{_TIME_UNITS})\b|{_NUMBER}(?:[-–]{_NUMBER})?(?:%\+?|\+|x\b)?",
     re.IGNORECASE,

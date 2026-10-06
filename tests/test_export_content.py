@@ -135,6 +135,12 @@ def test_a_named_customer_story_and_a_knowledge_base_figure_are_different_kinds_
     assert export_content.proof({"id": "", "customer": "", "result": ""}, EN) is None
 
 
+def test_a_proof_point_stored_with_words_after_its_figure_keeps_them():
+    """Briefs written before each figure said whose it was hold a remark after the number."""
+    older = export_content.proof({"id": "metric", "customer": "", "result": "A reduction: 30% (in some accounts)."}, EN)
+    assert (older.figure, older.name, older.result) == ("30%", "A reduction", "(in some accounts)")
+
+
 def test_a_result_with_no_customer_is_a_proof_point_without_the_headline_note():
     plain = export_content.proof({"id": "koch", "customer": "", "result": "Fewer firewalls."}, EN)
     assert (plain.kind, plain.figure, plain.result, plain.note) == ("metric", "", "Fewer firewalls.", "")
