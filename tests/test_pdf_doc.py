@@ -336,6 +336,38 @@ def test_a_heading_is_never_left_at_the_foot_of_a_page():
             assert _page_of(pages, heading)[0] == _page_of(pages, first)[0], f"{heading!r} orphaned at {filler}"
 
 
+def _with_references(count, filler):
+    doc = make_doc()
+    doc["unconfirmed"] = [f"Filler {number}." for number in range(filler)]
+    doc["references"] = [
+        {**doc["references"][0], "n": number, "title": f"Source title {number:02d}.",
+         "url": f"https://careers.northwind.example/job/{number:02d}"}
+        for number in range(1, count + 1)
+    ]
+    return doc
+
+
+def test_references_flow_over_a_page_break_between_rows_and_never_inside_one():
+    flowed = 0
+    for filler in range(0, 48, 2):
+        pages = readers.pdf_pages(_render(_with_references(8, filler)))
+        heading = next(number for number, page in enumerate(pages) if "References" in page)
+        rows = [_page_of(pages, f"Source title {number:02d}.") for number in range(1, 9)]
+        addresses = [_page_of(pages, f"careers.northwind.example/job/{number:02d}") for number in range(1, 9)]
+        assert rows == addresses, f"a reference is split at {filler}"
+        assert rows[0] == rows[1] == [heading], f"the heading lost its first two rows at {filler}"
+        assert [page for row in rows for page in row] == sorted(page for row in rows for page in row)
+        flowed += len({tuple(row) for row in rows}) > 1
+    assert flowed, "the list never ran over a page: it is still moved whole"
+
+
+def test_a_list_of_two_references_is_kept_with_its_heading():
+    for filler in range(0, 48, 2):
+        pages = readers.pdf_pages(_render(_with_references(2, filler)))
+        heading = next(number for number, page in enumerate(pages) if "References" in page)
+        assert _page_of(pages, "Source title 01.") == _page_of(pages, "Source title 02.") == [heading]
+
+
 def test_rendering_does_not_change_the_document_it_is_given():
     doc = make_doc()
     before = copy.deepcopy(doc)

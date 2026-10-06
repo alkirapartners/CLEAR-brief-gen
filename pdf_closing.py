@@ -234,14 +234,15 @@ def references(ctx: Context) -> list[Block]:
         for index, reference in enumerate(listed)
     ]
     body = canvas.stack(*rows)
-    breaks = tuple(parts.row_breaks([offset for offset, _ in canvas.placed(rows)[1:]]))
+    # The list runs on over a page between rows. Its heading keeps its first two rows.
+    starts = [offset for offset, _ in canvas.placed(rows)[1:]]
+    breaks = tuple(parts.row_breaks(starts, keep_at_end=1))
 
     def paint(pdf: FPDF, y: float) -> None:
         body.paint(pdf, theme.MARGIN_X, y)
         canvas.rule(pdf, theme.MARGIN_X, y + body.height, theme.CONTENT_W, theme.LINE_ON_CANVAS)
 
-    # The list is a unit: it starts a new page when it does not fit, and is only cut when it is longer than one.
-    return [Block(body.height, paint, theme.SECTION_GAP, breaks=breaks)]
+    return [Block(body.height, paint, theme.SECTION_GAP, breaks=breaks, splits_freely=bool(breaks))]
 
 
 def colophon(ctx: Context) -> Block:

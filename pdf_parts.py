@@ -134,10 +134,13 @@ def ruled(part: Part, room: float, pad_top: float, pad_bottom: float = 0.0, colo
     )
 
 
-def row_breaks(starts: Sequence[float], keep: int = MIN_ROWS_TOGETHER) -> list[float]:
+def row_breaks(
+    starts: Sequence[float], keep: int = MIN_ROWS_TOGETHER, keep_at_end: int = MIN_ROWS_TOGETHER,
+) -> list[float]:
     """Where a list may be cut, given where each of its rows starts.
 
-    A cut always leaves at least ``keep`` rows on each side of it, so a page
-    never ends on a list's first row or starts on its last.
+    A cut always leaves at least ``keep`` rows above it, so a page never
+    ends on a list's heading and first row alone, and at least
+    ``keep_at_end`` rows below it.
     """
-    return list(starts[keep:len(starts) - keep + 1])
+    return list(starts[keep:len(starts) - keep_at_end + 1])
