@@ -109,8 +109,10 @@ def _strip_md(s: str) -> str:
 _FILENAME_MAX = 40
 
 
-def build_filename(company: str, period: str, language: str = "en") -> str:
-    """Build the PDF filename: AlkiraBrief_<sanitized-company>_<YYYY-MM>.pdf.
+def build_filename(company: str, period: str, language: str = "en", extension: str = "pdf") -> str:
+    """Build the download filename: AlkiraBrief_<sanitized-company>_<YYYY-MM>.pdf.
+
+    The Word export is named the same way with ``extension="docx"``.
 
     Strips non-ASCII chars and punctuation (incl. underscores, our delimiter),
     replaces spaces with hyphens, truncates company to 40 chars. Falls back to
@@ -130,7 +132,7 @@ def build_filename(company: str, period: str, language: str = "en") -> str:
         cleaned = cleaned[:_FILENAME_MAX].rstrip("-")
     code = i18n.normalize(language)
     suffix = "" if code == i18n.DEFAULT_LANGUAGE else f"_{code.upper()}"
-    return f"AlkiraBrief_{cleaned}_{period}{suffix}.pdf"
+    return f"AlkiraBrief_{cleaned}_{period}{suffix}.{extension}"
 
 
 # ── PDF subclass with branded header + footer ──────────────────
