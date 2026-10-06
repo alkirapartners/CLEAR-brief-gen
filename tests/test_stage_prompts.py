@@ -19,7 +19,7 @@ PREFIX_BUILDERS = ("build_research_prefix", "build_writer_prefix")
 SKILL_FILE_MARKERS: dict[str, str] = {
     "alkira-brief-template/SKILL.md": "What a Brief Contains",
     "alkira-customer/SKILL.md": "Channel Account Manager Edition",
-    "alkira-customer/references/case-studies.md": "Nemertes Research Case Studies by Industry",
+    "alkira-customer/references/case-studies.md": "Alkira Case Studies Reference",
     "alkira-customer/references/objection-handling.md": "We're happy with what we have",
     "alkira-customer/references/pricing.md": "20Large (20L)",
     "stop-slop/SKILL.md": "Eliminate predictable AI writing patterns from prose.",

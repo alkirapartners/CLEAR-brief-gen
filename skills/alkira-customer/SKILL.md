@@ -219,7 +219,7 @@ Be specific. Don't give generic advice. Use the customer's actual situation and 
 
 For deeper detail, read the appropriate reference file:
 
-- **`references/case-studies.md`** — The Story Matching Table (every story tagged by situation and industry), named case studies (Michaels, Tekion, Koch Industries, S&P Global) and 12 Nemertes case studies organized by industry. Use when you need specific customer proof points or industry-relevant examples.
+- **`references/case-studies.md`** — The Story Matching Table (every story tagged by situation and industry), the named case studies and the Nemertes study's case studies. Use when you need specific customer proof points or industry-relevant examples.
 
 - **`references/pricing.md`** — CXP sizing, connector sizing, services, data charges, and business models (ELA, PAYG, Commit Consumption, Subscription). Use when discussing pricing or building proposals.
 

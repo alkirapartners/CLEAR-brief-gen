@@ -1,13 +1,5 @@
 # Alkira Case Studies Reference
 
-## Table of Contents
-1. [Story Matching Table](#story-matching-table) — every story tagged by situation and industry
-2. [Named Case Studies](#named-case-studies) — Michaels, Tekion, Koch Industries, S&P Global, Software Company (datacenter)
-3. [Nemertes Research Case Studies by Industry](#nemertes-case-studies) — 12 enterprise case studies with detailed metrics
-4. [Customers by Use Case Summary](#customers-by-use-case)
-
----
-
 ## Story Matching Table
 
 Pick the customer story for an angle from this table. Match on **situation** first, then on **industry**. Name the customer only when Public is `yes`; otherwise use the Customer label as written. Cite a story by its ID. The Result column is the only proof you may attach to a story.
@@ -16,10 +8,10 @@ Situations: `multi_cloud` (multi-cloud or hybrid cloud connectivity), `china_glo
 
 | ID | Customer | Public | Situations | Industry | Result |
 |---|---|---|---|---|---|
-| michaels | Michaels | yes | site_rollout, network_modernization, multi_cloud | Retail | About 1,400 stores in the U.S. and Canada connected to Google Cloud in three weeks, ahead of peak season, with no new network infrastructure. |
 | koch | Koch Industries | yes | multi_cloud, m_and_a, firewall_consolidation | Manufacturing | Significant reduction in network complexity across acquisitions and business units. |
 | tekion | Tekion | yes | multi_cloud | Automotive technology | Simplified multi-cloud networking and improved operational efficiency. |
 | sp-global | S&P Global | yes | multi_cloud | Financial services | Streamlined network operations across global cloud environments. |
+| michaels | Michaels | yes | site_rollout, network_modernization, multi_cloud | Retail | About 1,400 stores in the U.S. and Canada connected to Google Cloud in three weeks, ahead of peak season, with no new network infrastructure. |
 | software-datacenter | A software company | no | site_rollout | Software | The equivalent of a new datacenter deployed in far less time than a physical build. |
 | nemertes-1 | A software company (Nemertes study) | no | site_rollout | Software | 90% time savings deploying a datacenter equivalent with no physical build-out. |
 | nemertes-2 | A software company (Nemertes study) | no | network_modernization | Software | 99%+ availability after replacing an unreliable network. |
@@ -34,7 +26,7 @@ Situations: `multi_cloud` (multi-cloud or hybrid cloud connectivity), `china_glo
 | nemertes-11 | A manufacturer (Nemertes study) | no | multi_cloud | Manufacturing | 99%+ availability and zero unplanned outages for manufacturing operations. |
 | nemertes-12 | A manufacturing and biotech company (Nemertes study) | no | network_modernization | Manufacturing | Network hubs reduced by 60-88%. |
 
-No story is tagged `china_global` or `partner_connectivity`. For those situations match on industry, and if nothing matches use the ID `none` rather than stretching a story.
+When no story's Situations include the angle's use case, use the ID `none` rather than stretching a story.
 
 ---
 
