@@ -17,6 +17,10 @@ def test_daily_limit_defaults_when_unset(monkeypatch):
     assert load_settings().daily_limit == DEFAULT_DAILY_LIMIT
 
 
+def test_the_default_daily_limit_is_ten():
+    assert DEFAULT_DAILY_LIMIT == 10
+
+
 def test_daily_limit_reads_a_valid_number(monkeypatch):
     monkeypatch.setenv("BRIEF_DAILY_LIMIT", " 12 ")
     assert load_settings().daily_limit == 12

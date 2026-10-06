@@ -1,157 +1,97 @@
 ---
 name: alkira-brief-template
-description: "Brief template, scoring rubric, and output format for the Alkira Opportunity Brief Generator. Load this skill before composing any brief. Contains the brief structure with strict sentence limits, 1-5 star scoring criteria, and research checklist."
+description: "Research checklist, fit scoring and content rules for the Alkira Opportunity Brief. Load this skill before researching a company or writing a brief."
 ---
 
-# Alkira Opportunity Brief — Template & Scoring
+# Alkira Opportunity Brief: Research, Scoring and Content
 
-Load this skill before composing a brief.
-
-**THE BRIEF MUST FIT ON TWO PRINTED PAGES.** That means ~700 words of content (excluding references). Every section below has a sentence limit. Do not exceed it. If you write a sentence that doesn't add new information, delete it.
+The brief answers one question for a partner: is this company an Alkira fit, and what do we attach to? A sales rep reads it and so does an engineer. The fit rules and the use-case IDs are in the Alkira knowledge base, under Fit Rules.
 
 ---
 
 ## Research Checklist
 
-Find all of the following. Mark findings as **(confirmed)** or **(directional)**.
+Work in this order. Drop a line of enquiry when it stops producing dated, specific facts, and follow the lead you just found instead.
 
-| Category | What to find |
-|----------|-------------|
-| Company basics | HQ, revenue, employees, industry, public/private |
-| Global footprint | Offices, facilities, markets served |
-| IT leadership | CIO/CTO name + background. Roles only if names not public. |
-| Cloud platforms | Providers (AWS, Azure, GCP). Production vs dev/test. |
-| On-prem / hybrid | VMware, Nutanix, Citrix, HCI if public |
-| Network / security | MPLS, multicloud, firewalls, SD-WAN, zero trust |
-| Organisational signals | Leadership changes, M&A, expansion, cost-cutting |
-| Pain signals | Outages, compliance pressure, vendor consolidation |
+1. **Identify the company.** Legal entity, ticker and exchange, headquarters, website. If the name is ambiguous, choose the most likely entity, say which one you chose, and name the look-alikes you excluded.
+2. **Work the fit rules.** For each use case look for evidence, best sources first:
 
----
+| Order | Source | What it gives |
+|---|---|---|
+| 1 | The company's own careers site and job postings | The real network: clouds, ExpressRoute or Direct Connect, Virtual WAN or Transit Gateway, SD-WAN, firewall vendors, BGP, plant networks, team size |
+| 2 | Filings and the annual report | Acquisitions, divestitures, site counts, data-center and IT programmes, China operations |
+| 3 | Press releases | Dated triggers: a deal closed, sites opened, a programme announced |
+| 4 | Cloud-vendor case studies | Which clouds, since when, and for what |
+| 5 | Trade press | Second-hand confirmation and executive interviews |
+| 6 | Data brokers and encyclopedias | Last resort only, for a basic nothing else gives. They are labelled as a last resort in the brief |
 
-## Alkira Fit Score (1-5 Stars)
+3. **Technical snapshot.** Clouds, cloud connectivity, WAN, firewalls, data centers, plant networks. Keep the specific terms the source uses.
+4. **People.** Who owns the network and the infrastructure. Give a name only when a first-hand source gives it. Otherwise give the role.
+5. **Company basics.** Revenue, employees, industry, ownership.
 
-```
-**Alkira Fit Score: [X] / 5**
-```
-
-Then **3-4 sentences** explaining why. This is the most important paragraph in the brief. A partner reads this and decides whether to pursue. Cover: the strongest evidence for Alkira fit, the primary complexity source, and what holds the score back (if anything). Be specific — reference actual findings from research.
-
-**5** — Multiple entry points with direct evidence. Active infrastructure modernization.
-**4** — 2+ entry points with evidence. Cloud-forward but pain inferred, not stated.
-**3** — 1-2 entry points with reasonable evidence. Limited public detail.
-**2** — Entry points speculative. Little public infrastructure info.
-**1** — No clear entry points on available data.
+A fact counts only when it is stated on a page that was opened. Search-result summaries merge companies and invent names, so never take a fact from one.
 
 ---
 
-## Brief Structure
+## Alkira Fit Score
 
-**Sentence limits are hard limits. Do not exceed them.**
+The score reflects the strength and freshness of the best use case, never the number of boxes checked.
 
-### 1. Title
-```
-# ALKIRA OPPORTUNITY BRIEF
-*[Month Year]*
-```
+| Score | Meaning |
+|---|---|
+| 5 | Two different use cases, each resting on a first-hand source of its own, and at least one of those sources dated within the last two years |
+| 4 | One use case resting on a first-hand source dated within the last two years |
+| 3 | One clear use case whose evidence is older or indirect |
+| 2 | A plausible use case with no evidence found |
+| 1 | No use case |
 
-### 2. Company Header
-```
-## [Company Name]
-**HQ:** X | **Revenue:** X | **Employees:** X | **Industry:** X | **Markets:** X | **Ownership:** X
-```
-One line. No paragraph.
+M&A counts toward the score only while it is live, by the rule in the Fit Rules: the event happened in the last three months, or the deal is announced and not yet completed. HF Sinclair's separation, announced on 28 July and not yet completed, counts in October. A carve-out completed in January does not. A qualifying M&A angle is always the first angle.
 
-### 3. Fit Score
-Score line + 3-4 sentence rationale. See above. This replaces the executive summary — make it count.
+An angle needs at least one specific fact from a first-hand source: the company's own site, a filing, or a cloud vendor's case study about it. The fact does not have to be dated. When none of an angle's first-hand facts is dated within the last two years, the angle is kept, the brief says the evidence is undated or gives its older date, and the score stops at 3. Example: Anker's core systems run in AWS China and AWS Oregon, joined by a dedicated line, known from an AWS case study that prints no date. That is one China-to-global angle and a 3. Trade press or a data broker alone does not make an angle.
 
-### 4. Infrastructure Snapshot — MAX 8 SENTENCES TOTAL
+A dated first-hand source is the trigger: a job posting with its posted date, a filing, a press release. A posting that is open on the company's own careers site counts as dated on the day the research saw it, and the brief says so: "open posting, seen" with the date. A copy on a job board does not. Scores above 3 always need a first-hand source dated within the last two years. Two angles that lean on the same single page are one use case told twice. These limits are checked against the sources after the brief is written, and a score they do not support is lowered.
 
-**You MUST render this section with bold sub-labels, not as flowing prose.** Use exactly this format:
+"Could not find out" is different from "weak fit". What the research looked for and did not find belongs under What we couldn't confirm, and stays out of the score reasoning.
 
-```
-**Cloud Platforms:** [1-2 sentences with (confirmed)/(directional) tags]
-**On-Prem / Hybrid:** [1 sentence]
-**Deployment Model:** [1 sentence]
-**Resulting Complexity:** [2 sentences max — what this means for connectivity and governance]
-```
+---
 
-The "Resulting Complexity" line is the scannable "so what" — a reader should be able to jump straight to it and understand the opportunity. Do NOT write this section as a single paragraph.
+## What a Brief Contains
 
-### 5. Signals & Timing — MAX 4 BULLETS, 1 SENTENCE EACH
-Only signals that create urgency or affect networking decisions. Each bullet is 1 sentence.
+- **Company.** The resolved name and identifiers, and a note saying which entity was chosen when the name was ambiguous.
+- **Stats.** Headquarters, revenue, employees, industry, ownership, and a cloud-and-network headline such as "Azure, ExpressRoute and Virtual WAN, SD-WAN". Leave a value empty when it was not found.
+- **Fit.** The score, a one-sentence verdict, and a lead line: what to open with and whom to call.
+- **Why this account, why now.** One to three angles, a qualifying M&A angle first. Each angle has its evidence with date and source, what Alkira does about it, and one customer story with its result. Present an angle only when it has evidence. One strong angle is a complete brief. Never pad to three. A score of 1 or 2 has no angles.
+- **Technical snapshot.** One line each for clouds, cloud connectivity, WAN, firewalls, data centers and plant networks. A line is sourced or left empty, and an empty line prints as "not found". Keep the specific terms: ExpressRoute, Virtual WAN, BGP, Palo Alto.
+- **Who to talk to.** Names only from first-hand sources, roles otherwise.
+- **Questions.** Three or four when the brief has several angles, fewer for a one-angle brief. Each has what to listen for and the Alkira angle. Technical vocabulary is welcome when the evidence uses it.
+- **What we couldn't confirm.** Plain statements of what the research looked for and did not find.
+- **What would raise the score.** The one or two facts that would move the score up.
 
-### 6. Three Alkira Entry Points — MAX 3 SENTENCES PER ENTRY POINT
-For each of the 3 entry points, bold subheading, then exactly 3 sentences:
-1. **Signal**: What you found in research that supports this. (1 sentence)
-2. **Solution**: How Alkira addresses it. (1 sentence)
-3. **Proof**: One metric from the alkira-customer skill. (1 sentence)
+### Customer stories
 
-That's 9 sentences total for this section. Not 12. Not 15. Nine.
+Choose the story from the Story Matching Table in the case studies. The story's Situations must include the angle's use case: an M&A story is no proof for a network-modernization angle. Among the stories that match, prefer the closest industry. A story is told once in a brief, so two angles never share one. Give the story's ID. When nothing matches, use `none`: no story is better than the wrong one.
 
-### 7. Conversation Starters
+### Questions
 
-This is the most actionable section. It's written for **partner sales reps who are NOT network engineers**. They need questions they can ask comfortably in a business meeting without sounding like they're running a technical audit.
+A good question names a specific fact about the company, fits in one sentence, and sounds like a person asking.
 
-**Stakeholders:** 3-5 role titles on one line.
+Good:
+- "You closed the Northwind acquisition in the spring. Which of its networks still run on their own?" Listen for: overlapping address space, a deadline to merge. Alkira angle: both networks run as separate segments on one fabric until cutover.
+- "The senior network engineer posting lists ExpressRoute and a Virtual WAN hub-and-spoke. Who builds a new hub today, and how long does one take?" Listen for: hand-built hubs, weeks of lead time. Alkira angle: a new region is a design change deployed in a day.
 
-**Best First Question:** Call out which of the 5 questions below to LEAD with, and in 1 sentence say why. Example: "Lead with question #2 (Jetro integration). It's the biggest budgeted pain and ties directly to a named deal they just announced." This gives the rep one clear starting point instead of 5 equal options.
-
-**5 Questions:** Each question must follow these rules:
-
-1. **Use plain business language.** No technical jargon. No mention of "segmentation," "east-west traffic," "VPC," "policy enforcement," or "network architecture." If a non-technical sales rep would hesitate to say it out loud, rewrite it.
-
-2. **Reference a specific fact about the company.** A name, a number, an event, an acquisition, a quote. This shows the rep did their homework.
-
-3. **Sound like a curious human, not an auditor.** The question should feel like something you'd ask over coffee. "How's that going?" beats "What is your current approach to managing..."
-
-4. **Keep it to one sentence.** Short sentences are easier to memorize and say naturally.
-
-5. **Include a parenthetical that explains:** (a) what the question is really trying to uncover, and (b) what the Alkira angle is if the answer confirms the pain. Write this for the rep — it's their cheat sheet for what to listen for.
-
-**Example of GOOD questions:**
-```
-1. "How's the Jetro integration going on the IT side?" 
-   *(You're listening for: timeline pressure, overlapping systems, manual work. If it's painful, Alkira cuts partner onboarding time by 98%.)*
-
-2. "Your CIO said stitching clouds together is hard — is that getting better or worse?"
-   *(You're listening for: frustration with multi-cloud complexity. Alkira connects clouds in a single click with 96% faster connection time.)*
-
-3. "With four new distribution centers opening this year, how does a new site get connected?"
-   *(You're listening for: slow provisioning, circuit lead times, manual config. Alkira deploys connectivity 80% faster with no hardware.)*
-```
-
-**Example of BAD questions (do NOT write these):**
-- "How are you managing network policy and segmentation across both environments today?" *(Too technical — rep won't ask this)*
-- "What does cross-cloud connectivity look like for your SAGE platform?" *(Assumes knowledge of Alkira's value prop)*
-- "Is network infrastructure in scope on the CIO's roadmap alongside application migration?" *(Sounds like a consultant, not a human)*
-
-**Validate early:** 2-3 bullets. Plain language. What the rep should try to confirm in the first conversation. Example: "Find out if they're still paying for old MPLS lines" not "Determine the current WAN architecture composition."
-
-### 8. References
-Numbered list. Format: `[N] Description — URL`. Short descriptions.
-
-### 9. Confidentiality
-```
-*CONFIDENTIAL*
-```
+Bad:
+- "What is your current approach to managing network policy?" It names no fact about the company.
+- "Is digital transformation a priority this year?" It rests on evidence that is never fit evidence.
 
 ---
 
 ## Quality Gate
 
-Before delivering:
-
-- [ ] Total brief fits on ~2 printed pages (~700 words excluding references)
-- [ ] Fit score rationale is 3-4 sentences and answers "should I pursue this?"
-- [ ] Infrastructure Snapshot uses bold sub-labels (Cloud Platforms, On-Prem/Hybrid, Deployment Model, Resulting Complexity) — NOT a single paragraph
-- [ ] Conversation Starters section includes "Best First Question" guidance
-- [ ] No section exceeds its sentence limit
-- [ ] Each Alkira entry point is exactly 3 sentences
-- [ ] Sales questions use plain business language — no networking jargon
-- [ ] A non-technical sales rep could read every question out loud comfortably
-- [ ] Every claim labeled (confirmed) or (directional)
-- [ ] References include actual clickable URLs, not just titles
-- [ ] No AI writing patterns (check stop-slop skill)
-- [ ] No em dashes, no adverbs, no filler
-- [ ] No "Executive Summary" section (the fit score rationale serves this purpose)
-- [ ] No "Confidence & Gaps" section (confirmed/directional labels handle this inline)
+- [ ] Every angle has evidence from an opened page, with a date where the source gives one
+- [ ] No angle rests on supporting-only or never-fit evidence
+- [ ] The number of angles matches the evidence and is never padded
+- [ ] Every technical snapshot line is sourced or empty
+- [ ] Every named person comes from a first-hand source
+- [ ] Every customer story is a row in the Story Matching Table
+- [ ] The verdict states the use case and how fresh its evidence is
+- [ ] No AI writing patterns (see the stop-slop rules)

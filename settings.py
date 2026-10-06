@@ -8,7 +8,8 @@ from dotenv import load_dotenv
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_DAILY_LIMIT = 50
+# Paid generations per person per UTC day. A brief now costs about a dollar.
+DEFAULT_DAILY_LIMIT = 10
 # Written by the admin portal, shared between instances on EFS.
 DEFAULT_ADMINS_FILE = "/var/www/briefgen/data/admins.json"
 # In production data/ is a symlink to EFS, shared by both instances.

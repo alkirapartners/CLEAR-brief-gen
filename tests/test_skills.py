@@ -1,0 +1,98 @@
+"""The knowledge base and the template carry the fit rules and the rubric."""
+
+from pathlib import Path
+
+import pytest
+
+SKILLS = Path(__file__).resolve().parent.parent / "skills"
+KNOWLEDGE_BASE = (SKILLS / "alkira-customer" / "SKILL.md").read_text(encoding="utf-8")
+TEMPLATE = (SKILLS / "alkira-brief-template" / "SKILL.md").read_text(encoding="utf-8")
+
+
+@pytest.mark.parametrize("rule", [
+    "**One clear use case is enough.**",
+    "Hand-built cloud-native networking is a positive signal, never a negative one.",
+    "One cloud is enough when the network around it is complex.",
+    "**Supporting only.**",
+    "a new CIO or head of infrastructure",
+    "**Never fit evidence.**",
+    "SAP, Workday or other ERP projects",
+    "A data-broker profile is a last resort and must be labelled as one.",
+    '**The word "network".**',
+    "a delivery network, a logistics network, a store network, a distribution network, a branch or dealer network",
+    'Example: UPS reports "Network Reconfiguration" and "Network of the Future"',
+    "A `network_modernization` angle needs at least one fact that names network technology",
+    "plant networks means industrial control systems",
+    "RFID readers, package scanners, store Wi-Fi and vehicle telematics are not plant networks.",
+    "**Risk-factor language is not evidence.**",
+    "Every angle rests on at least one specific fact from a first-hand source",
+    "an older or undated first-hand fact still shows the use case",
+    "Never add an angle to reach three.",
+    "**M&A: recent or pending.**",
+    "An M&A event counts when it happened in the last three months, or when the deal is announced and not yet completed.",
+    "announced on 28 July and still to be completed, qualifies when a brief is written in October",
+    "A carve-out completed in January does not qualify in October",
+    "A qualifying M&A angle goes first in the brief.",
+    "An M&A angle names what has to be connected or separated",
+    "It may appear as one line of background inside another angle's evidence",
+])
+def test_the_knowledge_base_states_the_fit_rules(rule):
+    assert rule in KNOWLEDGE_BASE
+
+
+@pytest.mark.parametrize("use_case", [
+    "multi_cloud", "china_global", "firewall_consolidation", "m_and_a",
+    "network_modernization", "site_rollout", "partner_connectivity",
+])
+def test_every_use_case_has_an_id_in_the_fit_rules(use_case):
+    assert f"`{use_case}`" in KNOWLEDGE_BASE
+
+
+@pytest.mark.parametrize("row", [
+    "| 5 | Two different use cases, each resting on a first-hand source of its own, and at least one of those sources dated within the last two years |",
+    "| 4 | One use case resting on a first-hand source dated within the last two years |",
+    "| 3 | One clear use case whose evidence is older or indirect |",
+    "| 2 | A plausible use case with no evidence found |",
+    "| 1 | No use case |",
+])
+def test_the_template_scores_the_best_use_case_not_the_volume_of_evidence(row):
+    assert row in TEMPLATE
+    assert "never the number of boxes checked" in TEMPLATE
+
+
+def test_the_template_says_what_second_hand_evidence_can_and_cannot_do():
+    assert "Trade press or a data broker alone does not make an angle." in TEMPLATE
+    assert "Scores above 3 always need a first-hand source dated within the last two years." in TEMPLATE
+    assert "known from an AWS case study that prints no date. That is one China-to-global angle and a 3." in TEMPLATE
+    assert "one use case told twice" in TEMPLATE
+    assert "a score they do not support is lowered" in TEMPLATE
+
+
+def test_the_rubric_and_the_fit_rules_state_the_same_m_and_a_rule_as_the_code():
+    import deal_rules
+    assert deal_rules.DEAL_WINDOW_MONTHS == 3 and deal_rules.PENDING_DEALS_COUNT is True
+    for text in (TEMPLATE, KNOWLEDGE_BASE):
+        assert "in the last three months" in text and "announced and not yet completed" in text
+    assert "A qualifying M&A angle is always the first angle." in TEMPLATE
+
+
+def test_the_template_never_asks_for_three_entry_points():
+    assert "Never pad to three." in TEMPLATE
+    assert "A score of 1 or 2 has no angles." in TEMPLATE
+    for retired in ("Three Alkira Entry Points", "Multiple entry points with direct evidence", "TWO PRINTED PAGES"):
+        assert retired not in TEMPLATE
+
+
+def test_the_research_checklist_puts_first_hand_sources_first_and_brokers_last():
+    careers = TEMPLATE.index("The company's own careers site and job postings")
+    filings = TEMPLATE.index("Filings and the annual report")
+    brokers = TEMPLATE.index("Data brokers")
+    assert careers < filings < brokers
+    assert "A fact counts only when it is stated on a page that was opened." in TEMPLATE
+
+
+def test_no_skill_file_holds_a_year_that_would_date_the_cached_prefix():
+    for path in sorted(SKILLS.rglob("*.md")):
+        text = path.read_text(encoding="utf-8")
+        for year in ("2025", "2026", "2027"):
+            assert year not in text, f"{year} in {path.name}"

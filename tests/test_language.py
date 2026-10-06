@@ -1,8 +1,8 @@
-"""Tests for the Spanish brief language option.
+"""Tests for the Spanish brief language option: labels, dates and legacy briefs.
 
-The design constraint under test: Spanish changes the CONTENT and the
-VISIBLE labels, but never the machine-parsed markdown contract and never
-the cached system prefix.
+Spanish changes the CONTENT and the VISIBLE labels. For legacy markdown
+briefs it never changes the machine-parsed headings. How a new brief is
+asked for in Spanish is tested in test_stage_prompts.py and test_generate.py.
 """
 
 from datetime import date
@@ -10,7 +10,6 @@ from datetime import date
 import pytest
 
 import i18n
-import prompts
 
 
 # ── Label table ──────────────────────────────────────────────────
@@ -69,148 +68,6 @@ def test_every_month_has_a_spanish_name():
         name = i18n.format_period(date(2026, month, 1), "es")
         assert name.split()[0] not in ("", None)
         assert name.endswith("2026")
-
-
-# ── Prompt construction ──────────────────────────────────────────
-
-TODAY = date(2026, 8, 31)
-
-
-def test_english_user_message_is_unchanged_by_the_language_parameter():
-    """The existing English path must be byte-identical to the default."""
-    explicit = prompts.build_user_message("Acme", "sources", TODAY, language="en")
-    default = prompts.build_user_message("Acme", "sources", TODAY)
-    assert explicit == default
-
-
-def test_spanish_user_message_adds_a_language_directive():
-    english = prompts.build_user_message("Acme", "sources", TODAY, language="en")
-    spanish = prompts.build_user_message("Acme", "sources", TODAY, language="es")
-    assert spanish != english
-    assert "Spanish" in spanish
-
-
-def test_spanish_user_message_protects_every_machine_marker():
-    """The parser keys must be named as untranslatable in the directive."""
-    spanish = prompts.build_user_message("Acme", "sources", TODAY, language="es")
-    for marker in (
-        "## Infrastructure Snapshot",
-        "## Signals & Timing",
-        "## Three Alkira Entry Points",
-        "## Conversation Starters",
-        "## References",
-        "**Cloud Platforms:**",
-        "**On-Prem / Hybrid:**",
-        "**Deployment Model:**",
-        "**Resulting Complexity:**",
-        "Alkira Fit Score",
-        "Signal:",
-        "Solution:",
-        "Proof:",
-    ):
-        assert marker in spanish, f"directive never mentions {marker!r}"
-
-
-def test_spanish_user_message_localizes_the_date_line():
-    spanish = prompts.build_user_message("Acme", "sources", TODAY, language="es")
-    assert "Agosto 2026" in spanish
-    assert "August 2026" not in spanish
-
-
-def test_unknown_language_falls_back_to_the_english_message():
-    assert prompts.build_user_message(
-        "Acme", "sources", TODAY, language="fr"
-    ) == prompts.build_user_message("Acme", "sources", TODAY)
-
-
-# ── Prompt cache integrity ───────────────────────────────────────
-
-def test_system_prefix_takes_no_language_and_is_byte_stable():
-    """The cached prefix must never vary — that is the whole cost saving.
-
-    Called via subprocess so the lru_cache cannot make this vacuous by
-    comparing an object to itself.
-    """
-    import subprocess
-    import sys
-
-    script = (
-        "import hashlib, prompts;"
-        "print(hashlib.sha256(prompts.build_system_prefix().encode()).hexdigest())"
-    )
-    runs = [
-        subprocess.run(
-            [sys.executable, "-c", script], capture_output=True, text=True, check=True
-        ).stdout.strip()
-        for _ in range(2)
-    ]
-    assert runs[0] == runs[1]
-
-    import inspect
-
-    assert not inspect.signature(prompts.build_system_prefix).parameters, (
-        "build_system_prefix must take no arguments; a language parameter "
-        "would fork the cached prefix and destroy the prompt cache"
-    )
-
-
-def test_language_never_appears_in_the_system_prefix():
-    prefix = prompts.build_system_prefix()
-    assert "Spanish" not in prefix
-    assert "español" not in prefix.lower()
-
-
-# ── generate.py passthrough ──────────────────────────────────────
-
-def _run_generate(language=None):
-    """Drive generate_brief with a stubbed client; return the request kwargs."""
-    from types import SimpleNamespace
-    from unittest.mock import MagicMock, patch
-
-    import generate
-
-    message = SimpleNamespace(
-        content=[SimpleNamespace(type="text", text="# ALKIRA OPPORTUNITY BRIEF\n")],
-        stop_reason="end_turn",
-        usage=SimpleNamespace(
-            input_tokens=1,
-            output_tokens=1,
-            cache_read_input_tokens=None,
-            cache_creation_input_tokens=None,
-        ),
-    )
-    client = MagicMock()
-    stream = MagicMock()
-    stream.__enter__.return_value.get_final_message.return_value = message
-    client.messages.stream.return_value = stream
-
-    kwargs = {} if language is None else {"language": language}
-    with patch("generate.Anthropic", return_value=client), patch(
-        "generate.research.research",
-        return_value=SimpleNamespace(sources=[], payload="[1] src"),
-    ):
-        generate.generate_brief(
-            "k", "t", "Acme", lambda phase: None, **kwargs
-        )
-    return client.messages.stream.call_args.kwargs
-
-
-def test_generate_defaults_to_english():
-    sent = _run_generate()
-    assert "Spanish" not in sent["messages"][0]["content"]
-
-
-def test_generate_passes_spanish_through_to_the_user_message():
-    sent = _run_generate("es")
-    assert "Spanish" in sent["messages"][0]["content"]
-
-
-def test_generate_never_puts_language_in_the_cached_system_block():
-    """The system block must be identical in both languages."""
-    english = _run_generate("en")["system"]
-    spanish = _run_generate("es")["system"]
-    assert english == spanish
-    assert spanish[0]["cache_control"] == {"type": "ephemeral", "ttl": "1h"}
 
 
 # ── PDF rendering ────────────────────────────────────────────────
@@ -387,19 +244,3 @@ def test_detect_language_ignores_a_month_deep_in_the_body():
         + "[1] Informe de Agosto 2025 - https://example.com\n"
     )
     assert i18n.detect_language(brief) == "en"
-
-
-# ── Prompt directives ────────────────────────────────────────────
-
-def test_spanish_directive_forbids_the_english_evidence_labels():
-    """Measured leak: briefs mixed (confirmado) with (directional)."""
-    spanish = prompts.build_user_message("Acme", "sources", TODAY, language="es")
-    assert "(confirmado)" in spanish
-    assert "(direccional)" in spanish
-    assert "Validar temprano" in spanish
-
-
-def test_english_message_carries_no_spanish_directive():
-    english = prompts.build_user_message("Acme", "sources", TODAY, language="en")
-    for token in ("confirmado", "direccional", "Validar temprano", "Spanish"):
-        assert token not in english

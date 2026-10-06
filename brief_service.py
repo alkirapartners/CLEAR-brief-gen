@@ -11,9 +11,9 @@ from datetime import datetime, timezone
 from typing import Any, Callable
 
 import i18n
-from briefparse import (
-    MAX_COMPANY_PREFILL_CHARS, clean_brief, extract_company_header, extract_score,
-)
+import stored_brief
+from briefparse import MAX_COMPANY_PREFILL_CHARS
+from company_name import is_company_name
 from errors import (
     BriefNotFound, DailyLimitReached, GenerationInFlight, NotConfigured, SaveFailed,
     UserFacingError,
@@ -44,8 +44,9 @@ def _utc_now() -> datetime:
 def _clean_stored_company(raw: str | None) -> str:
     """A stored company name, made safe to search and prompt with.
 
-    The stored name is the heading the model wrote, not what a partner typed,
-    so it gets the same flattening as typed input and is cut to the same limit.
+    For a legacy brief the stored name is the heading the model wrote, not
+    what a partner typed, so it gets the same flattening as typed input and
+    is cut to the same limit.
     """
     printable = "".join(ch if ch.isprintable() else " " for ch in (raw or ""))
     return " ".join(printable.split())[:MAX_COMPANY_PREFILL_CHARS].strip()
@@ -120,11 +121,11 @@ class BriefService:
             if old is None:
                 raise BriefNotFound(NOT_FOUND_MESSAGE)
             company = _clean_stored_company(old.get("company"))
-            if not company:
+            if not is_company_name(company):
                 raise UserFacingError(NO_COMPANY_MESSAGE)
             target_language = (
                 i18n.normalize(language) if language
-                else i18n.detect_language(old.get("brief_md") or "")
+                else stored_brief.language_of(old.get("brief_md"))
             )
             self._reserve_generation(email)
         except BaseException:
@@ -156,9 +157,12 @@ class BriefService:
 
     def _reusable(self, company: str, language: str) -> dict | None:
         cached = self._repo.find_recent_brief_by_company(company)
-        # Stored briefs carry no language column, so read the brief itself.
-        # A mismatch only costs one regeneration.
-        if cached and i18n.detect_language(cached.get("brief_md") or "") != language:
+        if not cached:
+            return None
+        # Stored briefs carry no language or quality column, so read the brief
+        # itself. A miss only costs one regeneration.
+        stored = cached.get("brief_md")
+        if not stored_brief.is_reusable(stored) or stored_brief.language_of(stored) != language:
             return None
         return cached
 
@@ -218,14 +222,12 @@ class BriefService:
         self, email: str, typed_company: str, raw: str,
         created_at: str | None, reused_from: str | None,
     ) -> dict:
-        brief_md = clean_brief(raw)
-        score, _ = extract_score(brief_md)
-        company, _ = extract_company_header(brief_md)
+        brief_md = stored_brief.normalise(raw)
+        score, _ = stored_brief.score_and_company(brief_md)
+        company = stored_brief.filing_name(brief_md, typed_company)
         saved = None
         for _attempt in range(SAVE_ATTEMPTS):
-            saved = self._repo.save_brief(
-                email, company or typed_company, score, brief_md, created_at=created_at
-            )
+            saved = self._repo.save_brief(email, company, score, brief_md, created_at=created_at)
             if saved:
                 break
         if not saved:

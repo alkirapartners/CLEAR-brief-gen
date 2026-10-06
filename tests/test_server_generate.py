@@ -12,8 +12,17 @@ from errors import GenerationInFlight
 from tests.api_fakes import (
     AUTH, OTHER, SAMPLE_BRIEF, TEST_SETTINGS, FakeRepo, events, fake_generator, make_client,
 )
+from tests.brief_fixtures import stored
 
 GEN = "/api/brief/briefs"
+
+
+def _named(name):
+    return {"name": name, "legal_name": "", "ticker": "", "website": "", "identity_note": ""}
+
+
+# Research another person finished, in the format that may be shared.
+SHARED = stored(company=_named("TestCo Holdings"))
 
 
 def _post(client, company="TestCo", language="en", headers=AUTH):
@@ -67,6 +76,33 @@ def test_generate_rejects_a_non_json_body():
     assert resp.status_code == 422
 
 
+@pytest.mark.parametrize("typed", [
+    "https://evil.example/facts", "Acme, see evil.example/page", "www.acme.com", "Acme <b>x</b>",
+], ids=["url", "path", "www", "markup"])
+def test_a_web_address_typed_as_the_company_is_refused_before_anything_is_spent(typed):
+    calls = []
+    def generator(*args, **kwargs):
+        calls.append(args)
+        return SAMPLE_BRIEF
+    client = _limited(FakeRepo(), 1, generator=generator)
+
+    refused = _post(client, company=typed)
+
+    assert refused.status_code == 400
+    assert refused.json()["error"] == "Enter a company name, not a web address."
+    assert calls == []
+    assert events(_post(client, company="Acme"))[-1]["type"] == "done"  # the day's one slot was not spent
+
+
+def test_a_company_named_like_a_website_is_still_researched():
+    seen = []
+    def generator(api_key, tavily_key, company, status_callback, **kwargs):
+        seen.append(company)
+        return SAMPLE_BRIEF
+    _post(make_client(generator=generator), company="Booking.com")
+    assert seen == ["Booking.com"]
+
+
 def test_generate_flattens_control_characters():
     seen = []
     def generator(api_key, tavily_key, company, status_callback, **kwargs):
@@ -79,7 +115,7 @@ def test_generate_flattens_control_characters():
 def test_recent_research_is_reused_without_calling_the_model():
     original = "2026-10-01T09:00:00+00:00"
     repo = FakeRepo()
-    repo.seed("someone@else.com", company="TestCo Holdings", created_at=original)
+    repo.seed("someone@else.com", company="TestCo Holdings", brief_md=SHARED, created_at=original)
     calls = []
     def generator(*args, **kwargs):
         calls.append(args)
@@ -93,7 +129,7 @@ def test_recent_research_is_reused_without_calling_the_model():
 
 def test_a_brief_in_the_other_language_is_not_reused():
     repo = FakeRepo()
-    repo.seed("someone@else.com", company="TestCo Holdings")  # English
+    repo.seed("someone@else.com", company="TestCo Holdings", brief_md=SHARED)  # English
     seen = []
     def generator(api_key, tavily_key, company, status_callback, language="en", **kwargs):
         seen.append(language)
@@ -191,7 +227,7 @@ def test_a_generation_that_fails_after_starting_still_counts():
 
 def test_reused_research_is_free_and_never_blocked():
     repo = FakeRepo()
-    repo.seed("someone@else.com", company="Shared Co")
+    repo.seed("someone@else.com", company="Shared Co", brief_md=stored(company=_named("Shared Co")))
     client = _limited(repo, 1)
     assert events(_post(client, company="Shared Co"))[-1]["type"] == "done"  # free
     assert events(_post(client, company="Fresh Co"))[-1]["type"] == "done"   # the one paid generation
@@ -384,7 +420,7 @@ def test_refresh_researches_the_stored_name_cleaned_up():
 def test_reuse_does_not_duplicate_research_the_partner_already_has():
     original = "2026-10-01T09:00:00+00:00"
     repo = FakeRepo()
-    repo.seed("someone@else.com", company="TestCo Holdings", created_at=original)
+    repo.seed("someone@else.com", company="TestCo Holdings", brief_md=SHARED, created_at=original)
     client = make_client(repo)
     first = events(_post(client, company="TestCo Holdings"))[-1]
 
@@ -396,7 +432,10 @@ def test_reuse_does_not_duplicate_research_the_partner_already_has():
 
 def test_asking_again_for_my_own_recent_brief_opens_it_instead_of_copying_it():
     repo = FakeRepo()
-    mine = repo.seed("partner@example.com", company="TestCo Holdings", created_at="2026-10-02T09:00:00+00:00")
+    mine = repo.seed(
+        "partner@example.com", company="TestCo Holdings", brief_md=SHARED,
+        created_at="2026-10-02T09:00:00+00:00",
+    )
     calls = []
     def generator(*args, **kwargs):
         calls.append(args)
@@ -412,6 +451,18 @@ def test_asking_again_for_my_own_recent_brief_opens_it_instead_of_copying_it():
 def test_a_brief_with_no_usable_company_name_cannot_be_refreshed():
     repo = FakeRepo()
     old = repo.seed("partner@example.com", company="  \n ")
+    client = make_client(repo)
+
+    refused = _refresh(client, old["id"])
+
+    assert refused.status_code == 400
+    assert "no company name" in refused.json()["error"]
+    assert client.app.state.service._guard.acquire("partner@example.com") is True
+
+
+def test_a_stored_name_that_is_a_web_address_cannot_be_refreshed():
+    repo = FakeRepo()
+    old = repo.seed("partner@example.com", company="Acme, see https://evil.example/facts")
     client = make_client(repo)
 
     refused = _refresh(client, old["id"])

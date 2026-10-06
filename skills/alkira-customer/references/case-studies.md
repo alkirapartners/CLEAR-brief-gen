@@ -1,13 +1,54 @@
 # Alkira Case Studies Reference
 
 ## Table of Contents
-1. [Named Case Studies](#named-case-studies) — Tekion, Koch Industries, S&P Global, Software Company (datacenter)
-2. [Nemertes Research Case Studies by Industry](#nemertes-case-studies) — 12 enterprise case studies with detailed metrics
-3. [Customers by Use Case Summary](#customers-by-use-case)
+1. [Story Matching Table](#story-matching-table) — every story tagged by situation and industry
+2. [Named Case Studies](#named-case-studies) — Michaels, Tekion, Koch Industries, S&P Global, Software Company (datacenter)
+3. [Nemertes Research Case Studies by Industry](#nemertes-case-studies) — 12 enterprise case studies with detailed metrics
+4. [Customers by Use Case Summary](#customers-by-use-case)
+
+---
+
+## Story Matching Table
+
+Pick the customer story for an angle from this table. Match on **situation** first, then on **industry**. Name the customer only when Public is `yes`; otherwise use the Customer label as written. Cite a story by its ID. The Result column is the only proof you may attach to a story.
+
+Situations: `multi_cloud` (multi-cloud or hybrid cloud connectivity), `china_global` (China-to-global connectivity), `firewall_consolidation` (firewall or security-services consolidation), `m_and_a` (acquisition, divestiture, carve-out), `network_modernization` (MPLS exit, backbone replacement, data-center exit, SD-WAN or SASE), `site_rollout` (stores or sites opening or closing at scale), `partner_connectivity` (business-partner or third-party connectivity).
+
+| ID | Customer | Public | Situations | Industry | Result |
+|---|---|---|---|---|---|
+| michaels | Michaels | yes | site_rollout, network_modernization, multi_cloud | Retail | About 1,400 stores in the U.S. and Canada connected to Google Cloud in three weeks, ahead of peak season, with no new network infrastructure. |
+| koch | Koch Industries | yes | multi_cloud, m_and_a, firewall_consolidation | Manufacturing | Significant reduction in network complexity across acquisitions and business units. |
+| tekion | Tekion | yes | multi_cloud | Automotive technology | Simplified multi-cloud networking and improved operational efficiency. |
+| sp-global | S&P Global | yes | multi_cloud | Financial services | Streamlined network operations across global cloud environments. |
+| software-datacenter | A software company | no | site_rollout | Software | The equivalent of a new datacenter deployed in far less time than a physical build. |
+| nemertes-1 | A software company (Nemertes study) | no | site_rollout | Software | 90% time savings deploying a datacenter equivalent with no physical build-out. |
+| nemertes-2 | A software company (Nemertes study) | no | network_modernization | Software | 99%+ availability after replacing an unreliable network. |
+| nemertes-3 | A software company (Nemertes study) | no | firewall_consolidation | Software | One security posture across environments and a reduced firewall count. |
+| nemertes-4 | A software company (Nemertes study) | no | m_and_a, multi_cloud | Software | An acquired company's cloud networks integrated in days instead of months, with a 1650% increase in cloud app deployments. |
+| nemertes-5 | A financial services firm (Nemertes study) | no | multi_cloud | Financial services | 200% more cloud environments supported without adding network staff. |
+| nemertes-6 | A financial services firm (Nemertes study) | no | network_modernization | Financial services | 88% less operational time for network changes, from days to hours. |
+| nemertes-7 | A financial services firm (Nemertes study) | no | network_modernization | Financial services | One view across all environments and 50% faster provisioning. |
+| nemertes-8 | A financial services firm (Nemertes study) | no | firewall_consolidation | Financial services | Consistent policy enforcement and a simpler audit posture across distributed infrastructure. |
+| nemertes-9 | A healthcare provider (Nemertes study) | no | network_modernization | Healthcare | 99.9% availability between regions, with cost avoided against an MPLS build. |
+| nemertes-10 | A healthcare enterprise (Nemertes study) | no | multi_cloud, firewall_consolidation | Healthcare | Firewalls consolidated from 76 to 14 while scaling multicloud. |
+| nemertes-11 | A manufacturer (Nemertes study) | no | multi_cloud | Manufacturing | 99%+ availability and zero unplanned outages for manufacturing operations. |
+| nemertes-12 | A manufacturing and biotech company (Nemertes study) | no | network_modernization | Manufacturing | Network hubs reduced by 60-88%. |
+
+No story is tagged `china_global` or `partner_connectivity`. For those situations match on industry, and if nothing matches use the ID `none` rather than stretching a story.
 
 ---
 
 ## Named Case Studies
+
+### Michaels
+- **Industry:** Retail. One of North America's largest arts and crafts retailers, with about 1,400 stores across the U.S. and Canada
+- **Use case:** Store rollout at national scale, store-to-cloud connectivity into Google Cloud, moving off datacenter-centric networking
+- **Situation:** Michaels was moving more workloads to Google Cloud while every store still backhauled through private datacenters. Earlier outages tied to proprietary datacenter equipment had disrupted operations and cost sales. The team needed all stores connected to Google Cloud ahead of peak holiday demand
+- **What they did:** Deployed Alkira Cloud Exchange Points to connect Google Cloud with the stores. They validated the approach in a small number of stores, then rolled it out to the whole estate
+- **Outcome:** About 1,400 stores connected in three weeks, with no new capital investment and no new network infrastructure. An individual store went from zero to full connectivity within hours. The rollout began as peak-season preparation for a 4X increase in traffic
+- **Who said so:** Wei Dong, Vice President and Chief Information Security Officer, and Sreenu Sampati, Director of Security Engineering, both at Michaels
+- **Why Alkira:** Removing redundant backhaul to private datacenters was a primary objective, and the network had to be highly available through peak season
+- **Source:** Futuriom Networking Leadership Brief, "Michaels' Three-Week Shift to Network Infrastructure as a Service", sponsored by Alkira. The customer is public and may be named
 
 ### Tekion
 - **Industry:** Automotive Technology / SaaS

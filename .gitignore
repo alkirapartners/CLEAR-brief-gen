@@ -18,6 +18,8 @@ venv/
 
 # Generated briefs
 *.docx
+# Written by generate_brief.py --save-dir. Briefs about real companies stay out of this public repository.
+out/
 
 # Brainstorming workspace
 .superpowers/

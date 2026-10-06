@@ -55,6 +55,45 @@ Compute and storage are agile. Development is agile. **The network is not.** Alk
 
 ---
 
+## Fit Rules
+
+These rules decide whether a company is an Alkira fit. They set the fit score and decide which angles a brief may present.
+
+**One clear use case is enough.** A company does not have to check every box. Any single one of these, with evidence, is a fit:
+
+| Use case | ID | What counts |
+|---|---|---|
+| Multi-cloud or hybrid cloud connectivity | `multi_cloud` | Two or more clouds, or cloud plus data centers, that must reach each other. A cloud network built by hand counts: ExpressRoute, Direct Connect, Virtual WAN, Transit Gateway hub-and-spoke. Hand-built cloud-native networking is a positive signal, never a negative one. One cloud is enough when the network around it is complex. |
+| China-to-global connectivity | `china_global` | Workloads, plants or users in mainland China that must reach systems outside it, or the reverse. |
+| Firewall or security-services consolidation | `firewall_consolidation` | Firewalls or security services deployed per cloud, per region or per VPC or VNet, or a stated plan to consolidate them in the cloud. |
+| M&A | `m_and_a` | An acquisition, merger, divestiture, carve-out or separation that happened in the last three months, or that is announced and not yet completed. See "M&A: recent or pending" below. |
+| Network modernization | `network_modernization` | An MPLS exit, backbone replacement, data-center exit, an SD-WAN or SASE programme, or any stated network or infrastructure modernization. |
+| Sites opening or closing at scale | `site_rollout` | Stores, plants, branches or clinics being opened, closed or moved in numbers. |
+| Business-partner connectivity | `partner_connectivity` | Suppliers, customers, joint ventures or other third parties that need controlled network access. |
+
+**Supporting only.** These strengthen a use case and are never an angle on their own: a cost programme with network contracts in scope; a new CIO or head of infrastructure; a lean network team.
+
+**Never fit evidence.** Never present these as a reason to pursue: a new CEO or CFO; SAP, Workday or other ERP projects; generic "digital transformation"; headcount or hiring statistics; product recalls; earnings.
+
+**Evidence quality.** First-hand evidence is the company's own careers site and job postings, its filings and annual report, its press releases, and a cloud vendor's case study about it. Trade press is second-hand, and so is a job board's copy of a posting. A data-broker profile is a last resort and must be labelled as one. So is an encyclopedia. Current means the source is dated within about the last two years.
+
+**The word "network".** Fit evidence is about the IT network: the WAN, cloud connectivity, data centers, firewalls, and the people who run them. Many companies also call their business footprint a network: a delivery network, a logistics network, a store network, a distribution network, a branch or dealer network. That is not the IT network. Example: UPS reports "Network Reconfiguration" and "Network of the Future", programmes that close sorting buildings and consolidate package routes. Neither is network modernization. The building closures can support `site_rollout`, because sites are closing at scale, and nothing more. A `network_modernization` angle needs at least one fact that names network technology: MPLS, SD-WAN, SASE, a backbone, a data-center exit, a network engineering programme.
+
+**Plant networks.** In the technical snapshot, plant networks means industrial control systems: OT, SCADA, PLCs, the networks on a plant floor, and how they are kept apart from IT. RFID readers, package scanners, store Wi-Fi and vehicle telematics are not plant networks. Example: the RFID readers UPS puts in its package cars are a tracking product. Leave the line empty for a company with no plants.
+
+**Risk-factor language is not evidence.** The risk factors in a filing list what could go wrong, in wording most filers share: technology infrastructure may be aging, an integration may be harder than expected, the company depends on transition services. None of it shows that anything is happening. Evidence is what the company did or announced, with a date.
+
+**M&A: recent or pending.** M&A is the strongest reason to engage, and only while it is live. An M&A event counts when it happened in the last three months, or when the deal is announced and not yet completed. The event is the announcement or the completion of an acquisition, merger, divestiture, carve-out or separation, dated by the company's own press release or filing. Examples: HF Sinclair's separation of its lubricants business, announced on 28 July and still to be completed, qualifies when a brief is written in October. A carve-out completed in January does not qualify in October: the deal is done and more than three months old, and transition services that are still running do not bring it back.
+
+- A qualifying M&A angle goes first in the brief. The lead line and the first question open with it.
+- An M&A angle names what has to be connected or separated: the sites, the systems, or the businesses on each side. A deal with a price and a closing date and nothing to connect is news, not an angle.
+- A completed deal outside the three months is not an angle, cannot lead and cannot raise the score. It may appear as one line of background inside another angle's evidence when it explains that angle, and nowhere else.
+- Give each M&A angle the date of its event and say whether the deal is pending or completed. The date is checked against the page, and the three-month rule is applied to it afterwards. A deal is pending only on the page's own words: a sentence from the company's release or filing that gives the expected completion, a condition still to be met, or says the deal has not closed. Without that sentence the deal is treated as completed on its date.
+
+**A specific first-hand fact.** Every angle rests on at least one specific fact from a first-hand source: a posting on the company's careers site, a filing, a press release on its own site, a cloud vendor's case study about it. Trade press or a data broker alone does not make an angle. The fact does not have to be dated: an older or undated first-hand fact still shows the use case, as Anker's undated AWS case study shows its China-to-global split, and the score then stops at 3. An accounting adjustment after a closed sale is not a specific fact about the network. Never add an angle to reach three. Example: a parts retailer with one strong network-modernization angle gains nothing from a third angle built on a divestiture that closed the year before and a line of risk-factor language.
+
+---
+
 ## Five Core Solution Categories (Entry Points)
 
 These are the five reasons customers buy Alkira. When Blake describes a partner's deal or shares a call transcript, map the customer's situation to one or more of these entry points.
@@ -180,7 +219,7 @@ Be specific. Don't give generic advice. Use the customer's actual situation and 
 
 For deeper detail, read the appropriate reference file:
 
-- **`references/case-studies.md`** — 12+ Nemertes case studies organized by industry (Software/Tech, Financial Services, Healthcare, Manufacturing/Biotech) plus named case studies (Tekion, Koch Industries, S&P Global). Use when you need specific customer proof points or industry-relevant examples.
+- **`references/case-studies.md`** — The Story Matching Table (every story tagged by situation and industry), named case studies (Michaels, Tekion, Koch Industries, S&P Global) and 12 Nemertes case studies organized by industry. Use when you need specific customer proof points or industry-relevant examples.
 
 - **`references/pricing.md`** — CXP sizing, connector sizing, services, data charges, and business models (ELA, PAYG, Commit Consumption, Subscription). Use when discussing pricing or building proposals.
 
