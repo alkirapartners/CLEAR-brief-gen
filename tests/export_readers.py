@@ -102,3 +102,15 @@ def docx_xml(data: bytes) -> dict[str, str]:
 
 
 HYPERLINK = RELATIONSHIP_TYPE.HYPERLINK
+
+
+def pdf_heights(data: bytes, page: int = 0) -> dict[str, float]:
+    """How far up the page each piece of text sits, in points from the foot, by its text."""
+    found: dict[str, float] = {}
+
+    def note(text: str, _cm: list[float], matrix: list[float], _font: object, _size: float) -> None:
+        if text.strip():
+            found.setdefault(squash(text), float(matrix[5]))
+
+    PdfReader(io.BytesIO(data)).pages[page].extract_text(visitor_text=note)
+    return found

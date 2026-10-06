@@ -126,6 +126,15 @@ def test_an_open_posting_is_dated_by_the_day_it_was_seen_and_says_so_once():
     assert "(open posting, seen 2026-09-23)" not in text
 
 
+def test_a_proof_plate_is_as_tall_as_what_it_holds_however_long_the_angle_beside_it():
+    doc = make_doc(angles=make_doc()["angles"][:1])
+    doc["angles"][0]["alkira"] = "Alkira replaces hand-built hubs with one design deployed per region. " * 8
+    heights = readers.pdf_heights(_render(doc))
+    label, customer = heights["CUSTOMER STORY"], heights["Koch Industries"]
+    # The customer's name follows its label directly: no empty plate between them.
+    assert 0 < label - customer < 30, label - customer
+
+
 def test_a_brief_with_no_angles_leaves_the_section_out():
     fit = {"score": 1, "verdict": "No use case found.", "lead": ""}
     text = _text(make_doc(angles=[], fit=fit, people=[], questions=[], unconfirmed=[], raise_score=[], references=[]))

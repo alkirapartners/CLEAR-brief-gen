@@ -1,7 +1,8 @@
 """The angles of the brief PDF: each reason to call, the proof beside it, and its evidence.
 
 A card has two bands, as on the page. The first is the pitch: the angle and
-what Alkira does about it on the left, the proof on the right. The second
+what Alkira does about it on the left, the proof on the right, on a plate
+no taller than what it says. The second
 is the evidence, in columns across the whole card. A card moves to the next
 page whole when one can hold it; a longer one may be cut between rows of
 evidence, and inside the pitch or the proof only when those alone are longer
@@ -29,7 +30,7 @@ from pdf_text import Run
 PLATE_SHARE = 0.38
 PLATE_INSET = 2.0
 PLATE_PAD = 5.0
-PLATE_MIN_HEIGHT = 28.0
+PLATE_LABEL_GAP = 4.0
 PLATE_GLOW_REACH = 58.0
 HATCH_STEP = 2.2
 HATCH_SHARE = 0.55
@@ -137,13 +138,13 @@ def _hatch(pdf: FPDF, x: float, y: float, w: float, h: float) -> None:
             offset += HATCH_STEP
 
 
-def _plate(proof: Proof, width: float, min_height: float) -> Part:
-    """The proof, as tall as the band it sits in: its label at the top, its statement at the foot."""
+def _plate(proof: Proof, width: float) -> Part:
+    """The proof, as tall as what it holds: its label, then its statement directly under it."""
     room = width - 2 * PLATE_PAD
     is_story = proof.kind == "story"
     statement = _story_statement(proof, room) if is_story else _metric_statement(proof, room)
     name = canvas.label(proof.label, theme.EYEBROW if is_story else theme.MICRO, room)
-    height = max(min_height, PLATE_MIN_HEIGHT, name.height + statement.height + 2 * PLATE_PAD + 5.0)
+    height = name.height + PLATE_LABEL_GAP + statement.height + 2 * PLATE_PAD
 
     def paint(pdf: FPDF, x: float, y: float) -> None:
         canvas.fill_round(pdf, x, y, width, height, theme.INNER_RADIUS, theme.AMBIENT if is_story else theme.SUNKEN)
@@ -153,7 +154,7 @@ def _plate(proof: Proof, width: float, min_height: float) -> Part:
         else:
             _hatch(pdf, x, y, width, height)
         name.paint(pdf, x + PLATE_PAD, y + PLATE_PAD)
-        statement.paint(pdf, x + PLATE_PAD, y + height - PLATE_PAD - statement.height)
+        statement.paint(pdf, x + PLATE_PAD, y + PLATE_PAD + name.height + PLATE_LABEL_GAP)
 
     return Part(height, paint)
 
@@ -203,7 +204,7 @@ def _card(ctx: Context, number: int, angle: Angle, space_before: float) -> Block
     plate_w = (theme.CONTENT_W - 2 * PLATE_INSET) * PLATE_SHARE if proof else 0.0
     pitch_w = theme.CONTENT_W - 2 * theme.CARD_PAD - (plate_w + PLATE_INSET if proof else 0.0)
     pitch = _pitch(ctx, number, angle, pitch_w)
-    plate = _plate(proof, plate_w, pitch.height + 2 * (theme.CARD_PAD - PLATE_INSET)) if proof else canvas.EMPTY
+    plate = _plate(proof, plate_w) if proof else canvas.EMPTY
     band_h = max(pitch.height + 2 * theme.CARD_PAD, plate.height + 2 * PLATE_INSET)
     rows = _evidence_rows(ctx, angle["evidence"], theme.CONTENT_W - 2 * theme.CARD_PAD)
     name = canvas.label(ctx.labels["evidence"], theme.MICRO, theme.CONTENT_W)
