@@ -10,7 +10,7 @@ Situations: `multi_cloud` (multi-cloud or hybrid cloud connectivity), `china_glo
 |---|---|---|---|---|---|
 | koch | Koch Industries | yes | multi_cloud, m_and_a, china_global | Manufacturing | Replaced 10 transport hubs with 2 Alkira Cloud Exchange Points, connects newly acquired companies to its infrastructure through Alkira, and expanded its network to mainland China. |
 | tekion | Tekion | yes | multi_cloud | Automotive technology | One standard network for all cloud and multi-cloud connectivity, with greatly reduced IT time-to-service and international network expansion, run by a small IT team. |
-| sp-global | S&P Global | yes | partner_connectivity, m_and_a, multi_cloud | Financial services | Runs extranet as a service on Alkira, with 80% less deployment time for new cloud regions and rapid integration of mergers and acquisitions. |
+| sp-global | S&P Global | yes | partner_connectivity, m_and_a, multi_cloud | Financial services | Combined networks after its merger with IHS Markit in 2 months, against its own estimate of 2.5 years, and runs extranet as a service on Alkira across multiple clouds. |
 | chart | Chart Industries | yes | m_and_a, multi_cloud | Manufacturing | Grew from 40 to over 130 global sites by acquiring Howden, and joined the acquired company to its cloud backbone across Azure, AWS and Google Cloud while connecting different SD-WAN technologies without swapping hardware right away. |
 | warner | Warner Hotels | yes | network_modernization, multi_cloud | Hospitality | Network changes that took days or weeks are now made in minutes, across 18 UK properties and its AWS and Azure environments. |
 | canada-professional-services | A leading Canadian professional services organization | no | multi_cloud | Professional services | 3 public clouds (AWS, Azure and Google Cloud) unified on 1 networking platform, with 0 networking hires needed to support rapid growth. |
@@ -82,7 +82,7 @@ When no story's Situations include the angle's use case, use the ID `none` rathe
 - **Use case:** Extranet as a service for partner connectivity, M&A integration, multi-cloud networking with segmentation
 - **Situation:** Integrating mergers and acquisitions took a long time, point solutions had multiplied network complexity, and on-premises and cloud ran on different architectures
 - **What they did:** A global multi-cloud network delivered as a service, firewalls and SD-WAN integrated into it, and network segmentation with selective resource sharing across segments
-- **Outcome:** 80% reduction in deployment time for new cloud regions, and savings of $10M+ from circuits and hardware. Rapid integration of mergers and acquisitions, with consistent security policy and enforcement points
+- **Outcome:** After its merger with IHS Markit, S&P Global estimated two and a half years to bring the networks together and did it with Alkira in two months. 80% reduction in deployment time for new cloud regions, and savings of $10M+ from circuits and hardware. Consistent security policy and enforcement points
 - **Who said so:** Guruprasad Ramamoorthy, VP, Head of Global Network Services
 
 ---

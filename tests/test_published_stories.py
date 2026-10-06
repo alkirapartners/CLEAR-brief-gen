@@ -60,6 +60,8 @@ def test_s_and_p_global_is_an_extranet_and_m_and_a_story():
     story = _story("sp-global")
     assert {"partner_connectivity", "m_and_a", "multi_cloud"} == set(story.situations)
     assert "extranet as a service" in story.result
+    # The owner's decision between sources that disagree on the merger's timeline.
+    assert "in 2 months" in story.result and "estimate of 2.5 years" in story.result
 
 
 def test_tekion_says_only_what_its_case_study_says():
