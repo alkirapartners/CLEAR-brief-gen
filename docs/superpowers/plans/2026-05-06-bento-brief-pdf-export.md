@@ -625,7 +625,7 @@ def _draw_hero(pdf: _BriefPDF, company: str, header_pills: str) -> None:
     """Draw the company-name hero block at top of page 1.
 
     `header_pills` is the original pipe-delimited line, e.g.
-    'HQ: Irving, TX | Revenue: $309B | Employees: 51K'.
+    'HQ: Austin, TX | Revenue: $4.2B | Employees: 9K'.
     """
     pdf.set_x(12.7)
     pdf.set_font("Helvetica", "B", 22)
