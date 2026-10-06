@@ -6,7 +6,7 @@ SAMPLE_BRIEF = """
 ## Three Alkira Entry Points
 
 **1. Multi-cloud connectivity**
-Signal: McKesson runs production on Azure, GCP, and Oracle.
+Signal: Northwind runs production on Azure, GCP, and Oracle.
 Solution: Alkira connects all three in a single click.
 Proof: 96% faster connection time vs DIY transit hubs.
 
@@ -44,7 +44,7 @@ BOLD_BRIEF = """
 ## Three Alkira Entry Points
 
 **1. Multi-cloud connectivity**
-1. **Signal**: McKesson runs production on Azure, GCP, and Oracle.
+1. **Signal**: Northwind runs production on Azure, GCP, and Oracle.
 2. **Solution**: Alkira connects all three in a single click.
 3. **Proof**: 96% faster connection time.
 

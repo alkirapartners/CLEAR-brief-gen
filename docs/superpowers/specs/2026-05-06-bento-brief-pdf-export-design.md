@@ -275,7 +275,7 @@ Each helper takes pre-parsed data extracted from the brief markdown using the sa
 `AlkiraBrief_<Company>_<YYYY-MM>.pdf`
 
 - Sanitize company name: strip punctuation, replace spaces with hyphens, max 40 chars
-- Examples: `AlkiraBrief_McKesson-Corporation_2026-04.pdf`, `AlkiraBrief_PepsiCo_2026-04.pdf`
+- Examples: `AlkiraBrief_Northwind-Corporation_2026-04.pdf`, `AlkiraBrief_PepsiCo_2026-04.pdf`
 
 ### Performance & failure modes
 

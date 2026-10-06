@@ -13,7 +13,7 @@ from briefparse import MAX_COMPANY_PREFILL_CHARS, clean_company_prefill
 
 
 def test_clean_company_prefill_trims_surrounding_whitespace():
-    assert clean_company_prefill("  Sysco Corporation  ") == "Sysco Corporation"
+    assert clean_company_prefill("  Northwind Corporation  ") == "Northwind Corporation"
 
 
 def test_clean_company_prefill_flattens_newlines_and_tabs_to_single_spaces():
