@@ -2,6 +2,7 @@
 
 import copy
 import json
+import time
 from datetime import datetime
 
 import pytest
@@ -11,7 +12,9 @@ import docx_doc
 import export_content
 import i18n
 import pdf
+import pdf_canvas
 import pdf_doc
+import pdf_text
 from tests import export_readers as readers
 from tests.api_fakes import AUTH, FakeRepo, make_client
 from tests.brief_fixtures import SAMPLE_DOC, SAMPLE_JSON_BRIEF, make_doc, stored
@@ -19,6 +22,9 @@ from tests.brief_fixtures import SAMPLE_DOC, SAMPLE_JSON_BRIEF, make_doc, stored
 WHEN = datetime(2026, 10, 5, 12, 0)
 EN = i18n.LABELS["en"]
 LETTER_POINTS = (612.0, 792.0)
+# A 40,000-character company name fills about a hundred pages. Laying the name out again for
+# every page's header took 3.7 seconds on the machine this was written on.
+LONG_NAME_SECONDS = 2.0
 
 
 def _render(doc, language=None):
@@ -293,6 +299,37 @@ def test_a_long_company_name_never_pushes_the_confidentiality_mark_off_the_heade
     assert len(pages) >= 2
     assert all("CONFIDENTIAL" in page for page in pages)
     assert "Northwind Energy Holdings International" in pages[1].split("CONFIDENTIAL")[0]
+
+
+def test_the_running_header_holds_a_short_form_of_a_very_long_company_name():
+    doc = make_doc()
+    doc["company"]["name"] = "N" * 5_000
+    pages = readers.pdf_pages(_render(doc))
+    assert len(pages) > 3
+    for page in pages[1:]:
+        whose = page.split("CONFIDENTIAL")[0]
+        assert 0 < whose.count("N") <= pdf_canvas.HEADER_NAME_CHARS and "…" in whose
+
+
+def test_a_company_name_of_any_length_is_laid_out_for_the_header_once_not_once_a_page(monkeypatch):
+    laid_out = []
+    real_layout = pdf_text.layout
+
+    def counting(runs, room, max_lines=None):
+        laid_out.append(sum(len(run.text) for run in runs))
+        return real_layout(runs, room, max_lines)
+
+    monkeypatch.setattr(pdf_text, "layout", counting)
+    doc = make_doc()
+    doc["company"]["name"] = "N" * 40_000
+    started = time.perf_counter()
+    out = _render(doc)
+    elapsed = time.perf_counter() - started
+    pages = readers.pdf_pages(out)
+    assert len(pages) > 50
+    # The name is laid out in full once, for the first page. Every other piece of text is short.
+    assert sum(1 for length in laid_out if length >= 40_000) == 1
+    assert elapsed < LONG_NAME_SECONDS, f"{elapsed:.1f}s for {len(pages)} pages"
 
 
 def test_an_address_with_accents_is_linked_in_plain_ascii_and_shown_as_written():

@@ -27,6 +27,8 @@ GLOW_STEPS = 6
 # An internal link lands this far above its target.
 ANCHOR_LEAD = 8.0
 BAND_TOLERANCE = 0.01
+# As much of a company name as the running header ever looks at.
+HEADER_NAME_CHARS = 100
 # Between whose brief it is and the confidentiality mark, in the running header.
 HEADER_GAP = 0.7
 
@@ -55,6 +57,7 @@ class BriefPDF(FPDF):
         for face in pdf_fonts.FACES:
             self.add_font(face.family, "", pdf_fonts.path(face))
         self.chrome = chrome
+        self._running = _running_lines(chrome)
         self.page_total = 1
         self._band: tuple[float, float] | None = None
         self.set_author(AUTHOR)
@@ -97,24 +100,57 @@ class BriefPDF(FPDF):
         self.set_fill_color(*theme.CANVAS)
         self.rect(0, 0, theme.PAGE_W, theme.PAGE_H, style="F")
         self.image(LOGO_PATH, x=theme.MARGIN_X, y=theme.HEADER_Y, h=theme.LOGO_H)
-        room = theme.CONTENT_W / 2
-        mark = pdf_text.layout([Run(self.chrome.confidential.upper(), theme.MICRO)], room, max_lines=1)
-        top = theme.HEADER_Y + theme.LOGO_H * 0.42 - mark.line_height / 2
-        if self.page_no() > 1 and pdf_fonts.clean(self.chrome.company).strip():
-            # Whose brief it is, in the room the mark leaves: a long name is cut short, never the mark.
-            name = Run(f"{self.chrome.company} ", theme.toned(theme.STAMP, theme.INK))
-            dot = Run("· ", theme.toned(theme.STAMP, theme.INK_3))
-            whose = pdf_text.layout([name, dot], room - mark.width - HEADER_GAP, max_lines=1)
-            shift = (mark.line_height - whose.line_height) / 2
-            pdf_text.draw(self, whose, theme.PAGE_W / 2, top + shift, room - mark.width - HEADER_GAP, align="R")
-        pdf_text.draw(self, mark, theme.PAGE_W / 2, top, room, align="R")
+        lines, room = self._running, theme.CONTENT_W / 2
+        top = theme.HEADER_Y + theme.LOGO_H * 0.42 - lines.mark.line_height / 2
+        if self.page_no() > 1 and lines.whose.lines:
+            shift = (lines.mark.line_height - lines.whose.line_height) / 2
+            pdf_text.draw(self, lines.whose, theme.PAGE_W / 2, top + shift, lines.whose_room, align="R")
+        pdf_text.draw(self, lines.mark, theme.PAGE_W / 2, top, room, align="R")
 
     def footer(self) -> None:  # and this as each page ends
-        made = pdf_text.layout([Run(self.chrome.generated, theme.CHROME)], theme.CONTENT_W / 2, max_lines=1)
         label = self.chrome.page_label.format(page=self.page_no(), pages=self.page_total)
         count = pdf_text.layout([Run(label, theme.CHROME)], theme.CONTENT_W / 2, max_lines=1)
-        pdf_text.draw(self, made, theme.MARGIN_X, theme.FOOTER_Y)
+        pdf_text.draw(self, self._running.made, theme.MARGIN_X, theme.FOOTER_Y)
         pdf_text.draw(self, count, theme.PAGE_W / 2, theme.FOOTER_Y, theme.CONTENT_W / 2, align="R")
+
+
+@dataclass(frozen=True)
+class _RunningLines:
+    """The lines that say the same on every page, laid out once for the whole document."""
+
+    mark: pdf_text.Paragraph
+    whose: pdf_text.Paragraph
+    whose_room: float
+    made: pdf_text.Paragraph
+
+
+def _short(text: str, limit: int) -> str:
+    """The text when it is short, or its first characters and an ellipsis."""
+    name = text.strip()
+    return name if len(name) <= limit else name[:limit].rstrip() + pdf_text.ELLIPSIS
+
+
+def _running_lines(chrome: Chrome) -> _RunningLines:
+    """The confidentiality mark, whose brief it is, and when it was made.
+
+    Whose brief it is takes the room the mark leaves: a long name is cut
+    short, never the mark. Only the start of a name is ever looked at, so a
+    name of any length costs a page of the document nothing.
+    """
+    room = theme.CONTENT_W / 2
+    mark = pdf_text.layout([Run(chrome.confidential.upper(), theme.MICRO)], room, max_lines=1)
+    name = _short(chrome.company, HEADER_NAME_CHARS)
+    named = bool(pdf_fonts.clean(name).strip())
+    whose_runs = [
+        Run(f"{name} ", theme.toned(theme.STAMP, theme.INK)), Run("· ", theme.toned(theme.STAMP, theme.INK_3)),
+    ] if named else []
+    whose_room = room - mark.width - HEADER_GAP
+    return _RunningLines(
+        mark=mark,
+        whose=pdf_text.layout(whose_runs, whose_room, max_lines=1),
+        whose_room=whose_room,
+        made=pdf_text.layout([Run(chrome.generated, theme.CHROME)], room, max_lines=1),
+    )
 
 
 # ── Shapes ───────────────────────────────────────────────────────────────────
