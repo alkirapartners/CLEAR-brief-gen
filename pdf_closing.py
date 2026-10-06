@@ -215,7 +215,7 @@ def _reference(ctx: Context, reference: Reference, is_anchor: bool) -> Part:
         source.paint(pdf, x + NUMBER_W, y)
         if target is not None and source.height:
             pdf.link(x + NUMBER_W, y, text_w, source.height, target)
-        kind.paint(pdf, x + kind_x, y - 0.25)
+        kind.paint(pdf, x + kind_x, y + 0.1)
         dated.paint(pdf, x + kind_x + KIND_W + META_GAP, y + 0.55)
 
     row = Part(max(source.height, kind.height, dated.height, number.height), paint)
