@@ -209,12 +209,12 @@ The CLI prints the brief as readable text, then one line of time, tokens and est
 
 | Name | Manager | What it runs |
 |------|---------|--------------|
-| `briefgen` | PM2 | `uvicorn server:app --host 127.0.0.1 --port 8501`, started with `--kill-timeout 240000` |
+| `briefgen` | PM2 | `uvicorn server:app --host 127.0.0.1 --port 8501`, started with `--kill-timeout 660000` |
 | `briefgen-proxy` | PM2 | `node briefgen-proxy.js` (port 3461) |
 | `radar-web` | systemd | The Next.js front end from alkira-account-radar (port 3001) |
 | `radar-api` | systemd | The radar API from alkira-account-radar (port 8601) |
 
-The kill timeout matters: PM2's default is 1.6 seconds, which would kill a brief mid-write on every deploy. With it, a restart waits up to four minutes for a brief in progress to finish and be saved.
+The kill timeout matters: PM2's default is 1.6 seconds, which would kill a brief mid-write on every deploy. With it, a restart waits up to eleven minutes for a brief in progress to finish and be saved.
 
 Four minutes covers a normal brief but not the slowest one. The code caps research at 300 seconds (`RESEARCH_CEILING_SECONDS` in `research_loop.py`) and the writing call at 180 seconds plus one stalled connection (`WRITER_DEADLINE_SECONDS` and `WRITER_STALL_SECONDS` in `generate.py`), so a brief can run for up to about ten minutes when the model or the web search service is slow. A deploy that lands in the first minutes of such a brief kills it: the partner sees an error and the day's slot is spent. Raising the kill timeout to 600000 on both instances closes that gap. It is a change on the servers, not in this repo, and has not been made.
 
@@ -287,7 +287,7 @@ Access is controlled by `briefgen-proxy.js`:
    sudo ln -s /etc/nginx/sites-available/briefgen /etc/nginx/sites-enabled/
    sudo nginx -t && sudo systemctl reload nginx
    pm2 start venv/bin/uvicorn --name briefgen --interpreter none --cwd /var/www/briefgen \
-     --kill-timeout 240000 -- server:app --host 127.0.0.1 --port 8501
+     --kill-timeout 660000 -- server:app --host 127.0.0.1 --port 8501
    pm2 start briefgen-proxy.js --name briefgen-proxy
    pm2 save && pm2 startup
    ```
