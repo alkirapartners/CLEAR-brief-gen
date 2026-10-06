@@ -57,7 +57,7 @@ def test_every_part_of_the_brief_is_in_the_pdf():
         "Multi-cloud", "M&A", "Pending deal", "announced 20 Feb 2026",
         "The separation is expected to be completed over the next 12-18 months.",
         "WHAT ALKIRA DOES", "Alkira replaces hand-built hubs with one design deployed per region.",
-        "CUSTOMER STORY", "Koch Industries", "Significant reduction in network complexity",
+        "CUSTOMER STORY", "Koch Industries", "Replaced 10 transport hubs",
         "Nemertes study",
         "A large medical manufacturer",
         "EVIDENCE", "23 Sep 2026", "A network engineer posting lists ExpressRoute",

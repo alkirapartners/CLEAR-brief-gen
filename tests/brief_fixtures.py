@@ -47,7 +47,10 @@ SAMPLE_DOC: dict = {
             "story": {
                 "id": "koch",
                 "customer": "Koch Industries",
-                "result": "Significant reduction in network complexity across acquisitions and business units.",
+                "result": (
+                    "Replaced 10 transport hubs with 2 Alkira Cloud Exchange Points, connects newly acquired "
+                    "companies to its infrastructure through Alkira, and expanded its network to mainland China."
+                ),
             },
             "deal_date": "",
             "deal_status": "none",

@@ -145,7 +145,7 @@ def test_the_entry_point_signal_holds_the_rest_of_the_evidence_and_never_repeats
         "The annual report describes a cloud migration (source dated Feb 2026)."
     )
     assert point["solution"].startswith("Alkira replaces hand-built hubs")
-    assert point["proof"].startswith("Koch Industries: Significant reduction")
+    assert point["proof"].startswith("Koch Industries: Replaced 10 transport hubs")
 
 
 def test_an_angle_with_a_single_fact_repeats_it_as_its_signal_so_the_card_keeps_its_rows():

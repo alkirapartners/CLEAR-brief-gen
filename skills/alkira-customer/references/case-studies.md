@@ -8,9 +8,15 @@ Situations: `multi_cloud` (multi-cloud or hybrid cloud connectivity), `china_glo
 
 | ID | Customer | Public | Situations | Industry | Result |
 |---|---|---|---|---|---|
-| koch | Koch Industries | yes | multi_cloud, m_and_a, firewall_consolidation | Manufacturing | Significant reduction in network complexity across acquisitions and business units. |
-| tekion | Tekion | yes | multi_cloud | Automotive technology | Simplified multi-cloud networking and improved operational efficiency. |
-| sp-global | S&P Global | yes | multi_cloud | Financial services | Streamlined network operations across global cloud environments. |
+| koch | Koch Industries | yes | multi_cloud, m_and_a, china_global | Manufacturing | Replaced 10 transport hubs with 2 Alkira Cloud Exchange Points, connects newly acquired companies to its infrastructure through Alkira, and expanded its network to mainland China. |
+| tekion | Tekion | yes | multi_cloud | Automotive technology | One standard network for all cloud and multi-cloud connectivity, with greatly reduced IT time-to-service and international network expansion, run by a small IT team. |
+| sp-global | S&P Global | yes | partner_connectivity, m_and_a, multi_cloud | Financial services | Runs extranet as a service on Alkira, with 80% less deployment time for new cloud regions and rapid integration of mergers and acquisitions. |
+| chart | Chart Industries | yes | m_and_a, multi_cloud | Manufacturing | Grew from 40 to over 130 global sites by acquiring Howden, and joined the acquired company to its cloud backbone across Azure, AWS and Google Cloud while connecting different SD-WAN technologies without swapping hardware right away. |
+| warner | Warner Hotels | yes | network_modernization, multi_cloud | Hospitality | Network changes that took days or weeks are now made in minutes, across 18 UK properties and its AWS and Azure environments. |
+| canada-professional-services | A leading Canadian professional services organization | no | multi_cloud | Professional services | 3 public clouds (AWS, Azure and Google Cloud) unified on 1 networking platform, with 0 networking hires needed to support rapid growth. |
+| fortune50-healthcare | A Fortune 50 healthcare company | no | multi_cloud, m_and_a, partner_connectivity | Healthcare | Runs primarily in Azure with cross-cloud communication among Azure, Google Cloud and Oracle Cloud, no longer depends on colocation facilities or legacy ExpressRoute circuits, integrates acquisitions that have overlapping networks, and connects business partners over IPsec, SD-WAN or private circuits. |
+| finserv-egress | A global financial services company | no | multi_cloud | Financial services | Saved over $800,000 annually in cloud egress fees. |
+| retail-colocation | A retail customer | no | multi_cloud | Retail | Avoided $3M in upfront costs per colocation hub while expanding its cloud presence. |
 | michaels | Michaels | yes | site_rollout, network_modernization, multi_cloud | Retail | About 1,400 stores in the U.S. and Canada connected to Google Cloud in three weeks, ahead of peak season, with no new network infrastructure. |
 | software-datacenter | A very large software company (Nemertes study) | no | multi_cloud, network_modernization | Software | 90% less network engineer time needed across its data centers and cloud regions, and a new data center stood up in a month. |
 | nemertes-healthcare-provider | A large healthcare provider (Nemertes study) | no | multi_cloud, firewall_consolidation | Healthcare | 300% more cloud environments after expanding to a second cloud region, with fewer firewalls and firewall as a service in place of over-provisioning. |
@@ -37,29 +43,55 @@ When no story's Situations include the angle's use case, use the ID `none` rathe
 - **Use case:** Store rollout at national scale, store-to-cloud connectivity into Google Cloud, moving off datacenter-centric networking
 - **Situation:** Michaels was moving more workloads to Google Cloud while every store still backhauled through private datacenters. Earlier outages tied to proprietary datacenter equipment had disrupted operations and cost sales. The team needed all stores connected to Google Cloud ahead of peak holiday demand
 - **What they did:** Deployed Alkira Cloud Exchange Points to connect Google Cloud with the stores. They validated the approach in a small number of stores, then rolled it out to the whole estate
-- **Outcome:** About 1,400 stores connected in three weeks, with no new capital investment and no new network infrastructure. An individual store went from zero to full connectivity within hours. The rollout began as peak-season preparation for a 4X increase in traffic
+- **Outcome:** About 1,400 stores connected in three weeks, with no new capital investment and no new network infrastructure. An individual store went from zero to full connectivity within hours. The rollout began as peak-season preparation
 - **Who said so:** Wei Dong, Vice President and Chief Information Security Officer, and Sreenu Sampati, Director of Security Engineering, both at Michaels
 - **Why Alkira:** Removing redundant backhaul to private datacenters was a primary objective, and the network had to be highly available through peak season
 - **Source:** Futuriom Networking Leadership Brief, "Michaels' Three-Week Shift to Network Infrastructure as a Service", sponsored by Alkira. The customer is public and may be named
 
+### Chart Industries
+- **Industry:** Manufacturing. A global maker of highly engineered equipment for the clean energy and industrial gas markets
+- **Use case:** M&A integration across Azure, AWS and Google Cloud
+- **Situation:** Acquired UK-based Howden in March 2023 and grew from 40 to over 130 global sites. The 90 added sites came with different cloud architectures across Azure, AWS and Google Cloud and with different SD-WAN vendors. Chart has about 50 IT professionals globally
+- **Outcome:** Joined the acquired company to its cloud backbone and connected the different SD-WAN technologies without swapping hardware right away. Separately, 60 VPN endpoints installed in 3 days against a traditional 3-6 months, for remote monitoring of cryogenic equipment
+- **Who said so:** Susan Tlacil, Senior Network Architect, Chart Industries
+
+### Warner Hotels
+- **Industry:** Hospitality. A UK company operating 18 properties across the United Kingdom
+- **Use case:** A cloud-based backbone and network modernization across AWS and Azure
+- **Situation:** Aging on-premises systems, workloads moving to AWS and Azure, and network and security changes that took days or weeks through legacy suppliers
+- **Outcome:** Network changes that previously took days or weeks can now be implemented in minutes. Direct cloud-to-cloud connectivity, and the network extended to third parties such as payment providers
+- **Who said so:** Madoc Batters, Head of Cloud & IT Security, Warner Leisure Hotels
+
 ### Tekion
-- **Industry:** Automotive Technology / SaaS
-- **Use case:** Cloud networking and connectivity
-- **Outcome:** Simplified multi-cloud networking, improved operational efficiency
-- **Why Alkira:** Needed to connect distributed cloud workloads without building complex infrastructure
+- **Industry:** Automotive technology
+- **Use case:** Fast network provisioning for cloud and multi-cloud connectivity
+- **Situation:** Unreliable connectivity to cloud, a small IT team struggling to support a growing network, limited cloud networking expertise, and a delayed international expansion
+- **What they did:** A global multi-cloud network delivered as a service, with any on-premises router supported for IPsec cloud connectivity and firewalls integrated into the network
+- **Outcome:** One standard network for all cloud and multi-cloud connectivity, greatly reduced IT time-to-service, international network expansion, a stronger security posture, and operational agility with limited staff
 
 ### Koch Industries
-- **Industry:** Manufacturing / Conglomerate (Fortune 100)
-- **Use case:** Multi-cloud networking, M&A integration, security consolidation
-- **Outcome:** Significant reduction in network complexity across a massive enterprise footprint
-- **Why Alkira:** Needed scalable, consistent connectivity across acquisitions and diverse business units
-- **Notable:** Koch Disruptive Technologies is also an Alkira investor — they saw the value firsthand as a customer
+- **Industry:** One of America's largest privately held companies, with businesses from manufacturing to software. Growth by acquisition left it with seven global networks spanning 700 sites across 70 countries
+- **Use case:** Multi-cloud networking, M&A integration, expansion to mainland China
+- **Situation:** A separate transport hub for each business network, region and cloud provider, and M&A network integration that took months to years
+- **Outcome:** Replaced ten transport hubs with two Alkira Cloud Exchange Points. Deployed Azure in a single day against 3-6 months with the legacy hubs. Connects new acquisitions to Koch infrastructure quickly. Alkira's customer one-pager adds an 83% reduction in time to deploy cloud environments (6 months to 1) and an 80% reduction in cloud networking infrastructure. Its one-page case study lists network expansion to mainland China and operational agility without a headcount increase
+- **Who said so:** Troy Schneider, Global Infrastructure Platform Lead, and Matt Hoag, Chief Technology Officer
+- **Notable:** Koch Disruptive Technologies is also an Alkira investor
 
 ### S&P Global
-- **Industry:** Financial Services / Data & Analytics
-- **Use case:** Cloud networking, security integration
-- **Outcome:** Streamlined network operations across global cloud environments
-- **Why Alkira:** Required enterprise-grade multi-cloud connectivity with integrated security
+- **Industry:** Financial services
+- **Use case:** Extranet as a service for partner connectivity, M&A integration, multi-cloud networking with segmentation
+- **Situation:** Integrating mergers and acquisitions took a long time, point solutions had multiplied network complexity, and on-premises and cloud ran on different architectures
+- **What they did:** A global multi-cloud network delivered as a service, firewalls and SD-WAN integrated into it, and network segmentation with selective resource sharing across segments
+- **Outcome:** 80% reduction in deployment time for new cloud regions, and savings of $10M+ from circuits and hardware. Rapid integration of mergers and acquisitions, with consistent security policy and enforcement points
+- **Who said so:** Guruprasad Ramamoorthy, VP, Head of Global Network Services
+
+---
+
+## Other Anonymous Stories
+
+Use an anonymous story's Customer label exactly as the table gives it. Never add a rank, a place or a partner's name to it, and never guess or hint at who the customer is.
+
+- **`canada-professional-services`:** thousands of employees, cloud-first, with a lean networking team. One security and segmentation policy across every environment.
 
 ---
 
