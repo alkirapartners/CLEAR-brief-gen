@@ -289,6 +289,12 @@ def stat_pills_for(doc: BriefDoc, labels: Labels) -> list[tuple[str, str]]:
     return [pill for pill in stat_pills.pills(doc, labels) if pill[0] != labels["stat_ownership"]]
 
 
+def document_title(doc: BriefDoc, labels: Labels) -> str:
+    """What an export is called in a viewer's title bar: the company, then what the document is."""
+    company = doc["company"]["name"].strip()
+    return f"{company}: {labels['brief_title']}" if company else labels["brief_title"]
+
+
 def initials(name: str) -> str:
     return "".join(word[0].upper() for word in name.split()[:MAX_INITIALS])
 

@@ -22,6 +22,7 @@ import i18n
 import pdf_angles
 import pdf_closing
 import pdf_flow
+import pdf_fonts
 import pdf_opening
 import pdf_sections
 import pdf_theme as theme
@@ -61,12 +62,6 @@ def _blocks(ctx: Context) -> list[Block]:
     return [*blocks, pdf_closing.colophon(ctx)]
 
 
-def title(doc: BriefDoc, labels: dict[str, str]) -> str:
-    """What the document is called in a viewer's title bar: the company, then what this is."""
-    company = doc["company"]["name"].strip()
-    return f"{company}: {labels['brief_title']}" if company else labels["brief_title"]
-
-
 def _chrome(doc: BriefDoc, generated_at: datetime, labels: dict[str, str], language: str) -> Chrome:
     made = i18n.readable_date(generated_at.strftime("%Y-%m-%d"), language)
     return Chrome(
@@ -91,7 +86,7 @@ def render(doc: BriefDoc, generated_at: datetime, language: str | None = None) -
     code = i18n.normalize(language or doc["language"])
     labels = i18n.labels(code)
     pdf = BriefPDF(_chrome(doc, generated_at, labels, code))
-    pdf.set_title(title(doc, labels))
+    pdf.set_title(pdf_fonts.clean(export_content.document_title(doc, labels)))
     pdf.set_lang(code)
     ctx = Context(
         doc=doc, labels=labels, language=code,
