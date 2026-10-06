@@ -335,13 +335,13 @@ def date_is_printed(stored_date: str, text: str) -> bool:
     """
     year, _, rest = stored_date.partition("-")
     month, _, day = rest.partition("-")
+    if day and f"{year}{month}{day}" in text:
+        return True  # a news item or a file named by its date: 20260728
     words = {word.casefold() for word in _WORD_OR_NUMBER.findall(text)}
     if year not in words:
         return False
     if not month:
         return True
-    if day and f"{year}{month}{day}" in text:
-        return True  # a news item or a file named by its date: 20260728
     numeric = _numeric_dates(text)
     wanted = (int(year), int(month), int(day or 0))
     if any(found[:2] == wanted[:2] and (not day or found[2] == wanted[2]) for found in numeric):
