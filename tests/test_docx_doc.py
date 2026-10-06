@@ -55,7 +55,7 @@ def test_every_part_of_the_brief_is_in_the_document():
         "“The separation is expected to be completed over the next 12-18 months.”",
         "What Alkira does: Alkira replaces hand-built hubs",
         "A network engineer posting lists ExpressRoute and a Virtual WAN hub-and-spoke. (source dated 23 Sep 2026) [1]",
-        "Customer story: Koch Industries: Significant reduction in network complexity",
+        "Customer story: Koch Industries: Replaced 10 transport hubs with 2 Alkira Cloud Exchange Points",
         "Who builds a new Virtual WAN hub today, and how long does one take?",
         "Angle 1: Multi-cloud", "Listen for: hand-built hubs, weeks of lead time",
         "Alkira angle: A new region is a design change deployed in a day.",
@@ -208,14 +208,14 @@ def test_one_angle_and_three_angles_each_get_their_heading():
     assert [text for style, text in one if style == "Heading 2"] == ["Angle 1: Hand-built Azure network"]
     third = {
         **copy.deepcopy(SAMPLE_DOC["angles"][0]), "title": "Firewalls copied per hub",
-        "story": {"id": "metric", "customer": "", "result": "Firewall reduction: 73% (up to 82% in some accounts)."},
+        "story": {"id": "metric", "customer": "", "result": "Fewer firewalls for cloud (Nemertes study average): 73%."},
     }
     data = _render(make_doc(angles=[*copy.deepcopy(SAMPLE_DOC["angles"]), third]))
     assert [text for style, text in readers.docx_headings(data) if style == "Heading 2"][-1] == (
         "Angle 3: Firewalls copied per hub"
     )
     text = readers.docx_text(data)
-    assert "Proof point: Firewall reduction: 73% (up to 82% in some accounts)." in text
+    assert "Proof point: Fewer firewalls for cloud (Nemertes study average): 73%." in text
     assert "No customer story matched this angle." in text
 
 

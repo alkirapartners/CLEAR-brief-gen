@@ -22,7 +22,7 @@ Being in the cloud is the starting point, not the finish line. Most enterprises 
 
 ## 3. "Don't have time / budget"
 
-Acknowledge competing priorities. Then use social proof: Koch Industries (Fortune 100) found that Alkira actually *saved* time and resources by eliminating the operational burden of managing disparate networking tools. Redirect to understanding their biggest time/budget drains — Alkira often addresses the root cause.
+Acknowledge competing priorities. Then use social proof: Koch Industries, one of America's largest privately held companies, got greatly reduced IT time-to-service and operational agility without a headcount increase. Redirect to understanding their biggest time/budget drains — Alkira often addresses the root cause.
 
 ---
 

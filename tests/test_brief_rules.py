@@ -670,10 +670,10 @@ def _stories(*angles):
 
 def test_a_story_about_another_situation_is_removed_from_the_angle():
     """The M&A story is not proof for a network-modernization angle."""
-    (story,) = _stories(_angle([1], story_id="nemertes-4", use_case="network_modernization"))
+    (story,) = _stories(_angle([1], story_id="nemertes-medical-manufacturer", use_case="network_modernization"))
     assert story == _metric("network_modernization")
-    (kept,) = _stories(_angle([1], story_id="nemertes-4", use_case="m_and_a"))
-    assert kept["id"] == "nemertes-4"
+    (kept,) = _stories(_angle([1], story_id="nemertes-medical-manufacturer", use_case="m_and_a"))
+    assert kept["id"] == "nemertes-medical-manufacturer"
 
 
 def test_every_story_in_the_table_is_accepted_for_each_of_its_own_situations_and_no_other():
@@ -705,8 +705,13 @@ def test_an_angle_with_no_story_is_given_the_headline_metric_for_its_use_case():
         _angle([1], story_id="none"),
         _angle([2], title="Second", story_id="none", use_case="site_rollout"),
     )
-    assert first == {"id": "metric", "customer": "", "result": "Cloud connection time reduction: 96%."}
-    assert second == {"id": "metric", "customer": "", "result": "Network provisioning speed improvement: 80%."}
+    assert first == {
+        "id": "metric", "customer": "",
+        "result": "Less calendar time to add a cloud environment (Nemertes study average): 96%.",
+    }
+    assert second == {
+        "id": "metric", "customer": "", "result": "Provisioning time reduction (Alkira's own figure): 80%.",
+    }
 
 
 def test_a_story_that_is_not_in_the_knowledge_base_is_dropped():
@@ -716,14 +721,14 @@ def test_a_story_that_is_not_in_the_knowledge_base_is_dropped():
 
 def test_a_translated_proof_whose_numbers_differ_from_the_knowledge_base_is_replaced():
     michaels = case_studies.story_by_id("michaels").result
-    koch = case_studies.story_by_id("koch").result
+    tekion = case_studies.story_by_id("tekion").result
     cases = [
         ("michaels", "Unas 2,000 tiendas conectadas en tres semanas.", michaels),          # a different number
         ("michaels", "Unas 1,400 tiendas en tres semanas, con 50% menos costo.", michaels),  # an added number
         ("michaels", "Unas 1.400 tiendas conectadas a Google Cloud en tres semanas.", None),  # same number, Spanish separator
-        ("koch", "Reducción del 40% en la complejidad de la red.", koch),                 # a number the table never had
-        ("koch", "Alkira eliminó todos los cortes y ahorró millones.", koch),             # no figure to check it by
-        ("koch", "Reducción significativa de la complejidad de la red.", koch),          # even a faithful one
+        ("tekion", "Una red estándar, con 40% menos tiempo de servicio.", tekion),         # a number the table never had
+        ("tekion", "Alkira eliminó todos los cortes y ahorró millones.", tekion),          # no figure to check it by
+        ("tekion", "Una red estándar para toda la conectividad de nube.", tekion),         # even a faithful one
     ]
     for story_id, translated, expected in cases:
         angle = _angle([1], story_id=story_id)
@@ -822,6 +827,6 @@ def test_scrubbing_leaves_identifiers_and_the_writer_output_alone():
     output = writer_output()
     doc = _finalize(output)
     assert [(angle["use_case"], angle["story"]["id"]) for angle in doc["angles"]] == [
-        ("m_and_a", "nemertes-4"), ("multi_cloud", "koch"),
+        ("m_and_a", "nemertes-medical-manufacturer"), ("multi_cloud", "koch"),
     ]
     assert output == writer_output()

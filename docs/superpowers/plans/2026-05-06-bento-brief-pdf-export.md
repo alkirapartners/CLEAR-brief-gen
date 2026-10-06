@@ -145,7 +145,7 @@ SAMPLE_BRIEF = """
 ## Three Alkira Entry Points
 
 **1. Multi-cloud connectivity**
-Signal: McKesson runs production on Azure, GCP, and Oracle.
+Signal: Northwind runs production on Azure, GCP, and Oracle.
 Solution: Alkira connects all three in a single click.
 Proof: 96% faster connection time vs DIY transit hubs.
 
@@ -377,8 +377,8 @@ def test_filename_basic():
 
 
 def test_filename_with_spaces_and_punctuation():
-    assert build_filename("McKesson Corporation, Inc.", "2026-04") == \
-        "AlkiraBrief_McKesson-Corporation-Inc_2026-04.pdf"
+    assert build_filename("Northwind Corporation, Inc.", "2026-04") == \
+        "AlkiraBrief_Northwind-Corporation-Inc_2026-04.pdf"
 
 
 def test_filename_truncates_long_company():
@@ -625,7 +625,7 @@ def _draw_hero(pdf: _BriefPDF, company: str, header_pills: str) -> None:
     """Draw the company-name hero block at top of page 1.
 
     `header_pills` is the original pipe-delimited line, e.g.
-    'HQ: Irving, TX | Revenue: $309B | Employees: 51K'.
+    'HQ: Austin, TX | Revenue: $4.2B | Employees: 9K'.
     """
     pdf.set_x(12.7)
     pdf.set_font("Helvetica", "B", 22)

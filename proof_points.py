@@ -17,23 +17,30 @@ KNOWLEDGE_BASE_PATH = Path(__file__).parent / "skills" / "alkira-customer" / "SK
 TABLE_HEADING = "## Proof Points"
 # The story id that marks a proof point: a figure, not a named customer story.
 METRIC = "metric"
+# The table's names for the figures used below. Each name says whose figure
+# it is: an average across the customers in the Nemertes study, or Alkira's own.
+_CLOUD = "Less calendar time to add a cloud environment (Nemertes study average)"
+_FIREWALLS = "Fewer firewalls for cloud (Nemertes study average)"
+_PARTNER = "Less staff time to add an extranet partner (Nemertes study average)"
+_PROVISIONING = "Provisioning time reduction (Alkira's own figure)"
+_TCO = "TCO reduction (Alkira's own figure)"
 # The headline metric for each use case, by its name in the table.
 METRIC_FOR_USE_CASE: dict[str, str] = {
-    "multi_cloud": "Cloud connection time reduction",
-    "china_global": "Network provisioning speed improvement",
-    "firewall_consolidation": "Firewall reduction",
-    "m_and_a": "Network provisioning speed improvement",
-    "network_modernization": "TCO reduction",
-    "site_rollout": "Network provisioning speed improvement",
-    "partner_connectivity": "Partner onboarding time reduction",
+    "multi_cloud": _CLOUD,
+    "china_global": _PROVISIONING,
+    "firewall_consolidation": _FIREWALLS,
+    "m_and_a": _PROVISIONING,
+    "network_modernization": _TCO,
+    "site_rollout": _PROVISIONING,
+    "partner_connectivity": _PARTNER,
 }
 # The metric names in Spanish. The figures are the table's in every language.
 _SPANISH: dict[str, str] = {
-    "Cloud connection time reduction": "Reducción del tiempo de conexión a la nube",
-    "Network provisioning speed improvement": "Mejora en la velocidad de aprovisionamiento de red",
-    "Firewall reduction": "Reducción de cortafuegos",
-    "TCO reduction": "Reducción del costo total de propiedad",
-    "Partner onboarding time reduction": "Reducción del tiempo de incorporación de socios",
+    _CLOUD: "Menos tiempo calendario para agregar un entorno de nube (promedio del estudio de Nemertes)",
+    _FIREWALLS: "Menos cortafuegos para la nube (promedio del estudio de Nemertes)",
+    _PARTNER: "Menos tiempo del personal para incorporar un socio a la extranet (promedio del estudio de Nemertes)",
+    _PROVISIONING: "Reducción del tiempo de aprovisionamiento (cifra propia de Alkira)",
+    _TCO: "Reducción del costo total de propiedad (cifra propia de Alkira)",
 }
 _ROW = re.compile(r"^\|\s*([^|]+?)\s*\|\s*([^|]+?)\s*\|\s*$")
 

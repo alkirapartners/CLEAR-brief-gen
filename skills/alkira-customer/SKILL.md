@@ -103,26 +103,26 @@ These are the five reasons customers buy Alkira. When Blake describes a partner'
 
 Connect anything to anything — network to cloud, within clouds, between clouds, branch offices together. AI workloads aren't constrained by data gravity or a single provider's toolset.
 
-**Key metrics:** 40% cost reduction, 80% faster network provisioning, 96% decrease in cloud connection time.
+**Key metrics:** 96% less calendar time to add a cloud environment (average across the Nemertes study's customers). Alkira's own figures: 80% less provisioning time and 40-60% lower TCO.
 
 ### 2. Network & Security Services Consolidation
 **Trigger signals:** Customer has firewalls everywhere, running different security policies per cloud/VPC, wants to reduce security infrastructure footprint, or is paying too much for firewall licenses.
 
 Move network services from data centers to the cloud. Centrally deploy security services within a region instead of per-VPC/VNET. Leverage the same firewalls for multiple use cases (N-S, E-W, Internet ingress/egress, multi-segment).
 
-**Key metrics:** 73% decrease in firewalls (76 FWs → 14 in one large healthcare account), 44% reduction in network devices.
+**Key metrics:** 73% fewer firewalls and 44% fewer network and security devices for cloud connectivity (averages across the Nemertes study's customers). Separately, one large healthcare enterprise went from 76 firewalls to 14.
 
 ### 3. Backbone-as-a-Service (MPLS Replacement)
 **Trigger signals:** Customer is paying for expensive MPLS circuits, needs low-latency connectivity across regions, shutting down data centers, or looking at SD-WAN migration.
 
-Secure, high-availability, low-latency connectivity across geographic regions on hyperscale cloud infrastructure. Higher performance than MPLS at 40% lower cost, deployed 80% faster. Replaces MPLS, AWS Direct Connect, Azure ExpressRoute, or Google Cloud Dedicated Interconnect.
+Secure, high-availability, low-latency connectivity across geographic regions on hyperscale cloud infrastructure. Alkira's partner TCO guide says customers that replace MPLS typically see 40-60% lower WAN connectivity costs while improving performance. Replaces MPLS, AWS Direct Connect, Azure ExpressRoute, or Google Cloud Dedicated Interconnect.
 
 ### 4. Extranet-as-a-Service (Business Partner / M&A Connectivity)
 **Trigger signals:** Customer has M&A activity, needs to onboard business partners, is dealing with overlapping IP address spaces, or needs segmented third-party access.
 
 Point-and-click connectivity with business partners — expose only the applications they need, inspect traffic, get full visibility. For M&A: bring in multiple networks as separate segments with resource-share capabilities. Handles overlapping IP address space.
 
-**Key metric:** 98% reduction in time to onboard a new partner on the extranet.
+**Key metrics:** 98% less staff time and 91% less calendar time to add an extranet partner (averages across the Nemertes study's customers).
 
 ### 5. Zero Trust Network Access (ZTNA)
 **Trigger signals:** Customer is implementing zero trust, has distributed remote workforce, or needs per-user access controls.
@@ -164,17 +164,18 @@ These are the points partners should hammer when positioning Alkira:
 
 ## Proof Points (Quick Reference Table)
 
+Each figure says whose it is. A Nemertes figure is an average across the customers Nemertes interviewed for its study of Alkira customers. It is never one customer's result: never attach it to a named customer.
+
 | Metric | Value |
 |--------|-------|
-| Cloud connection time reduction | 96% |
-| Firewall reduction | 73% (up to 82% in some accounts) |
-| Network device reduction | 44% |
-| Management staff time reduction | 47% |
-| TCO reduction | 40-60% |
-| Network provisioning speed improvement | 80% |
-| Partner onboarding time reduction | 98% |
-| Network availability | 99-99.9% |
-| Cloud app deployment increase | Up to 1650% |
+| Less calendar time to add a cloud environment (Nemertes study average) | 96% |
+| Fewer firewalls for cloud (Nemertes study average) | 73% |
+| Fewer network and security devices for cloud connectivity (Nemertes study average) | 44% |
+| Less staff time to manage cloud networks (Nemertes study average) | 47% |
+| Less staff time to add an extranet partner (Nemertes study average) | 98% |
+| Less calendar time to add an extranet partner (Nemertes study average) | 91% |
+| Provisioning time reduction (Alkira's own figure) | 80% |
+| TCO reduction (Alkira's own figure) | 40-60% |
 
 ---
 
@@ -219,7 +220,7 @@ Be specific. Don't give generic advice. Use the customer's actual situation and 
 
 For deeper detail, read the appropriate reference file:
 
-- **`references/case-studies.md`** — The Story Matching Table (every story tagged by situation and industry), named case studies (Michaels, Tekion, Koch Industries, S&P Global) and 12 Nemertes case studies organized by industry. Use when you need specific customer proof points or industry-relevant examples.
+- **`references/case-studies.md`** — The Story Matching Table (every story tagged by situation and industry), the named case studies and the Nemertes study's case studies. Use when you need specific customer proof points or industry-relevant examples.
 
 - **`references/pricing.md`** — CXP sizing, connector sizing, services, data charges, and business models (ELA, PAYG, Commit Consumption, Subscription). Use when discussing pricing or building proposals.
 
