@@ -15,6 +15,18 @@ class GenerationInFlight(UserFacingError):
     status_code = 409
 
 
+class ExportUnavailable(UserFacingError):
+    """The brief exists, but not in a form this export can be made from."""
+
+    status_code = 409
+
+
+class ExportNotInstalled(UserFacingError):
+    """This server cannot make the export at all: what it is built with did not load."""
+
+    status_code = 503
+
+
 class DailyLimitReached(UserFacingError):
     status_code = 429
 

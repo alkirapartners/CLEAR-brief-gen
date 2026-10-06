@@ -1,6 +1,6 @@
 # Alkira Brief Generator
 
-A web app for Alkira partners to generate scored opportunity briefs for any company. Enter a company name, get a structured brief with an Alkira Fit Score (1–5), strategic entry points, proof points, and sales questions — plus a downloadable PDF.
+A web app for Alkira partners to generate scored opportunity briefs for any company. Enter a company name, get a structured brief with an Alkira Fit Score (1–5), strategic entry points, proof points, and sales questions — plus a downloadable PDF and Word document.
 
 A `claude-sonnet-5-5` research loop follows leads on the web through Tavily, then one streamed call judges the fit and writes the brief. Sign-in is limited to authorized partner domains.
 
@@ -15,7 +15,7 @@ This repo holds the Brief API, the sign-in service and the sign-in pages. The sc
 3. `research_loop.py` lets the model research the company: it identifies the entity, then searches, opens pages and records evidence, choosing each step from what it just read. The budget is 25 searches, 20 page reads and about four minutes, enforced in code. A fact is kept only when it was recorded from a page that was opened and comes with a quote that is on that page and holds the fact's figures, with every name in the fact found somewhere on the page (`quotes.py`). Whether a page is first-hand is worked out from its address (`evidence.source_type`), never taken from the model, and a date is kept only when the page prints it. A job posting that is open on the company's own careers site is the one exception: it is dated the day the research saw it, and the brief says "open posting, seen" with that date. The model may not stop until it has covered a floor (`research_floor.py`): the careers site and job postings, the latest annual filing, the past year's news, each line of the technical snapshot, and at least 12 searches and 10 pages
 4. `generate.py` makes one streamed call that scores the fit and writes the brief from that evidence as a JSON document. `brief_rules.py` then enforces the rules in code: an angle with no opened-page evidence is removed, so is risk-factor language, a headcount line and an angle with no first-hand fact (`angle_rules.py`); an angle whose first-hand facts are undated or old is kept and holds the score at 3; a customer story must be tagged for the angle's use case and is used once; an M&A angle is kept only when its event happened in the last three months or the deal is announced and not yet completed, and it then goes first (`deal_rules.py`); and the score cannot exceed what the sources support (`fit_score.py`): above 3 takes a first-hand source dated in the last two years, and a 5 takes two use cases with a first-hand source each
 5. The brief is saved and opened on its own page. It has one to three angles, never padded
-6. Partner can download it as PDF, update it (re-research), or delete it
+6. Partner can download it as PDF or as a Word document, update it (re-research), or delete it
 
 A brief took about two and a half minutes (107 to 181 seconds) and cost about 65 cents (55 to 84) when measured on eight companies. The code stops research at 300 seconds and at $1.50 of spend, so the slowest brief can take about ten minutes and the dearest about two dollars. If research finds nothing it can cite, the partner is told so and no brief is written; the attempt still counts toward the daily limit, because the research was paid for.
 
@@ -85,7 +85,11 @@ Sticky sessions are enabled on the ALB target group. Nothing here depends on the
 | `generate.py` | Research, then the judge-and-write call, then the rules |
 | `prompts.py` | The two prompt-cached system prefixes and the per-brief messages |
 | `db.py` | Supabase persistence and the 14-day repeat-company cache |
-| `pdf.py`, `pdf_doc.py` | PDF generation (fpdf2): legacy markdown briefs and JSON briefs |
+| `export_content.py` | What both exports of a JSON brief say: section order, headings and every derived phrase |
+| `pdf_doc.py`, `pdf_opening.py`, `pdf_angles.py`, `pdf_sections.py`, `pdf_closing.py` | The PDF of a JSON brief (fpdf2), laid out like the brief page |
+| `pdf_text.py`, `pdf_flow.py`, `pdf_canvas.py`, `pdf_parts.py`, `pdf_theme.py`, `pdf_fonts.py` | What the PDF is built from: text layout, page breaks, shapes, the page's colours and type, the embedded fonts |
+| `docx_doc.py` | The Word export of a JSON brief (python-docx) |
+| `pdf.py` | The download file name, and the older tiled PDF that legacy markdown briefs keep |
 | `notifications.py` | Slack webhook on successful brief generation |
 | `generate_brief.py` | CLI tool for generating briefs from the terminal |
 | `skills/` | Brief template, Alkira knowledge base, writing rules — inlined into the cached system prefix |
@@ -108,6 +112,22 @@ Every route except `/health` needs `X-Auth-Email`. A brief id that belongs to so
 | `POST /api/brief/briefs/{id}/refresh` | Update: always re-researches. Same stream |
 | `DELETE /api/brief/briefs/{id}` | Delete |
 | `GET /api/brief/briefs/{id}/pdf` | PDF download |
+| `GET /api/brief/briefs/{id}/docx` | Word download. A legacy markdown brief answers 409: it has no Word export |
+
+### Exports
+
+A JSON brief downloads in two forms. Both are written from one outline (`export_content.py`), so they say the same things in the order of the brief page: the verdict, the angles with their evidence and proof, what to ask, the engineer's sheet, who to talk to, what could not be confirmed, what would raise the score, and the references. Labels follow the brief's language.
+
+- **PDF** (`pdf_doc.py`): a designed US Letter document in the page's own colours and fonts. Every part is measured before a page is chosen (`pdf_flow.py`), so a question or a proof plate is never split, a heading is never left at the foot of a page, and an angle moves to the next page whole unless it is longer than one. Source markers jump to their reference, and a reference links to its page.
+- **Word** (`docx_doc.py`): deliberately plain, to be edited or pasted into an email. One column, real headings, bullets and a numbered list of questions, no tables or text boxes.
+
+The fonts under `assets/fonts/` are Inter and JetBrains Mono, cut to static files from the front end's own variable fonts by `scripts/build_export_fonts.py` (both are under the SIL Open Font License; the licence texts sit beside them). They cover western European text. A character outside them is replaced with plain text or left out, and what it leaves behind is tidied, so `Gong Yin (龚银)` prints as `Gong Yin`; only a value of which nothing is left prints `[…]` (`pdf_fonts.clean`). It never stops the PDF. The Word file keeps every character as written.
+
+A brief's text comes from a model reading other people's pages, so both exports treat every string as untrusted: it is written as text and nothing else, and only a public http(s) address (`evidence.safe_url`) ever becomes a link.
+
+A legacy markdown brief keeps the older tiled PDF (`pdf.py`) and has no Word export.
+
+The Word renderer is loaded the first time a Word file is asked for, not when the API starts. If python-docx or its compiled lxml ever fails to install on a server, briefs and PDFs are served as before and only the Word route answers 503, with the cause in the log.
 
 ---
 
@@ -191,12 +211,12 @@ The CLI prints the brief as readable text, then one line of time, tokens and est
 
 | Name | Manager | What it runs |
 |------|---------|--------------|
-| `briefgen` | PM2 | `uvicorn server:app --host 127.0.0.1 --port 8501`, started with `--kill-timeout 240000` |
+| `briefgen` | PM2 | `uvicorn server:app --host 127.0.0.1 --port 8501`, started with `--kill-timeout 660000` |
 | `briefgen-proxy` | PM2 | `node briefgen-proxy.js` (port 3461) |
 | `radar-web` | systemd | The Next.js front end from alkira-account-radar (port 3001) |
 | `radar-api` | systemd | The radar API from alkira-account-radar (port 8601) |
 
-The kill timeout matters: PM2's default is 1.6 seconds, which would kill a brief mid-write on every deploy. With it, a restart waits up to four minutes for a brief in progress to finish and be saved.
+The kill timeout matters: PM2's default is 1.6 seconds, which would kill a brief mid-write on every deploy. With it, a restart waits up to eleven minutes for a brief in progress to finish and be saved.
 
 Four minutes covers a normal brief but not the slowest one. The code caps research at 300 seconds (`RESEARCH_CEILING_SECONDS` in `research_loop.py`) and the writing call at 180 seconds plus one stalled connection (`WRITER_DEADLINE_SECONDS` and `WRITER_STALL_SECONDS` in `generate.py`), so a brief can run for up to about ten minutes when the model or the web search service is slow. A deploy that lands in the first minutes of such a brief kills it: the partner sees an error and the day's slot is spent. Raising the kill timeout to 600000 on both instances closes that gap. It is a change on the servers, not in this repo, and has not been made.
 
@@ -269,7 +289,7 @@ Access is controlled by `briefgen-proxy.js`:
    sudo ln -s /etc/nginx/sites-available/briefgen /etc/nginx/sites-enabled/
    sudo nginx -t && sudo systemctl reload nginx
    pm2 start venv/bin/uvicorn --name briefgen --interpreter none --cwd /var/www/briefgen \
-     --kill-timeout 240000 -- server:app --host 127.0.0.1 --port 8501
+     --kill-timeout 660000 -- server:app --host 127.0.0.1 --port 8501
    pm2 start briefgen-proxy.js --name briefgen-proxy
    pm2 save && pm2 startup
    ```

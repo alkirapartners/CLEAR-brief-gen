@@ -94,6 +94,8 @@ MAX_URL_CHARS = 2000
 # spelling of an address (10.0.0.5, 127.1, 0x7f.1) along with bare names.
 _TOP_LEVEL_DOMAIN = re.compile(r"^(?:[a-z]{2,}|xn--[a-z0-9-]+)$")
 _INTERNAL_SUFFIXES = (".local", ".internal", ".localhost", ".lan", ".corp", ".home", ".intranet")
+# A host name once it is in its ASCII form: labels of letters, digits and hyphens, joined by dots.
+_HOST_NAME = re.compile(r"^[a-z0-9-]+(?:\.[a-z0-9-]+)+$", re.IGNORECASE)
 _TRACKING_PREFIXES = ("utm_",)
 _TRACKING_PARAMS = frozenset({"gclid", "fbclid", "msclkid", "mc_cid", "mc_eid"})
 
@@ -170,7 +172,21 @@ def _is_public_host(host: str) -> bool:
     labels = host.split(".")
     if len(labels) < 2 or not all(labels) or not _TOP_LEVEL_DOMAIN.match(labels[-1]):
         return False
-    return not host.endswith(_INTERNAL_SUFFIXES)
+    return not host.endswith(_INTERNAL_SUFFIXES) and _is_host_name(host)
+
+
+def _is_host_name(host: str) -> bool:
+    """True when the host, in its ASCII form, is made of letters, digits, dots and hyphens only.
+
+    Anything else is not a name a browser would look up as written: a
+    backslash is read as the start of the path, so ``example.com\\.evil.com``
+    would show one site and open another.
+    """
+    try:
+        encoded = host.encode("idna").decode("ascii")
+    except UnicodeError:
+        return False
+    return _HOST_NAME.match(encoded) is not None
 
 
 def safe_url(url: str) -> str | None:

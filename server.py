@@ -16,8 +16,10 @@ from starlette.concurrency import run_in_threadpool
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.responses import StreamingResponse
 
+import brief_doc
 import db
 import generate
+import i18n
 import pdf
 import stored_brief
 from authdep import is_admin, require_email
@@ -25,7 +27,7 @@ from brief_service import BriefService, Clock, _utc_now
 from brief_view import to_detail, to_summary
 from briefparse import clean_company_prefill
 from company_name import NOT_A_NAME_MESSAGE, is_company_name
-from errors import GENERIC_ERROR, UserFacingError
+from errors import GENERIC_ERROR, ExportNotInstalled, ExportUnavailable, UserFacingError
 from settings import Settings, load_settings
 from streaming import Work, stream_job
 from usage_ledger import UsageLedger
@@ -34,6 +36,12 @@ logger = logging.getLogger(__name__)
 
 VALIDATION_ERROR = "That request wasn't valid. Check it and try again."
 NOT_FOUND = "Brief not found"
+DOCX_MEDIA_TYPE = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+# A brief stored as markdown has no document to make a Word file from. The front end does not offer it.
+NO_WORD_EXPORT = (
+    "This brief was written before the Word export. Update the brief to get a Word version, or download the PDF."
+)
+WORD_EXPORT_DOWN = "The Word export is not available on this server right now. The PDF download still works."
 # no-transform and X-Accel-Buffering keep proxies from compressing or buffering
 # the stream, either of which would deliver every event in one lump at the end.
 STREAM_HEADERS = {"Cache-Control": "no-cache, no-transform", "X-Accel-Buffering": "no"}
@@ -116,7 +124,35 @@ def _install_brief_routes(app: FastAPI, repo: Any, settings: Settings) -> None:
         return ok({"deleted": True})
 
 
-def _install_pdf_route(app: FastAPI, repo: Any) -> None:
+def _download(content: bytes, media_type: str, filename: str) -> Response:
+    """A file the browser saves under the given name and never caches."""
+    return Response(
+        content=content,
+        media_type=media_type,
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Cache-Control": "no-store",
+        },
+    )
+
+
+def _word_renderer() -> Callable[..., bytes]:
+    """The Word renderer, loaded the first time a Word file is asked for.
+
+    python-docx needs a compiled library (lxml). It is imported here and not
+    at the top of this module, so an install of it that failed on a server
+    cannot keep the rest of the API from starting: briefs and PDFs are
+    served as before, and only the Word export answers 503.
+    """
+    try:
+        import docx_doc
+    except Exception as exc:  # a missing or broken install does not only raise ImportError
+        logger.exception("The Word export could not be loaded (import docx_doc failed): %s", exc)
+        raise ExportNotInstalled(WORD_EXPORT_DOWN) from exc
+    return docx_doc.render
+
+
+def _install_export_routes(app: FastAPI, repo: Any) -> None:
     @app.get("/api/brief/briefs/{brief_id}/pdf")
     def brief_pdf(brief_id: UUID, email: str = Depends(require_email)) -> Response:
         row = repo.get_brief(str(brief_id), email)
@@ -129,14 +165,21 @@ def _install_pdf_route(app: FastAPI, repo: Any) -> None:
         now = datetime.now()
         content = pdf.generate_brief_pdf(brief_md, company, score, now, language)
         filename = pdf.build_filename(company, now.strftime("%Y-%m"), language)
-        return Response(
-            content=bytes(content),
-            media_type="application/pdf",
-            headers={
-                "Content-Disposition": f'attachment; filename="{filename}"',
-                "Cache-Control": "no-store",
-            },
-        )
+        return _download(bytes(content), "application/pdf", filename)
+
+    @app.get("/api/brief/briefs/{brief_id}/docx")
+    def brief_docx(brief_id: UUID, email: str = Depends(require_email)) -> Response:
+        row = repo.get_brief(str(brief_id), email)
+        if row is None:
+            raise HTTPException(status_code=404, detail=NOT_FOUND)
+        doc = brief_doc.load(row.get("brief_md"))
+        if doc is None:
+            raise ExportUnavailable(NO_WORD_EXPORT)
+        company = doc["company"]["name"].strip() or row.get("company") or "Brief"
+        language = i18n.normalize(doc["language"])
+        now = datetime.now()
+        filename = pdf.build_filename(company, now.strftime("%Y-%m"), language, extension="docx")
+        return _download(_word_renderer()(doc, now, language), DOCX_MEDIA_TYPE, filename)
 
 
 def _install_generation_routes(
@@ -192,7 +235,7 @@ def create_app(
 
     _install_error_handlers(app)
     _install_brief_routes(app, repo, settings)
-    _install_pdf_route(app, repo)
+    _install_export_routes(app, repo)
     _install_generation_routes(app, service, heartbeat_seconds)
     return app
 
