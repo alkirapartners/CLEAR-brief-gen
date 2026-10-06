@@ -44,6 +44,14 @@ _OWN_PERIOD = re.compile(
 )
 
 
+_SAYS_UNDATED = re.compile(r"\bundated\b|\bsin fecha\b|\bno date\b", re.IGNORECASE)
+
+
+def undated_note(line: EvidenceLine, labels: Labels) -> str:
+    """What to say of a line whose source gives no date, or "" when the line says so itself."""
+    return "" if _SAYS_UNDATED.search(line["text"]) else labels["undated"]
+
+
 def _rests_on_open_posting(line: EvidenceLine, references: Sequence[Reference]) -> bool:
     """True when the line's date is the day one of its sources was seen as an open posting."""
     return any(
@@ -77,7 +85,7 @@ def evidence_text(
     A line whose source gives no date says so.
     """
     dated = line["date"].strip()
-    note = source_date_note(line, labels, language, references) if dated else labels["undated"]
+    note = source_date_note(line, labels, language, references) if dated else undated_note(line, labels)
     return f"{line['text']}{f' ({note})' if note else ''}{cite(line['sources'])}"
 
 
@@ -185,7 +193,7 @@ def _page_sentence(line: EvidenceLine, labels: Labels, doc: BriefDoc) -> str:
     evidence is undated.
     """
     dated = line["date"].strip()
-    note = source_date_note(line, labels, doc["language"], doc["references"]) if dated else labels["undated"]
+    note = source_date_note(line, labels, doc["language"], doc["references"]) if dated else undated_note(line, labels)
     text = line["text"].strip()
     return f"{text.rstrip('.')} ({note})." if note else _sentence(text)
 

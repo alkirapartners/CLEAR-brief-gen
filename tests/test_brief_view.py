@@ -274,6 +274,16 @@ def test_a_line_resting_on_an_open_posting_says_so_and_when_it_was_seen():
     assert "(vacante abierta, vista el 5 oct 2026)" in spanish["signals"][0]
 
 
+def test_a_line_that_already_says_its_source_is_undated_is_not_told_so_twice():
+    import brief_compat
+    en = i18n.LABELS["en"]
+    said = {"text": "Core systems run in AWS China and AWS Oregon (undated AWS case study).", "date": "", "sources": [1]}
+    assert brief_compat.evidence_text(said, en) == "Core systems run in AWS China and AWS Oregon (undated AWS case study). [1]"
+    angle = _three_line_angle()
+    angle["evidence"] = [said, angle["evidence"][1]]
+    assert _detail(angles=[angle])["entryPoints"][0]["signal"] == "Core systems run in AWS China and AWS Oregon (undated AWS case study)."
+
+
 def test_the_text_and_pdf_renderings_date_a_line_the_same_way_the_page_does():
     import brief_compat
     en = i18n.LABELS["en"]
