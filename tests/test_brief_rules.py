@@ -532,6 +532,14 @@ def test_a_deal_completed_before_the_window_is_not_an_angle_cannot_lead_and_cann
     assert doc["fit"]["lead"] == ""  # the lead pointed at the angle that is gone
 
 
+def test_the_log_says_which_angle_was_removed_and_why(caplog):
+    carve_out = _deal([2], "Chemicals carve-out", ("2026-01-02", "completed"))
+    with caplog.at_level("WARNING", logger="brief_rules"):
+        _finalize(writer_output(angles=[carve_out, _angle([1], title="Azure network")], fit=FIVE),
+                  sources=_sources(dates={2: "2026-01-02"}))
+    assert "Angle removed: 'Chemicals carve-out' (m_and_a): the deal completed on 2026-01-02, before" in caplog.text
+
+
 def test_a_deal_completed_inside_the_window_qualifies_on_its_date():
     recent = _deal([2], "Acquisition closed", ("2026-08-20", "completed"))
     doc = _finalize(writer_output(angles=[_angle([1]), recent], fit=FIVE), sources=_sources(dates={2: "2026-08-20"}))

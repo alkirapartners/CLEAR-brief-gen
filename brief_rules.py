@@ -166,9 +166,11 @@ def _standing(
     for place, angle in enumerate(angles):
         lines = angle_rules.kept_lines(_evidence(angle["evidence"], dates, today))
         checked = _deal({**angle, "evidence": lines}, references, wording)
-        if not angle_rules.stands(checked):
-            continue
-        if deal_rules.is_deal(checked) and not deal_rules.qualifies(checked, references, today, wording):
+        reason = angle_rules.why_not(checked)
+        if not reason and deal_rules.is_deal(checked):
+            reason = deal_rules.why_not(checked, references, today, wording)
+        if reason:
+            logger.warning("Angle removed: %r (%s): %s", angle["title"], angle["use_case"], reason)
             continue
         standing.append((place, checked))
     return standing

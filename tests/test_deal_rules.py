@@ -169,3 +169,13 @@ def test_an_old_announcement_that_no_page_calls_open_is_a_completed_old_deal():
     references = [_ref(dated="2025-11-12")]
     assert not _qualifies(old, references, {1: "The company announced the sale on November 12, 2025."})
     assert _qualifies(_deal("2025-11-12", "pending"), references)  # with the page's own words it does
+
+
+def test_a_deal_that_does_not_qualify_says_why_for_the_log():
+    wording = {1: EXPECTED}
+    old = _deal("2026-01-02", "completed")
+    assert "completed on 2026-01-02, before" in deal_rules.why_not(old, [_ref(dated="2026-01-02")], TODAY, wording)
+    trade = _deal("2026-07-28", "completed")
+    assert "no first-hand page" in deal_rules.why_not(trade, [_ref(source_type="second_hand")], TODAY, wording)
+    assert "no usable date" in deal_rules.why_not(_deal("soon", "completed"), [_ref()], TODAY, wording)
+    assert deal_rules.why_not(_deal("2026-07-28", "completed"), [_ref()], TODAY, wording) == ""

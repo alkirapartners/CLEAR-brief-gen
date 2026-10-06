@@ -105,20 +105,34 @@ def status(angle: Angle, references: Sequence[Reference], wording: Mapping[int, 
     return PENDING if stated else COMPLETED
 
 
-def qualifies(
+def why_not(
     angle: Angle, references: Sequence[Reference], today: date, wording: Mapping[int, str],
-) -> bool:
-    """True when an M&A angle's event is recent enough, or still pending, to be a reason to engage.
+) -> str:
+    """Why an M&A angle is not a reason to engage, or "" when it is.
 
     ``wording`` is the text quoted from each source's page, by source number.
     The angle's status is taken as given: pass it through ``status`` first.
     """
     if not is_deal(angle) or angle["deal_status"] not in (PENDING, COMPLETED):
-        return False
+        return "it does not say whether the deal is pending or completed"
     day = parse_date(angle["deal_date"])
-    if day is None or day > today or not _dated_by_first_hand(angle, references, wording):
-        return False
+    if day is None or day > today:
+        return f"the deal has no usable date ({angle['deal_date'] or 'none given'})"
+    if not _dated_by_first_hand(angle, references, wording):
+        return f"no first-hand page the angle cites gives the deal's date ({angle['deal_date']})"
     if day >= window_start(today):
-        return True
+        return ""
     still_open = angle["deal_status"] == PENDING and (today - day).days <= MAX_PENDING_DEAL_DAYS
-    return PENDING_DEALS_COUNT and still_open
+    if PENDING_DEALS_COUNT and still_open:
+        return ""
+    return (
+        f"the deal {angle['deal_status']} on {angle['deal_date']}, before {window_start(today).isoformat()}, "
+        f"and no page says it is still to complete"
+    )
+
+
+def qualifies(
+    angle: Angle, references: Sequence[Reference], today: date, wording: Mapping[int, str],
+) -> bool:
+    """True when an M&A angle's event is recent enough, or still pending, to be a reason to engage."""
+    return not why_not(angle, references, today, wording)

@@ -85,8 +85,8 @@ def names_network_technology(text: str) -> bool:
     return _NETWORK_TECHNOLOGY.search(text) is not None
 
 
-def stands(angle: Angle) -> bool:
-    """True when an angle rests on a specific, dated fact about the right thing.
+def why_not(angle: Angle) -> str:
+    """Why an angle does not stand on its evidence, or "" when it does.
 
     Every angle needs at least one dated line. A network-modernization angle
     also needs a line that names network technology: a business "network"
@@ -95,13 +95,20 @@ def stands(angle: Angle) -> bool:
     with a price and a date and nothing else is news.
     """
     lines = angle["evidence"]
+    if not lines:
+        return "no evidence line is left"
     if not any(line["date"].strip() for line in lines):
-        return False
-    if angle["use_case"] == NETWORK_MODERNIZATION:
-        return any(names_network_technology(line["text"]) for line in lines)
-    if angle["use_case"] == M_AND_A:
-        return any(_TO_CONNECT.search(line["text"]) for line in lines)
-    return True
+        return "no line has a date"
+    if angle["use_case"] == NETWORK_MODERNIZATION and not any(names_network_technology(line["text"]) for line in lines):
+        return "no line names network technology"
+    if angle["use_case"] == M_AND_A and not any(_TO_CONNECT.search(line["text"]) for line in lines):
+        return "no line names what has to be connected or separated"
+    return ""
+
+
+def stands(angle: Angle) -> bool:
+    """True when an angle rests on a specific, dated fact about the right thing."""
+    return not why_not(angle)
 
 
 def is_plant_network(text: str) -> bool:

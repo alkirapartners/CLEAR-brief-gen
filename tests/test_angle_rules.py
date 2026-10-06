@@ -161,3 +161,13 @@ def test_scanners_readers_and_shop_wifi_are_not_a_plant_network(text):
 ])
 def test_industrial_control_systems_are(text):
     assert angle_rules.is_plant_network(text)
+
+
+# ── Saying why ───────────────────────────────────────────────────
+
+def test_an_angle_that_does_not_stand_says_why_for_the_log():
+    assert angle_rules.why_not(_angle(use_case="multi_cloud")) == "no evidence line is left"
+    assert angle_rules.why_not(_angle(_line("A posting lists SD-WAN.", ""), use_case="multi_cloud")) == "no line has a date"
+    assert "network technology" in angle_rules.why_not(_angle(_line("The store network grew."), use_case="network_modernization"))
+    assert "connected or separated" in angle_rules.why_not(_angle(_line("It bought a rival for $38 million.")))
+    assert angle_rules.why_not(_angle(_line("The acquired business runs two plants."))) == ""
