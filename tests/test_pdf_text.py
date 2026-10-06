@@ -99,3 +99,40 @@ def test_the_line_is_as_tall_as_its_largest_text_asks():
 def test_text_the_fonts_lack_is_cleaned_before_it_is_measured():
     paragraph = pdf_text.layout([Run("Anker 安克创新 → 🚀", BODY)], 100)
     assert _texts(paragraph) == ["Anker […] ->"]
+
+
+def test_the_space_between_two_runs_survives_when_one_of_them_is_cleaned():
+    strong = Style(pdf_fonts.SEMIBOLD, 9, (20, 20, 20))
+    runs = [Run("Cut firewalls from", BODY), Run(" 120 ", strong), Run("→", BODY), Run(" 12 ", strong), Run("in a year.", BODY)]
+    paragraph = pdf_text.layout(runs, 200)
+    assert _texts(paragraph) == ["Cut firewalls from 120 -> 12 in a year."]
+    gaps = [after.x - (before.x + before.width) for before, after in zip(paragraph.lines[0], paragraph.lines[0][1:])]
+    assert all(gap > 0.5 for gap in gaps)  # a real space between every pair of pieces
+
+
+def test_no_runs_and_no_lines_allowed_both_lay_out_as_nothing():
+    assert pdf_text.layout([], 100).lines == ()
+    assert pdf_text.layout([Run("Some words here", BODY)], 100, max_lines=0).lines == ()
+
+
+def test_a_chip_cut_short_by_the_line_limit_still_fits_with_its_padding():
+    runs = [Run("word " * 30, BODY), Run("Azure Virtual WAN hub-and-spoke", MONO, chip=CHIP)]
+    paragraph = pdf_text.layout(runs, 60, max_lines=1)
+    assert paragraph.width <= 60
+
+
+def test_only_the_lines_that_show_are_drawn():
+    drawn = []
+
+    class _Page:
+        def set_font(self, *args, **kwargs): pass
+        def set_text_color(self, *args): pass
+        def set_char_spacing(self, *args): pass
+        def text(self, x, y, text): drawn.append(text)
+
+    paragraph = pdf_text.layout([Run("one two three four five six seven eight nine ten", BODY)], 20)
+    assert len(paragraph.lines) >= 4
+    height = paragraph.line_height
+    # A band covering the second and third lines only.
+    pdf_text.draw(_Page(), paragraph, 0, 0, shows=lambda top, bottom: top < 3 * height and bottom > height)
+    assert drawn == [" ".join(piece.run.text for piece in line) for line in paragraph.lines[1:3]]

@@ -82,7 +82,7 @@ def _person(ctx: Context, person: Person) -> Part:
     height = max(AVATAR, who.height, why.height)
 
     def paint(pdf: FPDF, x: float, y: float) -> None:
-        _avatar(pdf, x, y + (height - AVATAR) / 2, pdf_fonts.clean(name))
+        _avatar(pdf, x, y + (height - AVATAR) / 2, pdf_fonts.clean(name).strip())
         who.paint(pdf, x + AVATAR + AVATAR_GAP, y + (height - who.height) / 2)
         why.paint(pdf, x + INNER_W * WHO_SHARE + AVATAR_GAP, y + (height - why.height) / 2)
 

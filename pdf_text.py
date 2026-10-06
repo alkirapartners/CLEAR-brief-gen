@@ -10,7 +10,7 @@ call. Lengths are millimetres; type sizes are points.
 
 import re
 from dataclasses import dataclass, replace
-from typing import Iterator, Sequence
+from typing import Callable, Iterator, Sequence
 
 from fpdf import FPDF
 
@@ -18,6 +18,8 @@ import pdf_fonts
 from pdf_fonts import Face
 
 Color = tuple[int, int, int]
+# Whether what lies between two heights on the page is on show.
+Shows = Callable[[float, float], bool]
 PT_PER_MM = 72 / 25.4
 ELLIPSIS = "…"
 CHIP_BORDER_WIDTH = 0.2
@@ -149,12 +151,13 @@ def _cut(atom: _Atom, first_room: float, room: float) -> list[_Atom]:
     if atom.run.chip is not None:
         return [atom]
     pieces: list[_Atom] = []
-    text, available = "", first_room
+    text, used, available = "", 0.0, first_room
     for char in atom.run.text:
-        if text and width(text + char, atom.run.style) > available:
+        step = width(char, atom.run.style)
+        if text and used + step > available:
             pieces.append(_atom(atom.run, text, atom.space_before and not pieces))
-            text, available = "", room
-        text += char
+            text, used, available = "", 0.0, room
+        text, used = text + char, used + step
     return [*pieces, _atom(atom.run, text, atom.space_before and not pieces)]
 
 
@@ -202,13 +205,16 @@ def _pieces(line: Sequence[_Atom]) -> tuple[Piece, ...]:
 
 def _clamp(lines: list[tuple[Piece, ...]], max_lines: int, room: float) -> list[tuple[Piece, ...]]:
     """The first lines only, the last one ending in an ellipsis that still fits."""
-    kept = lines[:max_lines]
+    kept = lines[:max(max_lines, 0)]
+    if not kept:
+        return []
     *head, last = kept[-1]
+    padding = 2 * last.run.chip.pad if last.run.chip else 0.0
     text = last.run.text
-    while text and last.x + width(text + ELLIPSIS, last.run.style) > room:
+    while text and last.x + width(text + ELLIPSIS, last.run.style) + padding > room:
         text = text[:-1]
     shown = text.rstrip() + ELLIPSIS
-    cut = Piece(last.x, width(shown, last.run.style), replace(last.run, text=shown))
+    cut = Piece(last.x, width(shown, last.run.style) + padding, replace(last.run, text=shown))
     return [*kept[:-1], (*head, cut)]
 
 
@@ -217,8 +223,10 @@ def layout(runs: Sequence[Run], room: float, max_lines: int | None = None) -> Pa
 
     Text the fonts cannot set is cleaned first (pdf_fonts.clean), so nothing
     measured or drawn here can upset fpdf2. A line is as tall as its largest
-    text asks.
+    text asks. No runs lay out as nothing.
     """
+    if not runs:
+        return Paragraph((), 0.0, 0.0, 0.0)
     lead = max(runs, key=lambda run: run.style.size).style
     metrics = pdf_fonts.metrics(lead.face)
     size = lead.size / PT_PER_MM
@@ -230,7 +238,7 @@ def layout(runs: Sequence[Run], room: float, max_lines: int | None = None) -> Pa
     return Paragraph(tuple(lines), line_height, baseline, baseline - metrics.cap_height * size / 2)
 
 
-def _shift(paragraph: Paragraph, line: Sequence[Piece], room: float, align: str) -> float:
+def _shift(line: Sequence[Piece], room: float, align: str) -> float:
     """How far a line moves right to be centred or set against the right edge."""
     slack = room - (line[-1].x + line[-1].width)
     return {"C": slack / 2, "R": slack}.get(align, 0.0)
@@ -259,11 +267,21 @@ def _draw_piece(pdf: FPDF, piece: Piece, x: float, top: float, paragraph: Paragr
         pdf.link(x, top, piece.width, paragraph.line_height, run.link)
 
 
-def draw(pdf: FPDF, paragraph: Paragraph, x: float, y: float, room: float = 0.0, align: str = "L") -> None:
-    """Draw a laid-out paragraph with its top-left corner at (x, y)."""
+def draw(
+    pdf: FPDF, paragraph: Paragraph, x: float, y: float, room: float = 0.0, align: str = "L",
+    shows: Shows | None = None,
+) -> None:
+    """Draw a laid-out paragraph with its top-left corner at (x, y).
+
+    ``shows`` says whether a line between two heights is on show. A line
+    that is not is left out altogether, so a block painted once on each of
+    the pages it runs over puts each of its lines in the file once.
+    """
     for index, line in enumerate(paragraph.lines):
         top = y + index * paragraph.line_height
-        shift = _shift(paragraph, line, room, align) if room else 0.0
+        if shows is not None and not shows(top, top + paragraph.line_height):
+            continue
+        shift = _shift(line, room, align) if room else 0.0
         for piece in line:
             _draw_piece(pdf, piece, x + shift + piece.x, top, paragraph)
     pdf.set_char_spacing(0)

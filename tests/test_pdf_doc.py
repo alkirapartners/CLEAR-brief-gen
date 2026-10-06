@@ -241,6 +241,39 @@ def _page_of(pages, needle):
     return found
 
 
+def test_a_list_cut_over_pages_puts_each_line_in_the_file_once():
+    doc = make_doc()
+    doc["unconfirmed"] = [f"Unconfirmed item number {number}." for number in range(70)]
+    doc["references"] = [
+        {**doc["references"][0], "n": number, "title": f"Reference title number {number}."} for number in range(1, 61)
+    ]
+    pages = readers.pdf_pages(_render(doc))
+    text = " ".join(pages)
+    assert len(pages) >= 4
+    for number in range(70):
+        assert text.count(f"Unconfirmed item number {number}.") == 1
+    for number in range(1, 61):
+        assert text.count(f"Reference title number {number}.") == 1
+
+
+def test_a_long_company_name_never_pushes_the_confidentiality_mark_off_the_header():
+    doc = make_doc()
+    doc["company"]["name"] = "Northwind Energy Holdings International " * 4
+    doc["unconfirmed"] = [f"Item {number}." for number in range(80)]
+    pages = readers.pdf_pages(_render(doc))
+    assert len(pages) >= 2
+    assert all("CONFIDENTIAL" in page for page in pages)
+    assert "Northwind Energy Holdings International" in pages[1].split("CONFIDENTIAL")[0]
+
+
+def test_an_address_with_accents_is_linked_in_plain_ascii_and_shown_as_written():
+    doc = make_doc()
+    doc["references"][0]["url"] = "https://es.wikipedia.example/wiki/México"
+    out = _render(doc)
+    assert "https://es.wikipedia.example/wiki/M%C3%A9xico" in readers.pdf_web_links(out)
+    assert "es.wikipedia.example/wiki/México" in readers.pdf_text(out)
+
+
 def test_a_question_is_never_split_across_pages():
     doc = make_doc()
     doc["questions"] = [

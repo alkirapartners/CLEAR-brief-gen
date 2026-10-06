@@ -119,10 +119,11 @@ STAND_INS: dict[str, str] = {
 }
 _SPACES = "\u1680\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200a\u202f\u205f\u3000"
 _INVISIBLE = "\u00ad\u200b\u200c\u200d\u2060\ufeff\ufe0e\ufe0f"
-_OMITTED_RUN = re.compile(rf"{re.escape(OMISSION)}(?:\s*{re.escape(OMISSION)})+")
+# These run after repeated spaces are made one, so each looks at most one space either way.
+_OMITTED_RUN = re.compile(rf"{re.escape(OMISSION)}(?: ?{re.escape(OMISSION)})+")
 # A bracket left holding nothing, or only the mark of what was left out.
-_EMPTY_BRACKETS = re.compile(rf"\s*[(\[]\s*(?:{re.escape(OMISSION)})?\s*[)\]]")
-_SPACE_BEFORE_STOP = re.compile(r" +([,.;:!?])")
+_EMPTY_BRACKETS = re.compile(rf" ?[(\[] ?(?:{re.escape(OMISSION)})? ?[)\]]")
+_SPACE_BEFORE_STOP = re.compile(r" ([,.;:!?])")
 _REPEATED_SPACES = re.compile(r" {2,}")
 
 
@@ -148,12 +149,20 @@ def clean(text: str) -> str:
     is replaced by plain text that says the same ("→" becomes "->", "Č"
     becomes "C"), dropped when it is decoration (an emoji), or marked as
     left out when it is a word in another script. Never raises.
+
+    A space at either end is kept: a sentence is laid out in pieces, and
+    the space between two of them belongs to one of them.
     """
     can_set = supported()
     composed = unicodedata.normalize("NFC", text)
     if all(ord(char) in can_set for char in composed):
         return composed
     shown = "".join(char if ord(char) in can_set else _stand_in(char, can_set) for char in composed)
-    shown = _OMITTED_RUN.sub(OMISSION, shown)
-    shown = _EMPTY_BRACKETS.sub("", shown)
-    return _REPEATED_SPACES.sub(" ", _SPACE_BEFORE_STOP.sub(r"\1", shown)).strip()
+    shown = _OMITTED_RUN.sub(OMISSION, _REPEATED_SPACES.sub(" ", shown))
+    shown = _SPACE_BEFORE_STOP.sub(r"\1", _EMPTY_BRACKETS.sub("", shown))
+    shown = _REPEATED_SPACES.sub(" ", shown).strip(" ")
+    lead = " " if composed[:1].isspace() else ""
+    tail = " " if composed[-1:].isspace() else ""
+    if not shown:
+        return " " if lead or tail else ""
+    return f"{lead}{shown}{tail}"

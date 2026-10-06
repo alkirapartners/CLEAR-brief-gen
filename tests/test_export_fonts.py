@@ -83,3 +83,15 @@ def test_every_face_reports_its_metrics_once():
     assert metrics.ascender > 0 > metrics.descender
     mono = pdf_fonts.metrics(pdf_fonts.MONO)
     assert mono.advance("i") == mono.advance("M")
+
+
+@pytest.mark.parametrize(("written", "shown"), [
+    (" → ", " -> "),
+    ("from 120 🚀 ", "from 120 "),
+    (" 🚀 down to", " down to"),
+    (" 🚀 ", " "),
+    ("🚀", ""),
+])
+def test_cleaning_keeps_the_space_at_the_edge_of_a_piece_of_text(written, shown):
+    """A sentence is laid out in pieces. The space between two of them must survive one being cleaned."""
+    assert pdf_fonts.clean(written) == shown

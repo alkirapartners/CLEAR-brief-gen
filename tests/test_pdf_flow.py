@@ -78,6 +78,13 @@ def test_a_block_longer_than_a_page_with_no_break_is_cut_at_the_foot_and_nothing
     assert pdf_flow.page_count(slices) == 3
 
 
+def test_a_heading_stays_with_a_card_whose_opening_is_longer_than_a_page():
+    heading = _block(10, keep_with_next=True)
+    card = _block(250, breaks=(150,))
+    slices = pdf_flow.paginate([heading, card], FRAME)
+    assert _placed(slices) == [(0, 20, 0, 10), (0, 30, 0, 90), (1, 20, 90, 150), (2, 20, 150, 250)]
+
+
 def test_no_blocks_still_make_one_page():
     assert pdf_flow.paginate([], FRAME) == []
     assert pdf_flow.page_count([]) == 1

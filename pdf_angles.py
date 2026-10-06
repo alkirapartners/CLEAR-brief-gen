@@ -4,7 +4,8 @@ A card has two bands, as on the page. The first is the pitch: the angle and
 what Alkira does about it on the left, the proof on the right. The second
 is the evidence, in columns across the whole card. A card moves to the next
 page whole when one can hold it; a longer one may be cut between rows of
-evidence, never inside the pitch or the proof.
+evidence, and inside the pitch or the proof only when those alone are longer
+than a page.
 """
 
 from typing import Sequence

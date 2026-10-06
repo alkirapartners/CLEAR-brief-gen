@@ -70,7 +70,7 @@ def _opening(block: Block, frame: PageFrame) -> float:
     may_be_cut = block.splits_freely or block.height > frame.room + TOLERANCE
     if not may_be_cut:
         return block.height
-    return min(block.breaks[0] if block.breaks else frame.room, block.height)
+    return min(block.breaks[0] if block.breaks else frame.room, block.height, frame.room)
 
 
 def _needed(blocks: Sequence[Block], index: int, frame: PageFrame) -> float:
@@ -92,12 +92,16 @@ def paginate(blocks: Sequence[Block], frame: PageFrame) -> list[Slice]:
     """Every block placed on a page, cut only where the rules above allow. Empty blocks are dropped."""
     slices: list[Slice] = []
     page, y = 0, frame.first_top
+    tied = False
     for index, block in enumerate(blocks):
         if block.height <= 0:
             continue
         at_top = not any(piece.page == page for piece in slices)
         gap = 0.0 if at_top else block.space_before
-        if not at_top and y + gap + _needed(blocks, index, frame) > frame.bottom + TOLERANCE:
+        # A block tied to the heading above it stays under it: the heading already chose the page.
+        moves = not at_top and not tied and y + gap + _needed(blocks, index, frame) > frame.bottom + TOLERANCE
+        tied = block.keep_with_next
+        if moves:
             page, y, gap = page + 1, frame.top, 0.0
         y += gap
         start = 0.0

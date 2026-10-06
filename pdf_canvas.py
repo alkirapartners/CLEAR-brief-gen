@@ -27,6 +27,8 @@ GLOW_STEPS = 6
 # An internal link lands this far above its target.
 ANCHOR_LEAD = 8.0
 BAND_TOLERANCE = 0.01
+# Between whose brief it is and the confidentiality mark, in the running header.
+HEADER_GAP = 0.7
 
 
 @dataclass(frozen=True)
@@ -67,36 +69,45 @@ class BriefPDF(FPDF):
         """
         self._band = (top, top + height)
         try:
-            with self.rect_clip(0, top, self.w, height):
+            # local_context as well: the clip restores the PDF's colours and line width when it
+            # ends, and fpdf2 has to be told, or it skips setting one it believes is still set.
+            with self.local_context(), self.rect_clip(0, top, self.w, height):
                 yield
         finally:
             self._band = None
 
-    def _shows(self, y: float) -> bool:
-        return self._band is None or self._band[0] - BAND_TOLERANCE <= y < self._band[1]
+    def shows(self, top: float, bottom: float) -> bool:
+        """Whether anything between two heights on the page is inside the band being drawn."""
+        if self._band is None:
+            return True
+        return top < self._band[1] - BAND_TOLERANCE and bottom > self._band[0] + BAND_TOLERANCE
 
     def link(self, x: float, y: float, w: float, h: float, link: str | int, **kwargs: Any) -> Any:
         """A link over a rectangle, unless it lies outside the band being drawn."""
-        if not self._shows(y + h / 2):
+        if not self.shows(y, y + h):
             return None
         return super().link(x, y, w, h, link, **kwargs)
 
     def anchor(self, link: int, y: float) -> None:
         """Make an internal link land here, a little above ``y`` so the target is not at the very edge."""
-        if self._shows(y):
+        if self._band is None or self._band[0] - BAND_TOLERANCE <= y < self._band[1]:
             self.set_link(link, y=max(0.0, y - ANCHOR_LEAD))
 
     def header(self) -> None:  # fpdf2 calls this as each page starts
         self.set_fill_color(*theme.CANVAS)
         self.rect(0, 0, theme.PAGE_W, theme.PAGE_H, style="F")
         self.image(LOGO_PATH, x=theme.MARGIN_X, y=theme.HEADER_Y, h=theme.LOGO_H)
-        runs = [Run(self.chrome.confidential.upper(), theme.MICRO)]
-        if self.page_no() > 1 and pdf_fonts.clean(self.chrome.company):
-            whose = Run(self.chrome.company, theme.toned(theme.STAMP, theme.INK))
-            runs = [whose, Run(" · ", theme.toned(theme.STAMP, theme.INK_3)), *runs]
-        mark = pdf_text.layout(runs, theme.CONTENT_W / 2, max_lines=1)
-        middle = theme.HEADER_Y + theme.LOGO_H * 0.42
-        pdf_text.draw(self, mark, theme.PAGE_W / 2, middle - mark.line_height / 2, theme.CONTENT_W / 2, align="R")
+        room = theme.CONTENT_W / 2
+        mark = pdf_text.layout([Run(self.chrome.confidential.upper(), theme.MICRO)], room, max_lines=1)
+        top = theme.HEADER_Y + theme.LOGO_H * 0.42 - mark.line_height / 2
+        if self.page_no() > 1 and pdf_fonts.clean(self.chrome.company).strip():
+            # Whose brief it is, in the room the mark leaves: a long name is cut short, never the mark.
+            name = Run(f"{self.chrome.company} ", theme.toned(theme.STAMP, theme.INK))
+            dot = Run("· ", theme.toned(theme.STAMP, theme.INK_3))
+            whose = pdf_text.layout([name, dot], room - mark.width - HEADER_GAP, max_lines=1)
+            shift = (mark.line_height - whose.line_height) / 2
+            pdf_text.draw(self, whose, theme.PAGE_W / 2, top + shift, room - mark.width - HEADER_GAP, align="R")
+        pdf_text.draw(self, mark, theme.PAGE_W / 2, top, room, align="R")
 
     def footer(self) -> None:  # and this as each page ends
         made = pdf_text.layout([Run(self.chrome.generated, theme.CHROME)], theme.CONTENT_W / 2, max_lines=1)
@@ -222,7 +233,8 @@ def text(runs: Sequence[Run], room: float, max_lines: int | None = None, align: 
     aligned_room = room if align != "L" else 0.0
 
     def paint(pdf: FPDF, x: float, y: float) -> None:
-        pdf_text.draw(pdf, paragraph, x, y, aligned_room, align)
+        shows = pdf.shows if isinstance(pdf, BriefPDF) else None
+        pdf_text.draw(pdf, paragraph, x, y, aligned_room, align, shows)
 
     return Part(paragraph.height, paint, paragraph.width)
 
