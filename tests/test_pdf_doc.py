@@ -98,7 +98,7 @@ def test_every_page_carries_the_confidentiality_mark_the_page_count_and_the_date
         assert "CONFIDENTIAL" in page
         assert f"Page {number} of {len(pages)}" in page
         assert "Generated 5 Oct 2026" in page
-    assert "Northwind Energy CONFIDENTIAL" in pages[1]  # later pages say whose brief it is
+    assert "Northwind Energy · CONFIDENTIAL" in pages[1]  # later pages say whose brief it is
 
 
 def test_a_one_angle_brief_prints_one_angle():

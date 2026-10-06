@@ -4,6 +4,9 @@ fpdf2 embeds one static TrueType file per weight. The files under
 assets/fonts/ are cut from the web page's variable fonts by
 scripts/build_export_fonts.py, so the PDF and the page are set in the same
 type. Each face is its own fpdf2 family, named here.
+
+The files are read with fontTools, which fpdf2 itself depends on and reads
+fonts with, so it is always installed where the PDF is drawn.
 """
 
 import re

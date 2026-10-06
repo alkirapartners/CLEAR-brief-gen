@@ -64,7 +64,6 @@ AMBIENT_WEAK = mix(SURFACE, AMBIENT, 0.50)
 AMBIENT_GLOW = mix(ACCENT, AMBIENT, 0.42)
 ON_AMBIENT_BODY = mix(ON_AMBIENT, AMBIENT, 0.82)
 ON_AMBIENT_QUIET = mix(ON_AMBIENT, AMBIENT, 0.66)
-TRACK = mix(INK, SURFACE, 0.10)
 TRACK_ON_CANVAS = mix(INK, CANVAS, 0.10)
 
 # ── Shape and rhythm ─────────────────────────────────────────────────────────

@@ -91,8 +91,9 @@ class BriefPDF(FPDF):
         self.rect(0, 0, theme.PAGE_W, theme.PAGE_H, style="F")
         self.image(LOGO_PATH, x=theme.MARGIN_X, y=theme.HEADER_Y, h=theme.LOGO_H)
         runs = [Run(self.chrome.confidential.upper(), theme.MICRO)]
-        if self.page_no() > 1:
-            runs = [Run(self.chrome.company, theme.toned(theme.STAMP, theme.INK)), Run("   ", theme.STAMP), *runs]
+        if self.page_no() > 1 and pdf_fonts.clean(self.chrome.company):
+            whose = Run(self.chrome.company, theme.toned(theme.STAMP, theme.INK))
+            runs = [whose, Run(" · ", theme.toned(theme.STAMP, theme.INK_3)), *runs]
         mark = pdf_text.layout(runs, theme.CONTENT_W / 2, max_lines=1)
         middle = theme.HEADER_Y + theme.LOGO_H * 0.42
         pdf_text.draw(self, mark, theme.PAGE_W / 2, middle - mark.line_height / 2, theme.CONTENT_W / 2, align="R")
@@ -234,10 +235,6 @@ def words(content: str, style: Style, room: float, max_lines: int | None = None)
 def label(content: str, style: Style, room: float) -> Part:
     """An uppercase micro-label."""
     return words(content.upper(), style, room)
-
-
-def gap(height: float) -> Part:
-    return Part(height)
 
 
 def placed(rows: Sequence[tuple[float, Part]]) -> list[tuple[float, Part]]:
