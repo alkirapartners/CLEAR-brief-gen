@@ -467,7 +467,9 @@ def _sort_by_quote(
         if figures or names:
             unborne.append(_Unborne(item, figures, names))
         else:
-            proven.append(replace(item, source_date=_date_on_page(item.source_date, texts.get(key, ""))))
+            # The page's own address can carry its date, as press release pages often do.
+            printed = f"{item.source_url} {texts.get(key, '')}"
+            proven.append(replace(item, source_date=_date_on_page(item.source_date, printed)))
     return proven, off_page, unborne
 
 

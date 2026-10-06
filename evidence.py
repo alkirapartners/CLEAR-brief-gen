@@ -330,7 +330,8 @@ def date_is_printed(stored_date: str, text: str) -> bool:
 
     The year alone is in most pages' footers, so a date with a month has to
     be there with that month, by name or in a numeric date, and a date with
-    a day with that day too.
+    a day with that day too. A date run together, as in a news item's
+    number, counts.
     """
     year, _, rest = stored_date.partition("-")
     month, _, day = rest.partition("-")
@@ -339,6 +340,8 @@ def date_is_printed(stored_date: str, text: str) -> bool:
         return False
     if not month:
         return True
+    if day and f"{year}{month}{day}" in text:
+        return True  # a news item or a file named by its date: 20260728
     numeric = _numeric_dates(text)
     wanted = (int(year), int(month), int(day or 0))
     if any(found[:2] == wanted[:2] and (not day or found[2] == wanted[2]) for found in numeric):

@@ -305,7 +305,8 @@ def test_a_date_the_page_does_not_print_in_full_leaves_the_fact_undated():
     ("Posted 2026-09-23", "2026-09-23"),
     ("Updated September 2026", "2026-09"),
     ("Fiscal year 2026", "2026"),
-], ids=["abbreviated", "day-first", "numeric", "iso", "month", "year"])
+    ("[Events](https://investor.example.com/events?esheet=54578088&newsitemid=20260923694965&lan=en-US)", "2026-09-23"),
+], ids=["abbreviated", "day-first", "numeric", "iso", "month", "year", "news-item-id"])
 def test_a_date_the_page_prints_is_kept_however_the_page_writes_it(printed, stated):
     text = f"Senior Network Engineer. {printed} ExpressRoute, Virtual WAN hub-and-spoke, BGP. " * 6
     _, after, _ = _run([_record([_fact(date=stated)])], ledger=_opened(text=text))
@@ -320,6 +321,17 @@ def test_a_fact_quoted_from_a_page_in_another_script_is_kept_on_its_quote_and_it
     wrong = _fact(url=url, fact="Registered in Changsha, Hunan; 9,999 employees.", quote=quote, date="")
     _, after, _ = _run([_record([kept, wrong])], ledger=_opened(url=url, text=page))
     assert [item.fact for item in after.evidence] == ["Registered in Changsha, Hunan; 6,304 employees."]
+
+
+def test_a_date_in_the_page_s_own_address_counts_as_printed():
+    """A press release page often shows its date only in its address."""
+    url = "https://investor.acme-northwind.example/news/2026-07-28-separation-announced"
+    text = "Northwind announces plans to pursue a separation of its lubricants business. " + PAGE_TEXT.replace("Posted 23 September 2026. ", "")
+    fact = _fact(url=url, date="2026-07-28")
+    _, after, _ = _run([_record([fact])], ledger=_opened(url=url, text=text))
+    assert [item.source_date for item in after.evidence] == ["2026-07-28"]
+    _, other, _ = _run([_record([_fact(url=url, date="2026-08-28")])], ledger=_opened(url=url, text=text))
+    assert [item.source_date for item in other.evidence] == [""]
 
 
 def test_a_date_whose_year_the_page_never_prints_leaves_the_fact_undated():
