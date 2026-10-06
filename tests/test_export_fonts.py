@@ -54,10 +54,21 @@ def test_spanish_and_typographic_punctuation_are_kept_as_written(text):
 
 
 @pytest.mark.parametrize(("written", "shown"), [
-    ("Anker Innovations 安克创新", "Anker Innovations […]"),
-    ("龚银", "[…]"),
-    ("CIO 龚 银 said so", "CIO […] said so"),
+    ("Anker Innovations 安克创新", "Anker Innovations"),
+    ("CIO 龚 银 said so", "CIO said so"),
+    ("Gong Yin (龚银)", "Gong Yin"),
     ("Gong Yin (龚银), CIO", "Gong Yin, CIO"),
+    ("Gong Yin [ 龚银 ] of Anker", "Gong Yin of Anker"),
+    ("Anker · 安克创新", "Anker"),
+    ("安克创新 / Anker Innovations", "Anker Innovations"),
+    ("Anker, 安克创新, Shenzhen", "Anker, Shenzhen"),
+    ("Shenzhen - 深圳 - Guangdong", "Shenzhen - Guangdong"),
+    ("Anker-安克", "Anker"),
+    ("Quoted by 龚银, 张三 and Li Wei.", "Quoted by and Li Wei."),
+    ("Quoted by Li Wei, 龚银.", "Quoted by Li Wei."),
+    ("Led by (CIO, 龚银) since 2020", "Led by (CIO) since 2020"),
+    ("Known as 安克.", "Known as."),
+    ("A -- B → C, and 12:30", "A -- B -> C, and 12:30"),
     ("Launch 🚀 day 🎉", "Launch day"),
     ("Łukasz Čapek of Škoda", "Lukasz Capek of Skoda"),
     ("A → B, where B ≥ 5", "A -> B, where B >= 5"),
@@ -95,3 +106,21 @@ def test_every_face_reports_its_metrics_once():
 def test_cleaning_keeps_the_space_at_the_edge_of_a_piece_of_text(written, shown):
     """A sentence is laid out in pieces. The space between two of them must survive one being cleaned."""
     assert pdf_fonts.clean(written) == shown
+
+
+@pytest.mark.parametrize(("written", "shown"), [
+    ("龚银", "[…]"),
+    ("(龚银)", "[…]"),
+    ("龚银 · 张三", "[…]"),
+    (" 龚银 ", " […] "),
+    ("Ελληνικά, Кириллица.", "[…]"),
+])
+def test_the_omission_mark_is_printed_only_when_nothing_of_a_value_would_be_left(written, shown):
+    assert pdf_fonts.clean(written) == shown
+
+
+def test_the_omission_mark_never_sits_beside_text_that_was_kept():
+    for written in ("Gong Yin (龚银)", "Anker Innovations 安克创新", "CIO (首席信息官) at 安克", "深圳 Shenzhen, 广东"):
+        shown = pdf_fonts.clean(written)
+        assert pdf_fonts.OMISSION not in shown, shown
+        assert "()" not in shown and "  " not in shown and not shown.endswith((",", " ", "(")), shown

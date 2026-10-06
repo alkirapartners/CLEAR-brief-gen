@@ -80,9 +80,12 @@ def _person(ctx: Context, person: Person) -> Part:
     )
     why = canvas.text(parts.with_chips([Run(note, NOTE_STYLE)] if note else [], person["sources"], ctx), why_w)
     height = max(AVATAR, who.height, why.height)
+    # A name the fonts cannot set has no initials to show: it gets the outline of a role with no name.
+    printed_name = pdf_fonts.clean(name).strip()
+    printed_name = "" if printed_name == pdf_fonts.OMISSION else printed_name
 
     def paint(pdf: FPDF, x: float, y: float) -> None:
-        _avatar(pdf, x, y + (height - AVATAR) / 2, pdf_fonts.clean(name).strip())
+        _avatar(pdf, x, y + (height - AVATAR) / 2, printed_name)
         who.paint(pdf, x + AVATAR + AVATAR_GAP, y + (height - who.height) / 2)
         why.paint(pdf, x + INNER_W * WHO_SHARE + AVATAR_GAP, y + (height - why.height) / 2)
 

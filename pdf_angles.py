@@ -15,6 +15,7 @@ from fpdf.pattern import LinearGradient
 
 import export_content
 import pdf_canvas as canvas
+import pdf_fonts
 import pdf_parts as parts
 import pdf_theme as theme
 from brief_doc import Angle, EvidenceLine
@@ -105,7 +106,7 @@ def _story_statement(proof: Proof, room: float) -> Part:
     """A named customer's result: the name the largest type in the card, its numbers picked out."""
     result = [
         Run(piece, theme.RESULT_NUMBER if is_number else theme.RESULT)
-        for piece, is_number in export_content.emphasise_numbers(proof.result)
+        for piece, is_number in export_content.emphasise_numbers(pdf_fonts.clean(proof.result))
     ]
     return canvas.stack(
         (0, canvas.words(proof.customer, theme.CUSTOMER, room)),

@@ -4,6 +4,7 @@ from fpdf import FPDF
 
 import export_content
 import pdf_canvas as canvas
+import pdf_fonts
 import pdf_parts as parts
 import pdf_theme as theme
 import tech_terms
@@ -121,7 +122,7 @@ def _value(ctx: Context, line: SnapshotLine, room: float) -> Part:
         return canvas.words(ctx.labels["not_found_public"], theme.BODY_MUTED, room)
     runs = [
         Run(piece, theme.TERM, chip=theme.TERM_CHIP) if is_term else Run(piece, theme.BODY)
-        for piece, is_term in tech_terms.tokenize(content)
+        for piece, is_term in tech_terms.tokenize(pdf_fonts.clean(content))
     ]
     return canvas.text(parts.with_chips(runs, line["sources"], ctx), room)
 

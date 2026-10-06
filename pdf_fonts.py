@@ -107,7 +107,7 @@ def supported() -> frozenset[int]:
 
 # ── Text the fonts cannot set ────────────────────────────────────────────────
 
-# Printed where letters of a script the fonts lack were left out.
+# Printed in place of a value of which nothing could be set: a name wholly in another script.
 OMISSION = "[…]"
 # What stands in for a character the fonts lack, where plain text says the same thing.
 STAND_INS: dict[str, str] = {
@@ -118,49 +118,84 @@ STAND_INS: dict[str, str] = {
     "\t": " ", "\n": " ", "\r": " ",
 }
 _SPACES = "\u1680\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200a\u202f\u205f\u3000"
-_INVISIBLE = "\u00ad\u200b\u200c\u200d\u2060\ufeff\ufe0e\ufe0f"
-# These run after repeated spaces are made one, so each looks at most one space either way.
-_OMITTED_RUN = re.compile(rf"{re.escape(OMISSION)}(?: ?{re.escape(OMISSION)})+")
-# A bracket left holding nothing, or only the mark of what was left out.
-_EMPTY_BRACKETS = re.compile(rf" ?[(\[] ?(?:{re.escape(OMISSION)})? ?[)\]]")
+# Stands where characters were left out while the text around them is tidied. It is never printed.
+_GAP = chr(0)
+_SEPARATORS = re.escape(",;:·/|–—•-")
+# What was left out, with any separator on either side of it. This and the patterns below run
+# after repeated spaces are made one, so each looks at most one space either way.
+_LEFT_OUT = re.compile(
+    rf"(?P<before> ?[{_SEPARATORS}] ?)?{_GAP}(?: ?[{_SEPARATORS}]? ?{_GAP})*(?P<after> ?[{_SEPARATORS}] ?)?"
+)
+_OPENS = "([{¿¡"
+_CLOSES = ")]}.!?"
+_EMPTY_BRACKETS = re.compile(r" ?[(\[{] ?[)\]}]")
 _SPACE_BEFORE_STOP = re.compile(r" ([,.;:!?])")
 _REPEATED_SPACES = re.compile(r" {2,}")
 
 
 def _stand_in(char: str, can_set: frozenset[int]) -> str:
-    """What to print for one character the fonts lack."""
+    """What to print for one character the fonts lack. A gap when there is nothing to print for it."""
     if char in STAND_INS:
         return STAND_INS[char]
     if char in _SPACES:
         return " "
-    if char in _INVISIBLE or not char.isprintable():
-        return ""
-    plain = "".join(part for part in unicodedata.normalize("NFKD", char) if ord(part) in can_set)
-    if plain:
-        return plain
-    return OMISSION if char.isalnum() else ""
+    return "".join(part for part in unicodedata.normalize("NFKD", char) if ord(part) in can_set) or _GAP
+
+
+def _neighbour(text: str, index: int, step: int) -> str:
+    """The nearest character that is not a space, one way or the other. Spaces are single by now."""
+    index += step
+    if 0 <= index < len(text) and text[index] == " ":
+        index += step
+    return text[index] if 0 <= index < len(text) else ""
+
+
+def _close_gaps(text: str) -> str:
+    """The text with what was left out closed up, and no separator left dangling where it stood.
+
+    "Anker, 安克, Shenzhen" keeps one comma. At the start or the end of the
+    text, or just inside a bracket, the separator goes with what it joined.
+    """
+    def close(match: re.Match[str]) -> str:
+        before, after = match.group("before") or "", match.group("after") or ""
+        ahead, behind = _neighbour(text, match.end() - 1, 1), _neighbour(text, match.start(), -1)
+        if not behind or behind in _OPENS or not ahead or ahead in _CLOSES:
+            return " " if before.startswith(" ") or after.endswith(" ") else ""
+        return before or after
+
+    return _LEFT_OUT.sub(close, text)
+
+
+def _tidy(text: str) -> str:
+    """What is left once the gaps are closed: no emptied brackets, no doubled or stranded spaces."""
+    closed = _close_gaps(_REPEATED_SPACES.sub(" ", text))
+    closed = _EMPTY_BRACKETS.sub("", _REPEATED_SPACES.sub(" ", closed))
+    return _REPEATED_SPACES.sub(" ", _SPACE_BEFORE_STOP.sub(r"\1", closed)).strip(" ")
 
 
 def clean(text: str) -> str:
     """Text the embedded fonts can set, whatever was written.
 
     The fonts cover western European text and typographic punctuation, as
-    the brief page's do. A character outside them never reaches fpdf2: it
+    the brief page's do. A character outside them never reaches fpdf2. It
     is replaced by plain text that says the same ("→" becomes "->", "Č"
-    becomes "C"), dropped when it is decoration (an emoji), or marked as
-    left out when it is a word in another script. Never raises.
+    becomes "C"), or left out, and what it leaves behind is tidied: no
+    empty brackets, no doubled spaces, no separator with nothing after it.
+    "Gong Yin (龚银)" prints as "Gong Yin". Only a value of which nothing is
+    left prints the omission mark. Never raises.
 
     A space at either end is kept: a sentence is laid out in pieces, and
     the space between two of them belongs to one of them.
     """
     can_set = supported()
     composed = unicodedata.normalize("NFC", text)
-    if all(ord(char) in can_set for char in composed):
+    lacking = [char for char in composed if ord(char) not in can_set]
+    if not lacking:
         return composed
-    shown = "".join(char if ord(char) in can_set else _stand_in(char, can_set) for char in composed)
-    shown = _OMITTED_RUN.sub(OMISSION, _REPEATED_SPACES.sub(" ", shown))
-    shown = _SPACE_BEFORE_STOP.sub(r"\1", _EMPTY_BRACKETS.sub("", shown))
-    shown = _REPEATED_SPACES.sub(" ", shown).strip(" ")
+    shown = _tidy("".join(char if ord(char) in can_set else _stand_in(char, can_set) for char in composed))
+    lost_words = any(char.isalnum() and _stand_in(char, can_set) == _GAP for char in lacking)
+    if lost_words and not any(char.isalnum() for char in shown):
+        shown = OMISSION
     lead = " " if composed[:1].isspace() else ""
     tail = " " if composed[-1:].isspace() else ""
     if not shown:

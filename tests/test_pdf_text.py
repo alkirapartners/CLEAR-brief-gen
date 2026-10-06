@@ -98,7 +98,7 @@ def test_the_line_is_as_tall_as_its_largest_text_asks():
 
 def test_text_the_fonts_lack_is_cleaned_before_it_is_measured():
     paragraph = pdf_text.layout([Run("Anker 安克创新 → 🚀", BODY)], 100)
-    assert _texts(paragraph) == ["Anker […] ->"]
+    assert _texts(paragraph) == ["Anker ->"]
 
 
 def test_the_space_between_two_runs_survives_when_one_of_them_is_cleaned():

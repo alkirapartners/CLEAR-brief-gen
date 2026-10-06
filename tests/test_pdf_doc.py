@@ -7,6 +7,7 @@ from datetime import datetime
 import pytest
 
 import brief_doc
+import docx_doc
 import export_content
 import i18n
 import pdf
@@ -193,10 +194,29 @@ def test_typographic_punctuation_is_printed_as_written():
 
 def test_text_the_fonts_cannot_set_never_stops_the_pdf():
     company = {**SAMPLE_DOC["company"], "name": "Anker Innovations 安克创新", "identity_note": "Known as Anker 🚀"}
-    people = [{"name": "龚银", "role": "CIO (首席信息官)", "note": "Quoted in the case study → see [1]", "sources": [1]}]
-    text = _text(make_doc(company=company, people=people))
-    assert "Anker Innovations […]" in text
-    assert "Known as Anker" in text and "CIO" in text and "Quoted in the case study -> see [1]" in text
+    people = [
+        {"name": "Gong Yin (龚银)", "role": "CIO (首席信息官)", "note": "Quoted in the case study → see [1]", "sources": [1]},
+        {"name": "张三", "role": "网络总监", "note": "", "sources": []},
+    ]
+    doc = make_doc(company=company, people=people)
+    doc["stats"]["hq"] = "深圳"
+    doc["snapshot"]["wan"]["text"] = "SD-WAN 覆盖 300 sites"
+    doc["angles"][0]["story"]["result"] = "安克 cut firewalls from 120 to 12."
+    text = _text(doc)
+    assert "Anker Innovations Northwind" in text  # the name, then the legal entity: nothing stands where 安克创新 was
+    assert "Gong Yin CIO Quoted in the case study -> see [1]" in text
+    assert "Known as Anker" in text and "SD-WAN 300 sites" in text and "cut firewalls from 120 to 12." in text
+    # The mark stands only where nothing of a value was left: the second person's name and role, and the city.
+    assert text.count("[…]") == 3 and "HQ […]" in text
+    for left_behind in ("()", "( )", "([…])", "Yin ["):
+        assert left_behind not in text, left_behind
+
+
+def test_the_word_export_keeps_every_character_the_pdf_has_to_leave_out():
+    people = [{"name": "Gong Yin (龚银)", "role": "CIO (首席信息官)", "note": "", "sources": []}]
+    doc = make_doc(people=people)
+    assert "Gong Yin (龚银), CIO (首席信息官)" in readers.docx_text(docx_doc.render(doc, WHEN))
+    assert "[…]" not in readers.docx_text(docx_doc.render(doc, WHEN))
 
 
 def test_very_long_text_and_urls_flow_onto_more_pages_and_lose_nothing():
