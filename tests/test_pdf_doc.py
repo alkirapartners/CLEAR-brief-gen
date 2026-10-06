@@ -114,6 +114,17 @@ def test_a_three_angle_brief_prints_all_three_and_tells_a_figure_from_a_customer
     assert "No customer story matched this angle." in text
 
 
+def test_an_open_posting_is_dated_by_the_day_it_was_seen_and_says_so_once():
+    doc = make_doc()
+    doc["references"][0].update(
+        title="Senior Network Engineer posting (open posting, seen 2026-09-23)", open_posting=True,
+    )
+    doc["angles"][0]["evidence"][0]["sources"] = [1, 2]
+    text = _text(doc)
+    assert text.count("Open posting, seen 23 Sep 2026") == 2  # on the evidence line and on the reference
+    assert "(open posting, seen 2026-09-23)" not in text
+
+
 def test_a_brief_with_no_angles_leaves_the_section_out():
     fit = {"score": 1, "verdict": "No use case found.", "lead": ""}
     text = _text(make_doc(angles=[], fit=fit, people=[], questions=[], unconfirmed=[], raise_score=[], references=[]))
