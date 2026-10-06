@@ -27,6 +27,7 @@ Customers that no published source names, labelled as their source labels them.
 
 - `canada-professional-services` — "Three clouds. One network. Zero added headcount.", customer success story with the customer anonymised, Alkira, undated, p. 1: 3 public clouds unified on 1 platform, 0 networking hires, thousands of employees, a lean networking team, one security and segmentation policy. Not used: the length of the customer's commitment, a contract term.
 - `fortune50-healthcare` — "Alkira Partner Win Wire", with the customer given as a Fortune 50 healthcare company, Alkira, 2025, p. 1: every statement. It gives no result figure. Not used: the deal value and the competition line.
+- `software-firewalls` — Alkira use-case stories deck, internal, undated; customer anonymised at the owner's direction. p. 5: firewalls in the cloud from 24 to 2. Only that figure is used.
 - `finserv-egress` — "Alkira Partners Guide: Lower TCO with Alkira (40-60%)", Alkira, 2025, p. 1: "saved over $800,000 annually in cloud egress fees alone".
 - `retail-colocation` — The same guide, Alkira, 2025, p. 1: "avoided $3M in upfront costs per colocation hub".
 - `airline-hub` — Alkira use-case stories deck, internal, undated; customer anonymised at the owner's direction. p. 2: 5 weeks and 4 people sent to set up a hub; 1 hour, remotely.
