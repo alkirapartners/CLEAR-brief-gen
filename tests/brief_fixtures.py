@@ -65,9 +65,12 @@ SAMPLE_DOC: dict = {
             ],
             "alkira": "Both businesses run as separate segments on one fabric until cutover.",
             "story": {
-                "id": "nemertes-4",
-                "customer": "A software company (Nemertes study)",
-                "result": "An acquired company's cloud networks integrated in days instead of months.",
+                "id": "nemertes-medical-manufacturer",
+                "customer": "A large medical manufacturer (Nemertes study)",
+                "result": (
+                    "99.8% decrease in time to merge in an acquired company's network, "
+                    "on one network service across its clouds and on-premises sites."
+                ),
             },
             "deal_date": "2026-02-20",
             "deal_status": "pending",

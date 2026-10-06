@@ -40,7 +40,7 @@ def _three_angles():
         **copy.deepcopy(SAMPLE_DOC["angles"][0]),
         "title": "Firewalls copied per hub",
         "use_case": "firewall_consolidation",
-        "story": {"id": "metric", "customer": "", "result": "Firewall reduction: 73% (up to 82% in some accounts)."},
+        "story": {"id": "metric", "customer": "", "result": "Fewer firewalls for cloud (Nemertes study average): 73%."},
     }
     return make_doc(angles=[*copy.deepcopy(SAMPLE_DOC["angles"]), third])
 
@@ -59,7 +59,7 @@ def test_every_part_of_the_brief_is_in_the_pdf():
         "WHAT ALKIRA DOES", "Alkira replaces hand-built hubs with one design deployed per region.",
         "CUSTOMER STORY", "Koch Industries", "Significant reduction in network complexity",
         "Nemertes study",
-        "A software company",
+        "A large medical manufacturer",
         "EVIDENCE", "23 Sep 2026", "A network engineer posting lists ExpressRoute",
         "Ask this", "Who builds a new Virtual WAN hub today, and how long does one take?",
         "LISTEN FOR", "hand-built hubs, weeks of lead time", "ALKIRA ANGLE", "A new region is a design change",
@@ -118,7 +118,7 @@ def test_a_three_angle_brief_prints_all_three_and_tells_a_figure_from_a_customer
     text = _text(_three_angles())
     for title in ("Hand-built Azure network", "Lubricants separation", "Firewalls copied per hub"):
         assert title in text
-    assert "PROOF POINT" in text and "73%" in text and "Firewall reduction" in text
+    assert "PROOF POINT" in text and "73%" in text and "Fewer firewalls for cloud" in text
     assert "No customer story matched this angle." in text
 
 

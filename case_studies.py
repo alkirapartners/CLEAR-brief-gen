@@ -16,6 +16,11 @@ TABLE_HEADING = "## Story Matching Table"
 COLUMN_COUNT = 6
 # The story ID a writer uses when nothing in the table matches.
 NO_STORY = "none"
+# IDs that named a story once and never will again. A stored brief keeps the
+# customer and the result it was written with, under the ID it cited, so an
+# ID is never handed to a different customer. These twelve summarised the
+# Nemertes study wrongly; the study's cases now have IDs of their own.
+RETIRED_IDS: frozenset[str] = frozenset(f"nemertes-{number}" for number in range(1, 13))
 # The situations that make a company an Alkira fit. Angles, evidence and
 # stories all use this one vocabulary.
 SITUATIONS: tuple[str, ...] = (
@@ -80,6 +85,8 @@ def _story(cells: list[str]) -> Story:
         raise CaseStudyTableError(f"{story_id}: bad situations {situations!r}")
     if not (story_id and customer and industry and result) or story_id == NO_STORY:
         raise CaseStudyTableError(f"incomplete row: {cells}")
+    if story_id in RETIRED_IDS:
+        raise CaseStudyTableError(f"{story_id}: a retired ID cannot name a story again")
     return Story(story_id, customer, public == "yes", tags, industry, result)
 
 

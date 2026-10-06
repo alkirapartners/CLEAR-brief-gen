@@ -118,17 +118,18 @@ def test_an_address_is_shown_without_its_scheme():
 
 
 def test_a_named_customer_story_and_a_knowledge_base_figure_are_different_kinds_of_proof():
-    story = export_content.proof({"id": "nemertes-4", "customer": "A software company (Nemertes study)",
-                                  "result": "Integrated in days."}, EN)
+    story = export_content.proof({"id": "nemertes-software-acquirer",
+                                  "customer": "A large software company (Nemertes study)",
+                                  "result": "60% fewer firewalls for cloud."}, EN)
     assert (story.kind, story.label, story.customer, story.qualifier) == (
-        "story", "Customer story", "A software company", "Nemertes study",
+        "story", "Customer story", "A large software company", "Nemertes study",
     )
     assert story.note == ""
 
     metric = export_content.proof({"id": "metric", "customer": "",
-                                   "result": "Network provisioning speed improvement: 80%."}, EN)
+                                   "result": "Provisioning time reduction (Alkira's own figure): 80%."}, EN)
     assert (metric.kind, metric.label, metric.figure, metric.name) == (
-        "metric", "Proof point", "80%", "Network provisioning speed improvement",
+        "metric", "Proof point", "80%", "Provisioning time reduction (Alkira's own figure)",
     )
     assert "No customer story matched" in metric.note
     assert export_content.proof({"id": "", "customer": "", "result": ""}, EN) is None

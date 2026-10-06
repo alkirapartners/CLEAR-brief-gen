@@ -12,19 +12,19 @@ Situations: `multi_cloud` (multi-cloud or hybrid cloud connectivity), `china_glo
 | tekion | Tekion | yes | multi_cloud | Automotive technology | Simplified multi-cloud networking and improved operational efficiency. |
 | sp-global | S&P Global | yes | multi_cloud | Financial services | Streamlined network operations across global cloud environments. |
 | michaels | Michaels | yes | site_rollout, network_modernization, multi_cloud | Retail | About 1,400 stores in the U.S. and Canada connected to Google Cloud in three weeks, ahead of peak season, with no new network infrastructure. |
-| software-datacenter | A software company | no | site_rollout | Software | The equivalent of a new datacenter deployed in far less time than a physical build. |
-| nemertes-1 | A software company (Nemertes study) | no | site_rollout | Software | 90% time savings deploying a datacenter equivalent with no physical build-out. |
-| nemertes-2 | A software company (Nemertes study) | no | network_modernization | Software | 99%+ availability after replacing an unreliable network. |
-| nemertes-3 | A software company (Nemertes study) | no | firewall_consolidation | Software | One security posture across environments and a reduced firewall count. |
-| nemertes-4 | A software company (Nemertes study) | no | m_and_a, multi_cloud | Software | An acquired company's cloud networks integrated in days instead of months, with a 1650% increase in cloud app deployments. |
-| nemertes-5 | A financial services firm (Nemertes study) | no | multi_cloud | Financial services | 200% more cloud environments supported without adding network staff. |
-| nemertes-6 | A financial services firm (Nemertes study) | no | network_modernization | Financial services | 88% less operational time for network changes, from days to hours. |
-| nemertes-7 | A financial services firm (Nemertes study) | no | network_modernization | Financial services | One view across all environments and 50% faster provisioning. |
-| nemertes-8 | A financial services firm (Nemertes study) | no | firewall_consolidation | Financial services | Consistent policy enforcement and a simpler audit posture across distributed infrastructure. |
-| nemertes-9 | A healthcare provider (Nemertes study) | no | network_modernization | Healthcare | 99.9% availability between regions, with cost avoided against an MPLS build. |
-| nemertes-10 | A healthcare enterprise (Nemertes study) | no | multi_cloud, firewall_consolidation | Healthcare | Firewalls consolidated from 76 to 14 while scaling multicloud. |
-| nemertes-11 | A manufacturer (Nemertes study) | no | multi_cloud | Manufacturing | 99%+ availability and zero unplanned outages for manufacturing operations. |
-| nemertes-12 | A manufacturing and biotech company (Nemertes study) | no | network_modernization | Manufacturing | Network hubs reduced by 60-88%. |
+| software-datacenter | A very large software company (Nemertes study) | no | multi_cloud, network_modernization | Software | 90% less network engineer time needed across its data centers and cloud regions, and a new data center stood up in a month. |
+| nemertes-healthcare-provider | A large healthcare provider (Nemertes study) | no | multi_cloud, firewall_consolidation | Healthcare | 300% more cloud environments after expanding to a second cloud region, with fewer firewalls and firewall as a service in place of over-provisioning. |
+| nemertes-investment-institution | A global investment institution (Nemertes study) | no | partner_connectivity, network_modernization | Financial services | 88% fewer VPN tunnels per partner, with core traffic moved off MPLS and the public internet onto the hyperscalers' backbones. |
+| nemertes-medical-manufacturer | A large medical manufacturer (Nemertes study) | no | m_and_a, multi_cloud | Medical manufacturing | 99.8% decrease in time to merge in an acquired company's network, on one network service across its clouds and on-premises sites. |
+| nemertes-financial-extranet | A financial services firm (Nemertes study) | no | partner_connectivity, m_and_a, multi_cloud | Financial services | 88% less staff time to add an extranet partner, with cloud networks and SD-WAN unified and acquired companies assimilated faster. |
+| nemertes-software-services | A large software and services company (Nemertes study) | no | multi_cloud | Software | About 600 VPCs and VNets across AWS, Azure and Google Cloud, each with uncontrolled internet access, brought under consistent, controlled and monitored access. |
+| nemertes-financial-telecoms | A financial telecoms company (Nemertes study) | no | m_and_a, firewall_consolidation | Financial telecoms | Connecting an acquired company's network went from 80 to 120 days to 3 days, with far fewer firewalls needed. |
+| nemertes-manufacturer | A large manufacturer (Nemertes study) | no | m_and_a, multi_cloud | Manufacturing | After a massive acquisition, linked the new infrastructure to the old through Alkira in Azure and was in business in 2 weeks, not 2 years. |
+| nemertes-financial-multicloud | A very large financial services company (Nemertes study) | no | multi_cloud, firewall_consolidation, m_and_a | Financial services | 200% more cloud environments across AWS, Azure and Google Cloud, with the firewalls it had in every cloud consolidated into Alkira and acquired companies' networks assimilated. |
+| nemertes-software-acquirer | A large software company (Nemertes study) | no | firewall_consolidation, m_and_a | Software | 60% fewer firewalls for cloud, and one consistent way to bring in the several companies it acquires each year. |
+| nemertes-telecom | A large telecommunications company (Nemertes study) | no | multi_cloud | Telecommunications | 200% more cloud regions connected, with more control over routing than the cloud's native networking gave. |
+| nemertes-biotech | A small biotech company (Nemertes study) | no | network_modernization, multi_cloud | Biotech | 98% reduction in the number of WAN outages. Replaced colocation-based regional hubs with a cloud model across Azure and AWS. |
+| healthcare-firewalls | One large healthcare enterprise | no | firewall_consolidation | Healthcare | Firewalls consolidated from 76 to 14. |
 
 When no story's Situations include the angle's use case, use the ID `none` rather than stretching a story.
 
@@ -61,99 +61,40 @@ When no story's Situations include the angle's use case, use the ID `none` rathe
 - **Outcome:** Streamlined network operations across global cloud environments
 - **Why Alkira:** Required enterprise-grade multi-cloud connectivity with integrated security
 
-### Software Company — Needed New Datacenter Fast
-- **Industry:** Software / Technology
-- **Use case:** Rapid datacenter deployment
-- **Outcome:** Deployed equivalent of a new datacenter in dramatically less time than traditional approach
-- **Why Alkira:** Urgently needed new datacenter-equivalent capacity without the lead time of physical infrastructure
-
 ---
 
 ## Nemertes Case Studies
 
-These come from the Nemertes Research 2024 report covering 12 enterprise deployments. Each is anonymized by industry but includes real metrics.
+Twelve anonymous case studies from the Nemertes "Alkira Real Economic Value Report" (October 2024), for which Nemertes interviewed thirteen Alkira customers. Every figure here belongs to the one customer it is listed under. The study's averages across customers are under Key Stats.
 
-### Software / Technology (4 cases)
+- **`software-datacenter`, very large software company:** needed a new data center to exit a country when shipped hardware had a lead time of a year or two. Built it in colocation with Alkira carrying routing, DNS, DHCP and firewall. 90% fewer FTEs to manage cloud networks, 92% faster to onboard a new partner, 94% faster to connect new data centers.
+- **`nemertes-healthcare-provider`, large healthcare provider:** scores of apps across hundreds of cloud environments in one cloud region. 50% fewer firewalls, four new hires avoided, and defined-trust extranet connections with partners for the first time.
+- **`nemertes-investment-institution`, global investment institution:** a cloud-first shift. Closed some data centers and reduced telco spend.
+- **`nemertes-medical-manufacturer`, large medical manufacturer:** replaced a multicloud networking product that was complex and expensive. Places apps in nearby cloud regions for latency and data sovereignty.
+- **`nemertes-financial-extranet`, financial services firm:** 67% less calendar time to add an extranet partner. Three planned hires avoided. A partner or an acquired company connects without the networks being merged until its security is understood.
+- **`nemertes-software-services`, large software and services company:** cleaning up after ten years of uncontrolled moves to cloud. 6 new hires avoided.
+- **`nemertes-financial-telecoms`, financial telecoms company:** 94% fewer firewalls. Went from 0 cloud environments to 100 across seven regions. Eight planned hires avoided.
+- **`nemertes-manufacturer`, large manufacturer:** 1650% more cloud apps. Private connectivity to a new customer in about one-fiftieth of the time.
+- **`nemertes-financial-multicloud`, very large financial services company:** cloud platforms up 100%, regions up 50%. Staff time and calendar time to connect one cloud to another down 50%.
+- **`nemertes-software-acquirer`, large software company:** 65% fewer routers for cloud.
+- **`nemertes-telecom`, large telecommunications company:** a voice and text services company. Time to hook up a new environment cut in half.
+- **`nemertes-biotech`, small biotech company:** wanted direct access to its clouds from every site and a simpler extranet, without adding network engineers.
 
-**Case 1 — Datacenter Deployment**
-- Challenge: Needed rapid datacenter equivalent without physical build-out
-- Outcome: 90% time savings on deployment
-- Key metric: Dramatic reduction in provisioning timeline
-
-**Case 2 — Network Reliability**
-- Challenge: Unreliable network affecting application performance
-- Outcome: 99%+ availability achieved
-- Key metric: Near-zero downtime post-deployment
-
-**Case 3 — Security Consolidation**
-- Challenge: Fragmented security across environments
-- Outcome: Unified security posture, reduced firewall count
-- Key metric: Significant reduction in security infrastructure
-
-**Case 4 — M&A Cloud Integration**
-- Challenge: Integrating acquired company's cloud networks
-- Outcome: 1650% increase in cloud app deployments post-integration
-- Key metric: What used to take months took days
-
-### Financial Services (4 cases)
-
-**Case 5 — Multicloud Networking**
-- Challenge: Managing connectivity across multiple cloud providers
-- Outcome: 200% increase in cloud environments supported
-- Key metric: Tripled cloud footprint without adding network staff
-
-**Case 6 — Network Simplification**
-- Challenge: Overly complex network architecture
-- Outcome: 88% reduction in operational time for network changes
-- Key metric: Network changes from days to hours
-
-**Case 7 — Network Unification**
-- Challenge: Disparate network tools and visibility gaps
-- Outcome: Single pane of glass across all environments
-- Key metric: 50% faster provisioning
-
-**Case 8 — Compliance & Security**
-- Challenge: Meeting regulatory requirements across distributed infrastructure
-- Outcome: Consistent policy enforcement, simplified audit posture
-- Key metric: Reduced compliance preparation time significantly
-
-### Healthcare (2 cases)
-
-**Case 9 — Inter-Region Connectivity**
-- Challenge: Connecting healthcare facilities across regions with high availability requirements
-- Outcome: 99.9% availability
-- Key metric: Significant cost avoidance vs. traditional MPLS approach
-
-**Case 10 — Agile Multicloud**
-- Challenge: Needed to rapidly scale cloud environments for new workloads
-- Outcome: Agile multicloud deployment with integrated security
-- Key metric: Firewall consolidation from 76 to 14 (one large healthcare account)
-
-### Manufacturing & Biotech (2 cases)
-
-**Case 11 — Cloud Reliability**
-- Challenge: Ensuring consistent network performance for manufacturing operations
-- Outcome: 99%+ availability
-- Key metric: Zero unplanned outages post-deployment
-
-**Case 12 — Hub Consolidation**
-- Challenge: Too many network hubs creating management overhead
-- Outcome: Consolidated hub architecture, reduced by 60-88%
-- Key metric: Dramatic reduction in infrastructure to manage
+`healthcare-firewalls` (76 firewalls to 14) is one large healthcare enterprise. It is not part of the Nemertes study and is not the study's healthcare provider.
 
 ---
 
 ## Customers by Use Case
 
-Summary of how customers map to Alkira's five entry points:
+How customers map to Alkira's five entry points:
 
-**Hybrid / Multi-Cloud Networking:** Most common entry point. Enterprises migrating to cloud or connecting multiple clouds. Includes Fortune 500 companies across industries.
+**Hybrid / Multi-Cloud Networking:** The most common entry point: enterprises migrating to cloud or connecting multiple clouds.
 
-**Security & Services Consolidation:** Healthcare and financial services enterprises consolidating firewall footprint. Strongest proof point: 76 → 14 firewalls.
+**Security & Services Consolidation:** Healthcare and financial services enterprises consolidating firewalls. One large healthcare enterprise went from 76 firewalls to 14.
 
-**Backbone-as-a-Service:** Companies replacing expensive MPLS circuits. 40% cost savings, 80% faster deployment.
+**Backbone-as-a-Service:** Companies replacing expensive MPLS circuits. Alkira's partner TCO guide puts the typical cut in WAN connectivity costs at 40-60%.
 
-**Extranet / Business Partner Connectivity:** Companies with M&A activity or large partner ecosystems. 98% reduction in partner onboarding time.
+**Extranet / Business Partner Connectivity:** Companies with M&A activity or large partner ecosystems.
 
 **ZTNA:** Distributed workforce companies implementing zero trust. Pay-per-use model with auto-scaling.
 
@@ -161,17 +102,15 @@ Summary of how customers map to Alkira's five entry points:
 
 ## Key Stats Quick Reference
 
-Use these when you need a fast proof point:
+What the Nemertes study measured across the customers it interviewed. An average is never one customer's result:
 
-- 96% decrease in cloud connection time
-- 73-82% decrease in firewalls
-- 44% reduction in network devices
-- 47% reduction in management staff time
-- 40-60% TCO reduction
-- 80% faster network provisioning
-- 98% faster partner onboarding
-- 99-99.9% network availability
-- 1650% increase in cloud app deployments (M&A case)
-- 200% increase in cloud environments (financial services)
-- 88% reduction in operational time for network changes
-- 67-90% reduction in network engineering time
+- 96% less calendar time to add a cloud environment (study average)
+- 73% fewer firewalls for cloud (study average, among the customers that cut firewalls)
+- 44% fewer network and security devices for cloud connectivity (study average)
+- 47% less staff time to manage cloud networks (study average)
+- 98% less staff time and 91% less calendar time to add an extranet partner (study averages)
+
+Alkira's own figures, not from the study:
+
+- 40-60% lower TCO
+- 80% less provisioning time

@@ -31,9 +31,19 @@ def test_every_real_story_uses_a_known_situation_and_a_unique_id():
 
 
 def test_an_anonymous_story_keeps_its_label_instead_of_a_name():
-    story = case_studies.story_by_id("nemertes-10")
+    story = case_studies.story_by_id("healthcare-firewalls")
     assert story is not None and story.public is False
-    assert "76 to 14" in story.result
+    assert story.customer == "One large healthcare enterprise"
+    assert "76 to 14" in story.result and story.situations == ("firewall_consolidation",)
+
+
+def test_a_retired_id_is_never_a_story_again():
+    """A stored brief keeps the story it cited, so an ID never passes to another customer."""
+    assert {f"nemertes-{number}" for number in range(1, 13)} <= case_studies.RETIRED_IDS
+    for retired in case_studies.RETIRED_IDS:
+        assert case_studies.story_by_id(retired) is None
+    with pytest.raises(CaseStudyTableError, match="retired"):
+        parse_story_table(_table("| nemertes-4 | Acme | no | m_and_a | Retail | Did a thing. |"))
 
 
 def test_an_unknown_id_is_not_a_story():

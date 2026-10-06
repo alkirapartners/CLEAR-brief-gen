@@ -311,19 +311,22 @@ def test_a_brief_with_no_angles_has_no_entry_points_and_still_renders():
     assert data["startersMd"] == ""
 
 
+CLOUD_PROOF_POINT = "Less calendar time to add a cloud environment (Nemertes study average): 96%."
+
+
 def test_an_angle_stored_with_no_story_shows_the_headline_metric_for_its_use_case():
     angles = _one_angle()
     angles[0]["story"] = {"id": "none", "customer": "", "result": ""}
-    assert _detail(angles=angles)["entryPoints"][0]["proof"] == "Cloud connection time reduction: 96%."
+    assert _detail(angles=angles)["entryPoints"][0]["proof"] == CLOUD_PROOF_POINT
 
 
 def test_a_proof_point_is_shown_without_a_customer_and_labelled_as_one_in_the_text():
     import brief_text
     angles = _one_angle()
-    angles[0]["story"] = {"id": "metric", "customer": "", "result": "Cloud connection time reduction: 96%."}
-    assert _detail(angles=angles)["entryPoints"][0]["proof"] == "Cloud connection time reduction: 96%."
+    angles[0]["story"] = {"id": "metric", "customer": "", "result": CLOUD_PROOF_POINT}
+    assert _detail(angles=angles)["entryPoints"][0]["proof"] == CLOUD_PROOF_POINT
     text = brief_text.render(make_doc(angles=angles))
-    assert "Proof point: Cloud connection time reduction: 96%." in text and "Customer story" not in text
+    assert f"Proof point: {CLOUD_PROOF_POINT}" in text and "Customer story" not in text
 
 
 # ── The new fields, alongside ────────────────────────────────────

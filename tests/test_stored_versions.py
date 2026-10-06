@@ -10,6 +10,7 @@ import pytest
 import brief_doc
 import brief_text
 import brief_view
+import case_studies
 import pdf
 from tests.api_fakes import AUTH, FakeRepo, make_client
 from tests.brief_fixtures import SAMPLE_DOC, make_doc
@@ -82,6 +83,20 @@ def test_an_older_document_is_served_and_downloaded_through_the_api():
     api = make_client(repo)
     assert api.get(f"/api/brief/briefs/{row['id']}", headers=AUTH).json()["data"]["format"] == 2
     assert api.get(f"/api/brief/briefs/{row['id']}/pdf", headers=AUTH).content.startswith(b"%PDF-")
+
+
+def test_a_brief_that_cites_a_story_the_table_no_longer_has_shows_what_it_was_stored_with():
+    """A stored brief carries its story's customer and result. Nothing looks the ID up again."""
+    retired = sorted(case_studies.RETIRED_IDS)[0]
+    doc = make_doc()
+    doc["angles"][0]["story"] = {"id": retired, "customer": "A customer (an older study)", "result": "What it said."}
+    text = json.dumps(doc)
+    shown = "A customer (an older study): What it said."
+    assert case_studies.story_by_id(retired) is None
+    assert brief_doc.load(text)["angles"][0]["story"]["id"] == retired
+    assert brief_view.to_detail(_row(text))["entryPoints"][0]["proof"] == shown
+    assert f"Customer story: {shown}" in brief_text.render(brief_doc.load(text))
+    assert pdf.generate_brief_pdf(text, "Northwind Energy", 5, WHEN, "en").startswith(b"%PDF-")
 
 
 def test_a_document_from_newer_code_with_fields_this_code_does_not_know_still_loads():

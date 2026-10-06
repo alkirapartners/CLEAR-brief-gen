@@ -53,7 +53,7 @@ Subscription-based pricing for predictable monthly/annual costs.
 ## Key Positioning Points for Pricing Conversations
 
 - **Zero CAPEX:** No hardware to buy, no software to download. SaaS-like consumption.
-- **40-60% TCO reduction** vs. traditional networking approaches (validated by Nemertes research across 12+ enterprise deployments)
+- **40-60% lower TCO** vs. traditional networking approaches. This is Alkira's own figure, from its partner TCO guide: the Nemertes study measured staff time, calendar time and device counts, not TCO
 - **Cloud-aligned consumption:** Networking finally matches how enterprises consume compute and storage
 - **Flexibility:** Start with PAYG, move to committed consumption as usage stabilizes
 - **No hidden costs:** No circuits to procure, no colo cages to rent, no hardware lifecycle management

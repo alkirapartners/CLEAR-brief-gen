@@ -20,7 +20,7 @@ def _three_angles():
         **copy.deepcopy(SAMPLE_DOC["angles"][0]),
         "title": "Firewalls copied per hub",
         "use_case": "firewall_consolidation",
-        "story": {"id": "metric", "customer": "", "result": "Firewall reduction: 73% (up to 82% in some accounts)."},
+        "story": {"id": "metric", "customer": "", "result": "Fewer firewalls for cloud (Nemertes study average): 73%."},
     }
     return make_doc(angles=[*copy.deepcopy(SAMPLE_DOC["angles"]), third])
 
