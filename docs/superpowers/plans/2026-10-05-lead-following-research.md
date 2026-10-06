@@ -7489,3 +7489,9 @@ Checked live at commit `9401ec4` (suite: 1097 passed, 2 skipped):
 
 Three earlier runs of the same three companies during this pass are kept beside the final one. In one of them HF Sinclair lost the separation: the announcement page prints its date only in a news item number, which the date check did not read at that commit. It does now.
 
+### Sixth pass: an undated first-hand fact keeps its angle
+
+The fifth pass left Anker at 2 with no angle, because its first-hand AWS case studies print no date and every angle needed a dated line. The approved scoring table gives that case a 3. The rule is now: an angle needs at least one fact from a first-hand source (`angle_rules.why_not`), dated or not. When none of an angle's first-hand facts is dated within two years the angle stays, the brief says the source is undated, and `fit_score` holds the score at 3. Trade press or a data broker alone no longer makes an angle; `angle_rules.SECOND_HAND_ALONE_MAKES_AN_ANGLE` is the one switch for that. The rubric row for 3 reads as the spec has it.
+
+Anker at commit `0432e0d`: score 3, one angle (China-to-global connectivity, on undated AWS case studies), 101 seconds, $0.81, 38 credits, 2 of 12 facts refused.
+
