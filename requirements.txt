@@ -1,7 +1,8 @@
 anthropic>=1.11.0
 python-dotenv>=1.0.0
 supabase==2.18.0
-fpdf2>=2.7.9
+# The brief PDF's dark panels use the radial gradient as 2.8.5 defines it; earlier releases take other arguments.
+fpdf2>=2.8.5
 tavily-python>=0.8.0
 fastapi>=0.115.0
 uvicorn>=0.32.0
