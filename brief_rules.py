@@ -23,7 +23,8 @@ import proof_points
 import stat_tracing
 import ticker
 from brief_doc import (
-    FORMAT_VERSION, SNAPSHOT_KEYS, Angle, BriefDoc, Company, EvidenceLine, Fit, Person, Question,
+    DOC_VERSION, FORMAT_VERSION, SNAPSHOT_KEYS, Angle, BriefDoc, Company, EvidenceLine, Fit, Person,
+    Question,
     Reference, ResearchNote, Snapshot, SnapshotLine, Story, WriterOutput,
 )
 from evidence import (
@@ -348,6 +349,7 @@ def finalize(
     order = {old: new for new, old in enumerate(_cited(angles, snapshot, people), start=1)}
     return {
         "format": FORMAT_VERSION,
+        "version": DOC_VERSION,
         "language": language,
         "generated": today.isoformat(),
         "company": _company(output["company"]),

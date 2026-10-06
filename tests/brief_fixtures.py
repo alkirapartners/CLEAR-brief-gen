@@ -9,6 +9,7 @@ import json
 
 SAMPLE_DOC: dict = {
     "format": 2,
+    "version": 4,
     "language": "en",
     "generated": "2026-10-05",
     "company": {
