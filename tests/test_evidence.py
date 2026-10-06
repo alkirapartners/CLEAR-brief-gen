@@ -335,3 +335,23 @@ def test_the_writer_is_told_a_source_is_an_open_posting_and_when_it_was_seen():
     payload = evidence.format_payload([_built()], fence="abc123")
     assert "Date: 2026-10-05 (an open posting on the company's own careers site, seen on this date)" in payload
     assert evidence.to_references([_built()])[0]["open_posting"] is True
+
+
+@pytest.mark.parametrize("url", [
+    "http://example.com\\.evil.com/",
+    'https://exa"mple.com/',
+    "https://ex<ample.com/",
+    "https://example.com%2f.evil.com/",
+    "https://under_score.example.com/",
+    "https://exam{ple}.com/",
+    "https://" + "a" * 64 + ".example.com/",
+])
+def test_a_host_made_of_anything_but_letters_digits_dots_and_hyphens_is_refused(url):
+    assert evidence.safe_url(url) is None
+    assert not evidence.is_fetchable_url(url)
+
+
+def test_a_host_in_another_script_is_still_a_host():
+    assert evidence.safe_url("https://münchen.example/stadt") == "https://münchen.example/stadt"
+    assert evidence.safe_url("https://xn--mnchen-3ya.example/stadt") == "https://xn--mnchen-3ya.example/stadt"
+    assert evidence.safe_url("https://sub-domain.example-site.co.uk:8443/a") == "https://sub-domain.example-site.co.uk:8443/a"
