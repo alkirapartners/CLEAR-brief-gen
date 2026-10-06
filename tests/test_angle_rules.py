@@ -17,6 +17,17 @@ def _angle(*lines, use_case="m_and_a"):
     }
 
 
+FIRST_HAND = frozenset({1})  # every line in these tests cites source 1
+
+
+def _stands(angle, first_hand=FIRST_HAND):
+    return angle_rules.stands(angle, first_hand)
+
+
+def _why_not(angle, first_hand=FIRST_HAND):
+    return angle_rules.why_not(angle, first_hand)
+
+
 # ── Lines that are never evidence ────────────────────────────────
 
 @pytest.mark.parametrize("text", [
@@ -56,8 +67,21 @@ def test_ordinary_evidence_is_left_alone(text):
 
 # ── An angle needs a specific, dated fact ────────────────────────
 
-def test_an_angle_with_a_dated_line_stands():
-    assert angle_rules.stands(_angle(_line("The deal closed.", "2026-01-09"), _line("An undated note.", ""), use_case="multi_cloud"))
+def test_an_angle_with_a_first_hand_fact_stands_whether_or_not_the_fact_is_dated():
+    """An undated case study from a cloud vendor is real evidence. The score, not the angle, pays for the missing date."""
+    assert _stands(_angle(_line("The deal closed.", "2026-01-09"), _line("An undated note.", ""), use_case="multi_cloud"))
+    assert _stands(_angle(_line("Core systems run in AWS China and AWS Oregon.", ""), use_case="china_global"))
+
+
+def test_an_angle_with_no_first_hand_fact_does_not_stand_however_well_dated():
+    """Trade press or a data broker alone does not make an angle."""
+    dated = _angle(_line("Trade press reports an SD-WAN rollout.", "2026-09-01"), use_case="multi_cloud")
+    assert not _stands(dated, first_hand=frozenset())
+    assert _why_not(dated, first_hand=frozenset()) == "no line rests on a first-hand source"
+
+
+def test_which_sources_can_carry_an_angle_is_one_constant():
+    assert angle_rules.SECOND_HAND_ALONE_MAKES_AN_ANGLE is False
 
 
 # ── An M&A angle names what has to be connected or separated ─────
@@ -69,7 +93,7 @@ def test_an_angle_with_a_dated_line_stands():
     "Management expects cost savings from the integration.",
 ], ids=["price-only", "closed-only", "announced-only", "savings"])
 def test_a_deal_with_a_price_and_a_date_and_nothing_to_connect_is_not_an_angle(text):
-    assert not angle_rules.stands(_angle(_line(text)))
+    assert not _stands(_angle(_line(text)))
 
 
 @pytest.mark.parametrize("text", [
@@ -83,7 +107,7 @@ def test_a_deal_with_a_price_and_a_date_and_nothing_to_connect_is_not_an_angle(t
     "La adquisición suma 12 plantas y sus sistemas.",
 ], ids=["new-entity", "plants", "tsa", "facilities", "operation", "storefronts", "systems", "spanish"])
 def test_a_deal_that_names_sites_systems_or_entities_can_be_an_angle(text):
-    assert angle_rules.stands(_angle(_line(text)))
+    assert _stands(_angle(_line(text)))
 
 
 def test_one_line_that_names_what_is_connected_carries_the_other_lines_of_the_angle():
@@ -91,12 +115,11 @@ def test_one_line_that_names_what_is_connected_carries_the_other_lines_of_the_an
         _line("It completed the acquisition for $38 million."),
         _line("The acquired business runs two blending plants in Oklahoma.", ""),
     )
-    assert angle_rules.stands(angle)
+    assert _stands(angle)
 
 
-def test_an_angle_with_no_dated_line_does_not_stand():
-    assert not angle_rules.stands(_angle(_line("A posting lists SD-WAN.", ""), use_case="multi_cloud"))
-    assert not angle_rules.stands(_angle(use_case="multi_cloud"))
+def test_an_angle_with_no_evidence_left_does_not_stand():
+    assert not _stands(_angle(use_case="multi_cloud"))
 
 
 # ── "Network" has to mean the IT network ─────────────────────────
@@ -110,11 +133,11 @@ UPS = [
 
 def test_a_delivery_network_being_reorganised_is_not_network_modernization():
     angle = _angle(*[_line(text) for text in UPS], use_case="network_modernization")
-    assert not angle_rules.stands(angle)
+    assert not _stands(angle)
 
 
 def test_the_same_facts_can_stand_as_sites_closing_at_scale():
-    assert angle_rules.stands(_angle(*[_line(text) for text in UPS], use_case="site_rollout"))
+    assert _stands(_angle(*[_line(text) for text in UPS], use_case="site_rollout"))
 
 
 @pytest.mark.parametrize("text", [
@@ -126,7 +149,7 @@ def test_the_same_facts_can_stand_as_sites_closing_at_scale():
     "La empresa migra su red corporativa a SD-WAN.",
 ])
 def test_a_line_that_names_network_technology_carries_a_network_modernization_angle(text):
-    assert angle_rules.stands(_angle(_line(text), use_case="network_modernization"))
+    assert _stands(_angle(_line(text), use_case="network_modernization"))
 
 
 @pytest.mark.parametrize("text", [
@@ -136,7 +159,7 @@ def test_a_line_that_names_network_technology_carries_a_network_modernization_an
     "The distribution network is being consolidated into market hubs.",
 ])
 def test_a_line_about_platforms_or_a_business_footprint_does_not(text):
-    assert not angle_rules.stands(_angle(_line(text), use_case="network_modernization"))
+    assert not _stands(_angle(_line(text), use_case="network_modernization"))
 
 
 # ── Plant networks are industrial control systems ────────────────
@@ -166,8 +189,8 @@ def test_industrial_control_systems_are(text):
 # ── Saying why ───────────────────────────────────────────────────
 
 def test_an_angle_that_does_not_stand_says_why_for_the_log():
-    assert angle_rules.why_not(_angle(use_case="multi_cloud")) == "no evidence line is left"
-    assert angle_rules.why_not(_angle(_line("A posting lists SD-WAN.", ""), use_case="multi_cloud")) == "no line has a date"
-    assert "network technology" in angle_rules.why_not(_angle(_line("The store network grew."), use_case="network_modernization"))
-    assert "connected or separated" in angle_rules.why_not(_angle(_line("It bought a rival for $38 million.")))
-    assert angle_rules.why_not(_angle(_line("The acquired business runs two plants."))) == ""
+    assert _why_not(_angle(use_case="multi_cloud")) == "no evidence line is left"
+    assert _why_not(_angle(_line("A posting lists SD-WAN.", ""), use_case="multi_cloud")) == ""
+    assert "network technology" in _why_not(_angle(_line("The store network grew."), use_case="network_modernization"))
+    assert "connected or separated" in _why_not(_angle(_line("It bought a rival for $38 million.")))
+    assert _why_not(_angle(_line("The acquired business runs two plants."))) == ""

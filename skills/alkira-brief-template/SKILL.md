@@ -41,13 +41,15 @@ The score reflects the strength and freshness of the best use case, never the nu
 |---|---|
 | 5 | Two different use cases, each resting on a first-hand source of its own, and at least one of those sources dated within the last two years |
 | 4 | One use case resting on a first-hand source dated within the last two years |
-| 3 | A use case whose evidence is second-hand, undated or older than two years |
+| 3 | One clear use case whose evidence is older or indirect |
 | 2 | A plausible use case with no evidence found |
 | 1 | No use case |
 
 M&A counts toward the score only while it is live, by the rule in the Fit Rules: the event happened in the last three months, or the deal is announced and not yet completed. HF Sinclair's separation, announced on 28 July and not yet completed, counts in October. A carve-out completed in January does not. A qualifying M&A angle is always the first angle.
 
-A dated first-hand source is the trigger: a job posting with its posted date, a filing, a press release. A posting that is open on the company's own careers site counts as dated on the day the research saw it, and the brief says so: "open posting, seen" with the date. A copy on a job board does not. An angle that rests only on trade press or another second-hand source cannot lift the score above 3, however many such angles there are. Two angles that lean on the same single page are one use case told twice. These limits are checked against the sources after the brief is written, and a score they do not support is lowered.
+An angle needs at least one specific fact from a first-hand source: the company's own site, a filing, or a cloud vendor's case study about it. The fact does not have to be dated. When none of an angle's first-hand facts is dated within the last two years, the angle is kept, the brief says the evidence is undated or gives its older date, and the score stops at 3. Example: Anker's core systems run in AWS China and AWS Oregon, joined by a dedicated line, known from an AWS case study that prints no date. That is one China-to-global angle and a 3. Trade press or a data broker alone does not make an angle.
+
+A dated first-hand source is the trigger: a job posting with its posted date, a filing, a press release. A posting that is open on the company's own careers site counts as dated on the day the research saw it, and the brief says so: "open posting, seen" with the date. A copy on a job board does not. Scores above 3 always need a first-hand source dated within the last two years. Two angles that lean on the same single page are one use case told twice. These limits are checked against the sources after the brief is written, and a score they do not support is lowered.
 
 "Could not find out" is different from "weak fit". What the research looked for and did not find belongs under What we couldn't confirm, and stays out of the score reasoning.
 

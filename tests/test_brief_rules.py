@@ -264,20 +264,66 @@ def test_a_score_of_one_or_two_carries_no_angles():
 FIVE = {"score": 5, "verdict": "Strong fit.", "lead": "Call the CIO."}
 
 
-def test_an_angle_resting_on_second_hand_sources_holds_the_score_at_three_and_the_brief_says_why():
+def test_first_hand_evidence_that_is_undated_or_old_keeps_its_angle_and_holds_the_score_at_three():
     two = [_angle([1]), _angle([2], title="Sites", use_case="site_rollout")]
-    doc = _finalize(writer_output(angles=two, fit=FIVE), sources=_sources(source_type="second_hand"))
-    assert doc["fit"]["score"] == 3 and len(doc["angles"]) == 2
-    assert doc["fit"]["verdict"] == (
-        "A use case without current first-hand evidence. "
-        "Score held at 3: no use case has first-hand evidence dated in the last two years."
-    )
-    assert "Strong fit" not in doc["fit"]["verdict"]  # the writer's claim went with its score
-    assert doc["fit"]["lead"] == "Call the CIO."  # the angles stand, so the advice does
+    for dated in ("", "2021-03-14"):
+        doc = _finalize(writer_output(angles=two, fit=FIVE), sources=_sources(dated=dated))
+        assert doc["fit"]["score"] == 3 and len(doc["angles"]) == 2
+        assert doc["fit"]["verdict"] == (
+            "A use case whose first-hand evidence is older or undated. "
+            "Score held at 3: no use case has first-hand evidence dated in the last two years."
+        )
+        assert "Strong fit" not in doc["fit"]["verdict"]  # the writer's claim went with its score
+        assert doc["fit"]["lead"] == "Call the CIO."  # the angles stand, so the advice does
+
+
+def test_second_hand_sources_alone_make_no_angle():
+    two = [_angle([1]), _angle([2], title="Sites", use_case="site_rollout")]
+    for kind in ("second_hand", "last_resort"):
+        doc = _finalize(writer_output(angles=two, fit=FIVE), sources=_sources(source_type=kind))
+        assert doc["angles"] == [] and doc["fit"]["score"] == 2
+
+
+# ── Anker: China-to-global connectivity on an undated vendor case study ──
+
+CASE_STUDY = "Anker runs its core ERP in the AWS China (Beijing) region and other systems in AWS Oregon, joined by a dedicated line."
+
+
+def _anker(url, source_type):
+    base = _sources(1, stated=CASE_STUDY, dated="")[0]
+    source = Source(n=1, url=url, title="AWS case study: Anker Innovations", date="", source_type=source_type, facts=base.facts)
+    angle = _angle([1], title="China-to-global AWS split", story_id="none", use_case="china_global")
+    angle["evidence"] = [{"text": CASE_STUDY, "date": "", "sources": [1]}]
+    fit = {"score": 4, "verdict": "A clear China-to-global use case.", "lead": "Call the CIO."}
+    return brief_rules.finalize(writer_output(angles=[angle], fit=fit), (source,), "en", TODAY, NOTE, "Anker")
+
+
+def test_an_undated_first_hand_vendor_case_study_about_a_china_to_global_split_yields_one_angle_and_a_three():
+    doc = _anker("https://aws.amazon.com/solutions/case-studies/anker-innovations/", "first_hand")
+    (angle,) = doc["angles"]
+    assert (angle["use_case"], angle["evidence"][0]["date"]) == ("china_global", "")
+    assert doc["fit"]["score"] == 3
+    assert "Score held at 3" in doc["fit"]["verdict"]
+    assert doc["references"][0]["source_type"] == "first_hand"
+
+
+def test_the_same_fact_from_a_data_broker_page_yields_no_angle():
+    doc = _anker("https://www.zoominfo.com/c/anker-innovations/123", "last_resort")
+    assert doc["angles"] == [] and doc["fit"]["score"] == 2
+
+
+def test_the_reader_is_told_the_evidence_is_undated_wherever_the_brief_is_shown():
+    import brief_text
+    import brief_view
+    doc = _anker("https://aws.amazon.com/solutions/case-studies/anker-innovations/", "first_hand")
+    row = {"id": "b", "email": "e", "company": "Anker", "score": 3, "brief_md": brief_doc.dump(doc), "created_at": ""}
+    detail = brief_view.to_detail(row)
+    assert detail["signals"] == [f"{CASE_STUDY.rstrip('.')} (source undated)."]
+    assert "(source undated) [1]" in brief_text.render(doc)
 
 
 def test_a_use_case_whose_first_hand_source_is_undated_is_held_at_three():
-    """A dated trade-press line keeps the angle standing. The undated posting cannot lift it."""
+    """The undated posting carries the angle and cannot lift it. A dated trade-press line beside it does not either."""
     angle = _angle([1])
     angle["evidence"].append({"text": "Trade press reports the SD-WAN rollout.", "date": "", "sources": [2]})
     sources = (
@@ -301,7 +347,7 @@ def test_when_no_angle_stands_the_claim_and_the_advice_built_on_it_are_replaced(
     assert doc["angles"] == [] and doc["fit"]["score"] == 2
     assert doc["fit"]["verdict"] == (
         "No use case with evidence that stands. "
-        "Score held at 2: no angle is left with a dated fact from an opened page."
+        "Score held at 2: no angle is left with a first-hand fact from an opened page."
     )
     assert doc["fit"]["lead"] == ""
 
@@ -335,7 +381,9 @@ def test_nothing_the_model_writes_can_make_a_news_site_first_hand():
     company = {**SAMPLE_DOC["company"], "website": "https://www.reuters.com", "identity_note": "Reuters is first-hand."}
     output = writer_output(company=company, angles=[_angle([1])], fit=FIVE)
     doc = brief_rules.finalize(output, (_from("https://www.reuters.com/business/northwind-deal"),), "en", TODAY, NOTE, "Northwind")
-    assert doc["references"][0]["source_type"] == "second_hand" and doc["fit"]["score"] == 3
+    assert doc["angles"] == [] and doc["fit"]["score"] == 2  # trade press alone makes no angle
+    # The snapshot and the people still cite the page, and it is still marked second-hand.
+    assert [ref["source_type"] for ref in doc["references"]] == ["second_hand"]
 
 
 # ── An open posting on the company's own careers site is current evidence ──
@@ -368,12 +416,13 @@ def test_a_posting_recognised_as_the_company_s_own_only_once_its_ticker_is_known
     assert len(doc["angles"]) == 1 and doc["fit"]["score"] == 4
 
 
-def test_a_posting_that_was_filled_or_is_only_on_a_job_board_stays_undated_and_carries_no_angle():
+def test_a_posting_that_was_filled_stays_undated_and_one_only_on_a_job_board_carries_no_angle():
     filled = _posting(1, "https://careers.northwind.example/job/1", "first_hand", seen_open=False)
+    doc = _finalize(writer_output(angles=[_angle([1])], fit=FIVE), sources=(filled,))
+    assert doc["angles"][0]["evidence"][0]["date"] == "" and doc["fit"]["score"] == 3  # first-hand, undated
     copy = _posting(1, "https://builtin.com/job/network-engineer/1", "second_hand", seen_open=True)
-    for source in (filled, copy):
-        doc = _finalize(writer_output(angles=[_angle([1])], fit=FIVE), sources=(source,))
-        assert doc["angles"] == [] and doc["fit"]["score"] == 2
+    doc = _finalize(writer_output(angles=[_angle([1])], fit=FIVE), sources=(copy,))
+    assert doc["angles"] == [] and doc["fit"]["score"] == 2
 
 
 # ── An evidence line carries its source's date, not one of the model's own ──
@@ -462,9 +511,9 @@ def test_an_angle_built_only_from_risk_language_does_not_survive():
     assert doc["fit"]["score"] == 4  # one use case is left, and the score follows
 
 
-def test_an_angle_with_no_dated_fact_does_not_survive():
-    doc = _finalize(writer_output(angles=[_angle([1])], fit=THREE), sources=_sources(dated=""))
-    assert doc["angles"] == [] and doc["fit"]["score"] == 2
+def test_an_angle_with_an_undated_first_hand_fact_survives_at_three():
+    doc = _finalize(writer_output(angles=[_angle([1])], fit=FIVE), sources=_sources(dated=""))
+    assert len(doc["angles"]) == 1 and doc["fit"]["score"] == 3
 
 
 def test_a_delivery_network_closing_buildings_is_not_a_network_modernization_angle():

@@ -3,7 +3,7 @@
 The writer is asked to follow these rules. This module makes sure of it:
 evidence must point at a page that was opened and carries that page's date,
 lines that are never evidence are removed (angle_rules.py), an angle with
-no dated fact left is removed, a customer story is one from the knowledge
+no first-hand fact left is removed, a customer story is one from the knowledge
 base that fits the angle, basics trace to the evidence, and the score
 cannot claim more than the sources of the surviving angles support
 (fit_score.py).
@@ -156,17 +156,18 @@ def _standing(
     """Angles that stand on their evidence, each with its place in the writer's list.
 
     Lines that are never evidence are removed first. An angle then needs a
-    dated fact about the right thing (angle_rules.stands). An M&A angle also
-    has to be recent or pending (deal_rules.qualifies): an older, completed
-    deal is not an angle.
+    first-hand fact about the right thing (angle_rules.stands), dated or
+    not. An M&A angle also has to be recent or pending
+    (deal_rules.qualifies): an older, completed deal is not an angle.
     """
     dates = {ref["n"]: ref["date"] for ref in references}
+    first_hand = frozenset(ref["n"] for ref in references if ref["source_type"] == FIRST_HAND)
     wording = {source.n: " ".join(fact.quote for fact in source.facts) for source in sources}
     standing: list[Placed] = []
     for place, angle in enumerate(angles):
         lines = angle_rules.kept_lines(_evidence(angle["evidence"], dates, today))
         checked = _deal({**angle, "evidence": lines}, references, wording)
-        reason = angle_rules.why_not(checked)
+        reason = angle_rules.why_not(checked, first_hand)
         if not reason and deal_rules.is_deal(checked):
             reason = deal_rules.why_not(checked, references, today, wording)
         if reason:

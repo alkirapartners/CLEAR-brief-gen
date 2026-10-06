@@ -68,7 +68,7 @@ def test_the_writer_is_told_the_rules_the_code_also_enforces():
         "never more than the evidence supports",
         "For a score of 1 or 2 return an empty list.",
         "Never guess a line",
-        "Every angle needs a specific fact with a date.",
+        "Every angle needs a specific fact from a first-hand\n  source.",
         "`plant_networks` is\n  for industrial control systems only.",
         "The story's Situations\n  must include the angle's `use_case`",
         "Score from those marks",

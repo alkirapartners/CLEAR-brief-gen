@@ -179,8 +179,13 @@ def _sentence(text: str) -> str:
 
 
 def _page_sentence(line: EvidenceLine, labels: Labels, doc: BriefDoc) -> str:
-    """An evidence line as the page shows it: one sentence, then when its source is dated."""
-    note = source_date_note(line, labels, doc["language"], doc["references"])
+    """An evidence line as the page shows it: one sentence, then when its source is dated.
+
+    A line whose source gives no date says so, so the reader knows the
+    evidence is undated.
+    """
+    dated = line["date"].strip()
+    note = source_date_note(line, labels, doc["language"], doc["references"]) if dated else labels["undated"]
     text = line["text"].strip()
     return f"{text.rstrip('.')} ({note})." if note else _sentence(text)
 

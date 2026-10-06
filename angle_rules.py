@@ -3,7 +3,7 @@
 The fit rules say what is never evidence and what an angle has to rest on.
 The writer is asked to follow them. This module removes what the code can
 recognise when the writer does not: risk-factor language, headcount and
-hiring statistics, an angle with no dated fact, a network-modernization
+hiring statistics, an angle with no first-hand fact, a network-modernization
 angle that never names network technology, an M&A angle that never names
 what is to be connected or separated, and a plant-network line that is not
 about industrial control systems.
@@ -16,6 +16,11 @@ from brief_doc import Angle, EvidenceLine
 
 NETWORK_MODERNIZATION = "network_modernization"
 M_AND_A = "m_and_a"
+# An angle needs at least one fact from a first-hand source: the company's
+# own site, a filing, a cloud vendor's case study. Trade press or a data
+# broker alone does not make one. Set this to True and a second-hand fact
+# will carry an angle as well.
+SECOND_HAND_ALONE_MAKES_AN_ANGLE = False
 
 # What a filing lists as a risk says what could go wrong, not what is happening.
 _RISK_LANGUAGE = re.compile(r"\brisk(?:s| factors?)?\b|\briesgos?\b", re.IGNORECASE)
@@ -85,20 +90,23 @@ def names_network_technology(text: str) -> bool:
     return _NETWORK_TECHNOLOGY.search(text) is not None
 
 
-def why_not(angle: Angle) -> str:
+def why_not(angle: Angle, first_hand: frozenset[int]) -> str:
     """Why an angle does not stand on its evidence, or "" when it does.
 
-    Every angle needs at least one dated line. A network-modernization angle
-    also needs a line that names network technology: a business "network"
-    being reorganised is about sites, not about the IT network. An M&A angle
-    needs a line that names what has to be connected or separated: a deal
-    with a price and a date and nothing else is news.
+    ``first_hand`` are the numbers of the first-hand sources. Every angle
+    needs at least one line that rests on one. The line does not have to be
+    dated: an undated or older first-hand fact keeps the angle, and the
+    score pays for the missing date (fit_score.py). A network-modernization
+    angle also needs a line that names network technology: a business
+    "network" being reorganised is about sites, not about the IT network.
+    An M&A angle needs a line that names what has to be connected or
+    separated: a deal with a price and a date and nothing else is news.
     """
     lines = angle["evidence"]
     if not lines:
         return "no evidence line is left"
-    if not any(line["date"].strip() for line in lines):
-        return "no line has a date"
+    if not SECOND_HAND_ALONE_MAKES_AN_ANGLE and not any(first_hand.intersection(line["sources"]) for line in lines):
+        return "no line rests on a first-hand source"
     if angle["use_case"] == NETWORK_MODERNIZATION and not any(names_network_technology(line["text"]) for line in lines):
         return "no line names network technology"
     if angle["use_case"] == M_AND_A and not any(_TO_CONNECT.search(line["text"]) for line in lines):
@@ -106,9 +114,9 @@ def why_not(angle: Angle) -> str:
     return ""
 
 
-def stands(angle: Angle) -> bool:
-    """True when an angle rests on a specific, dated fact about the right thing."""
-    return not why_not(angle)
+def stands(angle: Angle, first_hand: frozenset[int]) -> bool:
+    """True when an angle rests on a specific first-hand fact about the right thing."""
+    return not why_not(angle, first_hand)
 
 
 def is_plant_network(text: str) -> bool:

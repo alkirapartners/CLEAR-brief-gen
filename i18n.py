@@ -77,10 +77,10 @@ LABELS: dict[str, dict[str, str]] = {
         "open_posting_seen": "open posting, seen {date}",
         # What the code says about a score it had to lower, in place of the writer's verdict.
         "verdict_2": "No use case with evidence that stands.",
-        "verdict_3": "A use case without current first-hand evidence.",
+        "verdict_3": "A use case whose first-hand evidence is older or undated.",
         "verdict_4": "One use case with current first-hand evidence.",
         "score_held_no_angles": (
-            "Score held at {score}: no angle is left with a dated fact from an opened page."
+            "Score held at {score}: no angle is left with a first-hand fact from an opened page."
         ),
         "score_held_evidence": (
             "Score held at {score}: no use case has first-hand evidence dated in the last two years."
@@ -148,10 +148,10 @@ LABELS: dict[str, dict[str, str]] = {
         "source_dated": "fuente con fecha {date}",
         "open_posting_seen": "vacante abierta, vista el {date}",
         "verdict_2": "Ningún caso de uso con evidencia que se sostenga.",
-        "verdict_3": "Un caso de uso sin evidencia de primera mano reciente.",
+        "verdict_3": "Un caso de uso cuya evidencia de primera mano es antigua o no tiene fecha.",
         "verdict_4": "Un caso de uso con evidencia de primera mano reciente.",
         "score_held_no_angles": (
-            "Puntuación limitada a {score}: no queda ningún ángulo con un hecho fechado de una página abierta."
+            "Puntuación limitada a {score}: no queda ningún ángulo con un hecho de primera mano de una página abierta."
         ),
         "score_held_evidence": (
             "Puntuación limitada a {score}: ningún caso de uso tiene evidencia de primera mano "

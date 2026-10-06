@@ -230,10 +230,11 @@ before or after it.
   sentences saying what to open with and whom to call.
 - `angles`: the use cases that have evidence, strongest first. One to
   three, and never more than the evidence supports. One strong angle is a
-  complete brief. Every angle needs a specific fact with a date. Lines that
-  report risk-factor language, a headcount or a hiring statistic are
-  removed, and an angle left with no dated fact goes with them, so a padded
-  angle only costs the brief its credibility.
+  complete brief. Every angle needs a specific fact from a first-hand
+  source. The fact may be undated or old: the angle stays, and the score
+  then stops at 3. Lines that report risk-factor language, a headcount or a
+  hiring statistic are removed, and an angle left with no first-hand fact
+  goes with them, so a padded angle only costs the brief its credibility.
   For a score of 1 or 2 return an empty list. Each angle
   has a `title`, the `use_case` ID from the Fit Rules, its `evidence`, what
   Alkira does about it in `alkira` (two sentences at most), and a `story`.

@@ -25,7 +25,8 @@ TEMPLATE = (SKILLS / "alkira-brief-template" / "SKILL.md").read_text(encoding="u
     "plant networks means industrial control systems",
     "RFID readers, package scanners, store Wi-Fi and vehicle telematics are not plant networks.",
     "**Risk-factor language is not evidence.**",
-    "Every angle rests on at least one specific fact with a date",
+    "Every angle rests on at least one specific fact from a first-hand source",
+    "an older or undated first-hand fact still shows the use case",
     "Never add an angle to reach three.",
     "**M&A: recent or pending.**",
     "An M&A event counts when it happened in the last three months, or when the deal is announced and not yet completed.",
@@ -50,7 +51,7 @@ def test_every_use_case_has_an_id_in_the_fit_rules(use_case):
 @pytest.mark.parametrize("row", [
     "| 5 | Two different use cases, each resting on a first-hand source of its own, and at least one of those sources dated within the last two years |",
     "| 4 | One use case resting on a first-hand source dated within the last two years |",
-    "| 3 | A use case whose evidence is second-hand, undated or older than two years |",
+    "| 3 | One clear use case whose evidence is older or indirect |",
     "| 2 | A plausible use case with no evidence found |",
     "| 1 | No use case |",
 ])
@@ -60,7 +61,9 @@ def test_the_template_scores_the_best_use_case_not_the_volume_of_evidence(row):
 
 
 def test_the_template_says_what_second_hand_evidence_can_and_cannot_do():
-    assert "cannot lift the score above 3" in TEMPLATE
+    assert "Trade press or a data broker alone does not make an angle." in TEMPLATE
+    assert "Scores above 3 always need a first-hand source dated within the last two years." in TEMPLATE
+    assert "known from an AWS case study that prints no date. That is one China-to-global angle and a 3." in TEMPLATE
     assert "one use case told twice" in TEMPLATE
     assert "a score they do not support is lowered" in TEMPLATE
 

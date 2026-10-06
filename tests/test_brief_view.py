@@ -141,7 +141,8 @@ def test_the_entry_point_signal_holds_the_rest_of_the_evidence_and_never_repeats
     point = _detail(angles=[_three_line_angle()])["entryPoints"][0]
     assert point["heading"] == "Hand-built Azure network"
     assert point["signal"] == (
-        "A posting lists a Virtual WAN hub-and-spoke. The annual report describes a cloud migration (source dated Feb 2026)."
+        "A posting lists a Virtual WAN hub-and-spoke (source undated). "
+        "The annual report describes a cloud migration (source dated Feb 2026)."
     )
     assert point["solution"].startswith("Alkira replaces hand-built hubs")
     assert point["proof"].startswith("Koch Industries: Significant reduction")
@@ -162,10 +163,11 @@ def test_every_entry_point_has_a_signal_a_solution_and_a_proof():
             assert point["signal"] and point["solution"] and point["proof"]
 
 
-def test_no_citation_marker_or_undated_marker_reaches_the_page_text():
+def test_no_citation_marker_reaches_the_page_text_and_an_undated_source_is_said_in_words():
     data = _detail(angles=[_three_line_angle()])
     shown = " ".join([*data["signals"], *[p["signal"] for p in data["entryPoints"]]])
-    assert "[1]" not in shown and "[2]" not in shown and "undated" not in shown
+    assert "[1]" not in shown and "[2]" not in shown
+    assert "(source undated)" in shown and "(undated)" not in shown
 
 
 @pytest.mark.parametrize("text", [
