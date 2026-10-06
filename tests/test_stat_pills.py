@@ -36,6 +36,8 @@ def test_headquarters_is_a_city_and_its_state_or_country(written, shown):
     ("About US$26B (Forbes, 2023, via Wikipedia)", "About $26B (2023)"),
     ("€412 million in FY24", "€412M (FY24)"),
     ("$1.2 trillion", "$1.2T"),
+    ("2025 operating revenue 30.514 billion yuan, up 23.49% (trade press)", "CNY 30.5B (2025)"),
+    ("Revenue of 412 million euros in 2025", "€412M (2025)"),
     ("", ""),
 ])
 def test_revenue_is_one_rounded_figure_and_its_year(written, shown):

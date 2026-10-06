@@ -35,13 +35,19 @@ _UNITS: dict[str, float] = {
     "million": 1e6, "mm": 1e6, "m": 1e6, "thousand": 1e3, "k": 1e3,
 }
 _SCALES: tuple[tuple[float, str], ...] = ((1e12, "T"), (1e9, "B"), (1e6, "M"), (1e3, "K"))
-_SYMBOLS: dict[str, str] = {"US$": "$", "USD": "$", "$": "$", "€": "€", "£": "£", "¥": "¥"}
+_SYMBOLS: dict[str, str] = {"US$": "$", "USD": "$", "$": "$", "€": "€", "EUR": "€", "£": "£", "¥": "¥"}
 _AMOUNT = re.compile(
     r"(?P<currency>US\$|USD|CNY|RMB|EUR|GBP|JPY|CAD|AUD|CHF|[$€£¥])?\s*"
     r"(?P<number>\d[\d,]*(?:\.\d+)?)\s*"
-    r"(?P<unit>trillion|billion|million|thousand|bn|mm|[TBMK])?(?![A-Za-z])",
+    r"(?P<unit>trillion|billion|million|thousand|bn|mm|[TBMK])?(?![A-Za-z])"
+    r"(?:\s*(?P<named>yuan|renminbi|euros?|dollars|pounds|yen)\b)?",
     re.IGNORECASE,
 )
+# A currency written as a word after the amount: "30.5 billion yuan".
+_CURRENCY_WORDS: dict[str, str] = {
+    "yuan": "CNY", "renminbi": "CNY", "euro": "EUR", "euros": "EUR", "dollars": "$",
+    "pounds": "£", "yen": "¥",
+}
 _FISCAL_YEAR = re.compile(r"\bFY\s?(?:\d{4}|\d{2})\b", re.IGNORECASE)
 _YEAR = re.compile(r"\b(?:19|20)\d{2}\b")
 _ROUGHLY = re.compile(r"^(?:about|approximately|approx\.?|around|roughly|nearly|~)", re.IGNORECASE)
@@ -79,7 +85,7 @@ def headquarters(text: str) -> str:
 def _figure(match: re.Match[str]) -> str:
     """One amount, rounded to a decimal in the largest unit that fits it."""
     value = float(match.group("number").replace(",", "")) * _UNITS.get((match.group("unit") or "").lower(), 1.0)
-    currency = (match.group("currency") or "").upper()
+    currency = (match.group("currency") or _CURRENCY_WORDS.get((match.group("named") or "").lower(), "")).upper()
     prefix = _SYMBOLS.get(currency, f"{currency} " if currency else "")
     for size, letter in _SCALES:
         if value >= size:

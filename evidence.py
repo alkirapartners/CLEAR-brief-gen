@@ -12,6 +12,7 @@ from datetime import date
 from typing import Iterable, Mapping, Sequence
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
+import i18n
 from brief_doc import Reference
 from plain_text import plain
 
@@ -306,6 +307,47 @@ def parse_date(text: str) -> date | None:
         return date(int(match.group(1)), int(match.group(2) or 1), int(match.group(3) or 1))
     except ValueError:
         return None
+
+
+_WORD_OR_NUMBER = re.compile(r"[^\W\d_]+|\d+")
+_NUMERIC_DATE = re.compile(r"\b(\d{1,4})[/.\-](\d{1,2})[/.\-](\d{1,4})\b")
+
+
+def _numeric_dates(text: str) -> set[tuple[int, int, int]]:
+    """Every (year, month, day) a numeric date in the text could mean: 2026-09-23, 09/23/2026, 23.09.2026."""
+    found: set[tuple[int, int, int]] = set()
+    for first, second, third in _NUMERIC_DATE.findall(text):
+        a, b, c = int(first), int(second), int(third)
+        if len(first) == 4:
+            found.add((a, b, c))
+        elif len(third) == 4:
+            found.update({(c, a, b), (c, b, a)})
+    return found
+
+
+def date_is_printed(stored_date: str, text: str) -> bool:
+    """True when the text prints the date: its year, and its month and day when it has them.
+
+    The year alone is in most pages' footers, so a date with a month has to
+    be there with that month, by name or in a numeric date, and a date with
+    a day with that day too.
+    """
+    year, _, rest = stored_date.partition("-")
+    month, _, day = rest.partition("-")
+    words = {word.casefold() for word in _WORD_OR_NUMBER.findall(text)}
+    if year not in words:
+        return False
+    if not month:
+        return True
+    numeric = _numeric_dates(text)
+    wanted = (int(year), int(month), int(day or 0))
+    if any(found[:2] == wanted[:2] and (not day or found[2] == wanted[2]) for found in numeric):
+        return True
+    if f"{year}-{month}" in text and not day:
+        return True
+    names = [table[int(month) - 1].casefold() for table in i18n.SHORT_MONTHS.values()]
+    by_name = any(word.startswith(name) for name in names for word in words)
+    return by_name and (not day or str(int(day)) in words or day in words)
 
 
 def clean_date(text: str) -> str:

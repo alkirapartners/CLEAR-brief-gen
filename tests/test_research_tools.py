@@ -7,6 +7,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 import research_floor as floor
 import research_tools as tools
 from evidence import Page, canonical_url
@@ -287,6 +289,37 @@ def test_the_model_is_not_asked_what_kind_of_source_a_page_is():
 def test_a_date_is_kept_when_the_page_prints_its_year():
     _, after, _ = _run([_record([_fact(date="2026-09-23"), _fact(date="2026-09")])], ledger=_opened())
     assert [item.source_date for item in after.evidence] == ["2026-09-23", "2026-09"]
+
+
+def test_a_date_the_page_does_not_print_in_full_leaves_the_fact_undated():
+    """The year alone is in every page's footer. The month and the day have to be there too."""
+    footer = "Senior Network Engineer. ExpressRoute, Virtual WAN hub-and-spoke, BGP. Copyright 2026 Acme. " * 6
+    _, after, _ = _run([_record([_fact(date="2026-10-06")])], ledger=_opened(text=footer))
+    assert [item.source_date for item in after.evidence] == [""]
+
+
+@pytest.mark.parametrize("printed, stated", [
+    ("Posted Date: Sep 23, 2026.", "2026-09-23"),
+    ("Date posted 23 September 2026", "2026-09-23"),
+    ("Posted 09/23/2026", "2026-09-23"),
+    ("Posted 2026-09-23", "2026-09-23"),
+    ("Updated September 2026", "2026-09"),
+    ("Fiscal year 2026", "2026"),
+], ids=["abbreviated", "day-first", "numeric", "iso", "month", "year"])
+def test_a_date_the_page_prints_is_kept_however_the_page_writes_it(printed, stated):
+    text = f"Senior Network Engineer. {printed} ExpressRoute, Virtual WAN hub-and-spoke, BGP. " * 6
+    _, after, _ = _run([_record([_fact(date=stated)])], ledger=_opened(text=text))
+    assert [item.source_date for item in after.evidence] == [stated]
+
+
+def test_a_fact_quoted_from_a_page_in_another_script_is_kept_on_its_quote_and_its_figures():
+    page = "公司注册地址 湖南省长沙市 公司网址 https://www.anker-in.com 员工总数 6,304 人 研发人员占比 56.3%"
+    url = "https://www.cninfo.com.cn/anker-annual-report"
+    quote = "公司注册地址 湖南省长沙市 公司网址 https://www.anker-in.com 员工总数 6,304 人"
+    kept = _fact(url=url, fact="Registered in Changsha, Hunan; 6,304 employees.", quote=quote, date="")
+    wrong = _fact(url=url, fact="Registered in Changsha, Hunan; 9,999 employees.", quote=quote, date="")
+    _, after, _ = _run([_record([kept, wrong])], ledger=_opened(url=url, text=page))
+    assert [item.fact for item in after.evidence] == ["Registered in Changsha, Hunan; 6,304 employees."]
 
 
 def test_a_date_whose_year_the_page_never_prints_leaves_the_fact_undated():

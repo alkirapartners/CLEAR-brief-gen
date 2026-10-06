@@ -233,3 +233,25 @@ def test_a_standard_the_page_names_is_found_on_the_page_like_any_other_name():
 def test_money_counts_and_percentages_are_still_figures_the_quote_must_hold(fact, missing):
     quote = "fleet-wide Operational Technology (OT) cybersecurity"
     assert quotes.missing_figures(fact, quote) == missing
+
+
+# ── Compound words, and pages that are not in Latin script ───────
+
+def test_a_name_joined_to_an_ordinary_word_is_checked_as_the_name_alone():
+    """ "Dallas-based" names Dallas. The page says "DALLAS--(BUSINESS WIRE)", not "Dallas-based"."""
+    page = quotes.bare(RELEASE)
+    assert quotes.missing_names("HF Sinclair is a Dallas-based refiner with NYSE-listed stock.", page, ("HF Sinclair",)) == ()
+    assert quotes.missing_names("HF Sinclair is a Houston-based refiner.", page, ("HF Sinclair",)) == ("Houston-based",)
+    assert quotes.missing_names("The firewalls are PA-5220 units.", quotes.bare("Palo Alto PA-3220 firewalls")) == ("PA-5220",)
+    assert quotes.missing_names("The site runs SD-WAN and Wi-Fi.", quotes.bare("SD-WAN and Wi-Fi at every site")) == ()
+
+
+def test_a_page_that_is_not_in_latin_script_cannot_be_checked_for_english_names():
+    """An annual report in Chinese says 长沙. The researcher writes Changsha. The figures still have to match."""
+    chinese = "公司注册地址 湖南省长沙市 公司网址 https://www.anker-in.com 员工总数 6,304 人"
+    fact = "Registered in Changsha, Hunan; 6,304 employees."
+    assert quotes.names_can_be_checked("We operate in Changsha, Hunan.") is True
+    assert quotes.names_can_be_checked("公司注册地址 湖南省长沙市") is False
+    assert quotes.missing_figures(fact, "员工总数 6,304 人") == ()
+    assert quotes.missing_figures("Registered in Changsha; 9,999 employees.", "员工总数 6,304 人") == ("9,999",)
+    assert quotes.is_on_page("公司注册地址 湖南省长沙市 公司网址 https://www.anker-in.com", chinese)

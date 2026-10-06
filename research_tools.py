@@ -15,7 +15,7 @@ from urllib.parse import urlsplit
 import quotes
 import research_floor
 from evidence import (
-    CATEGORIES, EvidenceItem, Page, canonical_url, clean_date,
+    CATEGORIES, EvidenceItem, Page, canonical_url, clean_date, date_is_printed,
     is_fetchable_url, mark_opened, one_line, safe_url,
 )
 
@@ -117,7 +117,8 @@ _EVIDENCE_ITEM = {
             "type": "string",
             "description": (
                 "The date printed on the page, as YYYY-MM-DD, YYYY-MM or YYYY. It is kept only when "
-                "its year is on the page. Empty when the page prints no date: never work one out."
+                "the page prints it. Empty when the page prints no date: never work one out, and "
+                "never put today's date."
             ),
         },
     },
@@ -460,7 +461,9 @@ def _sort_by_quote(
             off_page.append(item)
             continue
         figures = quotes.missing_figures(item.fact, item.quote)
-        names = quotes.missing_names(item.fact, bare_page, (company, item.source_url), page_initials)
+        # A page in another script cannot be searched for the English names in a fact.
+        checkable = quotes.names_can_be_checked(item.quote)
+        names = quotes.missing_names(item.fact, bare_page, (company, item.source_url), page_initials) if checkable else ()
         if figures or names:
             unborne.append(_Unborne(item, figures, names))
         else:
@@ -469,8 +472,8 @@ def _sort_by_quote(
 
 
 def _date_on_page(stated: str, page_text: str) -> str:
-    """The date, or nothing unless the page prints its year. A source with no date is undated."""
-    return stated if stated and stated[:4] in page_text else ""
+    """The date, or nothing unless the page prints it. A source with no date is undated."""
+    return stated if stated and date_is_printed(stated, page_text) else ""
 
 
 def _echo(items: Sequence[EvidenceItem]) -> str:

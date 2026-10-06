@@ -194,6 +194,31 @@ def _spelled_out(token: str, page_initials: str) -> bool:
     return token.isupper() and 2 <= len(token) <= MAX_ACRONYM_CHARS and token.casefold() in page_initials
 
 
+def _parts_on_page(token: str, bare_page: str) -> bool:
+    """True for a compound whose naming parts are each on the page: "Dallas-based", "NYSE-listed".
+
+    A part that is a number, or a word that names something, has to be on
+    the page. An ordinary lower-case word joined to it does not.
+    """
+    parts = [part for part in _NAME_PARTS.split(token) if part]
+    if len(parts) < 2:
+        return False
+    naming = [part for part in parts if part[0].isdigit() or _is_name(part, starts_sentence=False)]
+    return bool(naming) and all(bare(part) in bare_page for part in naming)
+
+
+# Below this share of Latin letters a passage is in another script, and an
+# English name in a fact cannot be looked for in it.
+MIN_LATIN_SHARE = 0.5
+
+
+def names_can_be_checked(quote: str) -> bool:
+    """False for a quote that is mostly not in Latin script, such as a page in Chinese."""
+    letters = [ch for ch in quote if ch.isalpha()]
+    latin = sum(1 for ch in letters if "LATIN" in unicodedata.name(ch, ""))
+    return not letters or latin / len(letters) >= MIN_LATIN_SHARE
+
+
 def missing_names(
     fact: str, bare_page: str, context: tuple[str, ...] = (), page_initials: str = "",
 ) -> tuple[str, ...]:
@@ -214,7 +239,7 @@ def missing_names(
         name = bare(token)
         if token[0].isdigit() or not _is_name(token, starts) or token in missing:
             continue
-        on_page = name in bare_page or _spelled_out(token, page_initials)
+        on_page = name in bare_page or _spelled_out(token, page_initials) or _parts_on_page(token, bare_page)
         if not on_page and not any(name in item for item in known):
             missing.append(token)
     # The numbers of standards and models are names too, and the page has to give them.

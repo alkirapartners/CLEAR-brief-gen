@@ -17,10 +17,9 @@ import re
 from datetime import date
 from typing import Mapping, Sequence
 
-import i18n
 import quotes
 from brief_doc import Angle, Reference
-from evidence import FIRST_HAND, clean_date, parse_date
+from evidence import FIRST_HAND, clean_date, date_is_printed, parse_date
 
 M_AND_A = "m_and_a"
 PENDING = "pending"
@@ -37,7 +36,6 @@ PENDING_DEALS_COUNT = True
 MAX_PENDING_DEAL_DAYS = 730
 # A source dated only by its year does not date an event in that year.
 _MONTH_PRECISION_CHARS = len("2026-07")
-_WORD_OR_NUMBER = re.compile(r"[^\W\d_]+|\d+")
 # Wording that says a deal has yet to complete: an expected completion, a
 # condition still to be met, or a plain statement that it has not closed.
 _SAYS_PENDING = re.compile(
@@ -69,20 +67,6 @@ def _same_date(first: str, second: str) -> bool:
     return len(shorter) >= _MONTH_PRECISION_CHARS and longer.startswith(shorter)
 
 
-def _stated_in(stored_date: str, wording: str) -> bool:
-    """True when page wording gives the date: its year, its month and its day."""
-    year, _, rest = stored_date.partition("-")
-    month, _, day = rest.partition("-")
-    words = {word.casefold() for word in _WORD_OR_NUMBER.findall(wording)}
-    if year not in words or not month:
-        return False
-    names = [table[int(month) - 1].casefold() for table in i18n.SHORT_MONTHS.values()]
-    by_name = any(word.startswith(name) for name in names for word in words)
-    if not by_name and f"{year}-{month}" not in wording:
-        return False
-    return not day or str(int(day)) in words or day in words
-
-
 def _dated_by_first_hand(
     angle: Angle, references: Sequence[Reference], wording: Mapping[int, str],
 ) -> bool:
@@ -94,7 +78,7 @@ def _dated_by_first_hand(
             continue
         if reference["date"] and _same_date(event, reference["date"]):
             return True
-        if _stated_in(event, wording.get(reference["n"], "")):
+        if len(event) >= _MONTH_PRECISION_CHARS and date_is_printed(event, wording.get(reference["n"], "")):
             return True
     return False
 

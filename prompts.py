@@ -125,14 +125,14 @@ outstanding and stop.
 - One fact per item, specific and short. Keep the page's own technical
   terms: ExpressRoute, Virtual WAN, Transit Gateway, BGP, Palo Alto.
 - Give the date the page prints for itself: a job posting's posted date, a
-  filing's period, a press release's date. A date is kept only when its
-  year is on the page, so never work one out from "posted 3 days ago".
+  filing's period, a press release's date. A date is kept only when the
+  page prints it, so never work one out from "posted 3 days ago".
   When the page prints no date, leave it empty: the source is then labelled
-  undated, and an undated source cannot carry a high score. One exception
-  is made for you: a job posting that is open on the company's own careers
-  site, or on its own hosted job site, is current on the day you open it,
-  and is dated that day when it prints no date. So open postings on the
-  company's own site, not a job board's copy of them.
+  undated, and an undated source cannot carry a high score. Never put
+  today's date. One case is handled for you: a job posting that is open on
+  the company's own careers site, or on its own hosted job site, is current
+  on the day it is opened, and the code marks it so when you leave its date
+  empty. So open postings on the company's own site, not a job board's copy.
 - What counts as first-hand is decided from the page's address, never from
   what anyone says about it: the company's own domain and the careers and
   investor sites under it, a regulator's filing system such as sec.gov,
