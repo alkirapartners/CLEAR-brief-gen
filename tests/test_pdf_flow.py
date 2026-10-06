@@ -1,5 +1,7 @@
 """Putting the blocks of a brief on pages: what moves whole, what may be cut and where."""
 
+from contextlib import contextmanager
+
 import pytest
 
 import pdf_flow
@@ -82,9 +84,7 @@ def test_no_blocks_still_make_one_page():
 
 
 class _Recorder:
-    """Stands in for the PDF: records what is painted, on which page, inside which clip."""
-
-    w = 200.0
+    """Stands in for the PDF: records what is painted, on which page, inside which window."""
 
     def __init__(self):
         self.calls = []
@@ -94,17 +94,11 @@ class _Recorder:
     def add_page(self):
         self.page += 1
 
-    def rect_clip(self, x, y, w, h):
-        recorder = self
-
-        class _Clip:
-            def __enter__(self):
-                recorder.clip = (y, h)
-
-            def __exit__(self, *exc):
-                recorder.clip = None
-
-        return _Clip()
+    @contextmanager
+    def window(self, top, height):
+        self.clip = (top, height)
+        yield
+        self.clip = None
 
 
 def test_a_whole_block_is_painted_once_and_a_cut_block_once_on_each_page_inside_its_slice():

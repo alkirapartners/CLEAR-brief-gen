@@ -9,7 +9,9 @@ Only then are pages chosen, here, so a break never lands in the wrong spot:
 - a block that ``splits_freely`` (a list of rows) is cut at the last of its ``breaks`` that fits;
 - a block taller than a whole page is cut at its breaks too, or at the foot of the page when it has none.
 
-A cut block is painted once on each page it touches, clipped to its slice.
+A cut block is painted once on each page it touches, inside a window the
+height of its slice: the document clips the drawing to it and drops any
+link that falls outside it (``BriefPDF.window``).
 """
 
 from dataclasses import dataclass
@@ -122,5 +124,5 @@ def paint(pdf: FPDF, slices: Sequence[Slice]) -> None:
             if piece.is_whole:
                 piece.block.paint(pdf, piece.y)
                 continue
-            with pdf.rect_clip(0, piece.y, pdf.w, piece.end - piece.start):
+            with pdf.window(piece.y, piece.end - piece.start):
                 piece.block.paint(pdf, piece.y - piece.start)

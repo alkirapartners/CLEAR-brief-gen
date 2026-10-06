@@ -20,6 +20,10 @@ from pdf_fonts import Face
 Color = tuple[int, int, int]
 PT_PER_MM = 72 / 25.4
 ELLIPSIS = "…"
+CHIP_BORDER_WIDTH = 0.2
+# The share of a shape's short side that rounds its ends fully. fpdf2 treats a
+# radius of half the side or more as a fraction, so a full pill asks for just under half.
+FULL_ROUND = 0.49
 # Where a line may break. A no-break space is not among them.
 _BREAKING_SPACE = re.compile(r"[ \t\n\r]+")
 
@@ -42,6 +46,7 @@ class Chip:
     fill: Color
     pad: float = 1.1
     height: float = 3.7
+    border: Color | None = None
 
 
 @dataclass(frozen=True)
@@ -231,14 +236,20 @@ def _shift(paragraph: Paragraph, line: Sequence[Piece], room: float, align: str)
     return {"C": slack / 2, "R": slack}.get(align, 0.0)
 
 
+def _draw_chip(pdf: FPDF, chip: Chip, x: float, y: float, chip_width: float) -> None:
+    pdf.set_fill_color(*chip.fill)
+    if chip.border is not None:
+        pdf.set_draw_color(*chip.border)
+        pdf.set_line_width(CHIP_BORDER_WIDTH)
+    pdf.rect(x, y, chip_width, chip.height, style="DF" if chip.border else "F", round_corners=True,
+             corner_radius=min(chip.height, chip_width) * FULL_ROUND)
+
+
 def _draw_piece(pdf: FPDF, piece: Piece, x: float, top: float, paragraph: Paragraph) -> None:
     run, style = piece.run, piece.run.style
     text_x = x
     if run.chip is not None:
-        chip_top = top + paragraph.middle - run.chip.height / 2
-        pdf.set_fill_color(*run.chip.fill)
-        pdf.rect(x, chip_top, piece.width, run.chip.height, style="F", round_corners=True,
-                 corner_radius=run.chip.height / 2)
+        _draw_chip(pdf, run.chip, x, top + paragraph.middle - run.chip.height / 2, piece.width)
         text_x = x + run.chip.pad
     pdf.set_font(style.face.family, size=style.size)
     pdf.set_text_color(*style.color)

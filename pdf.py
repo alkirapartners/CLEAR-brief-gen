@@ -593,7 +593,7 @@ def generate_brief_pdf(
     when = generated_at or datetime.now()
     doc = brief_doc.load(brief_md)
     if doc is not None:
-        import pdf_doc  # imported here: pdf_doc builds on this module
+        import pdf_doc  # imported here: only a JSON brief needs the document renderer and its fonts
         return pdf_doc.render(doc, when, language)
     return _legacy_pdf(brief_md, company, score, when, language)
 
